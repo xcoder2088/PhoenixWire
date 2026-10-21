@@ -1,4 +1,4 @@
-import { assets, previewAmount } from './model.js?v=0.1.0';
+import { assets, previewAmount, resolveLanguage } from './model.js?v=0.1.1';
 
 const messages = {
   fr: ['Clair / sombre','Un paiement. Un courriel.','Créez une carte, envoyez un paiement. Simplement.','Aperçu local : aucun paiement ni courriel n’est envoyé.','Votre carte de paiement','Votre courriel','Courriel du destinataire','Monnaie','Montant','Petit mot (facultatif)','Le parcours prévu déverrouillera le paiement après vérification du courriel par code à six chiffres.','Prévisualiser la carte','Aperçu de la carte','MAQUETTE','Code par courriel · parcours à intégrer','Pas de QR réclamable, de clé ou de fonds dans cet aperçu.','Aperçu mis à jour. Aucun envoi effectué.','Montant invalide ou trop de décimales.'],
@@ -9,24 +9,33 @@ const messages = {
 };
 const keys = ['theme','title','subtitle','notice','create','sender','recipient','currency','amount','message','security','preview','previewTitle','sample','locked','previewNote','updated','invalid'];
 const $ = id => document.getElementById(id);
-let lang = 'fr';
-function t(key) { return messages[lang][keys.indexOf(key)]; }
+let lang = 'en';
+const automaticLabels = { fr: 'Automatique', en: 'Automatic', es: 'Automático', de: 'Automatisch', zh: '自动' };
+function t(key) { return key === 'automatic' ? automaticLabels[lang] : messages[lang][keys.indexOf(key)]; }
 function readPreference(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function savePreference(key, value) { try { localStorage.setItem(key, value); } catch { /* Storage may be unavailable in embedded browsers. */ } }
+let languagePreference = readPreference('wire-language', 'auto');
+if (languagePreference !== 'auto' && !Object.hasOwn(messages, languagePreference)) languagePreference = 'auto';
 function translate(value) {
-  lang = Object.hasOwn(messages, value) ? value : 'fr';
+  const browser = typeof navigator === 'undefined' ? {} : navigator;
+  lang = resolveLanguage(value, browser.languages?.length ? browser.languages : [browser.language]);
   document.documentElement.lang = lang;
-  $('language').value = lang;
+  $('language').value = languagePreference;
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
   $('feedback').textContent = '';
 }
-translate(readPreference('wire-language', 'fr'));
+translate(languagePreference);
 const theme = readPreference('wire-theme', 'dark');
 document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
 const accent = readPreference('wire-accent', 'orange');
 $('accent').value = ['orange','violet','teal'].includes(accent) ? accent : 'orange';
 document.documentElement.dataset.accent = $('accent').value;
-$('language').addEventListener('change', e => { translate(e.target.value); savePreference('wire-language', lang); });
+$('language').addEventListener('change', e => {
+  languagePreference = e.target.value === 'auto' || Object.hasOwn(messages, e.target.value) ? e.target.value : 'auto';
+  translate(languagePreference);
+  savePreference('wire-language', languagePreference);
+});
+globalThis.addEventListener?.('languagechange', () => { if (languagePreference === 'auto') translate('auto'); });
 $('theme').addEventListener('click', () => {
   const value = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
   document.documentElement.dataset.theme = value;

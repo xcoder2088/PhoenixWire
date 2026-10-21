@@ -1,3 +1,15 @@
+export const supportedLanguages = Object.freeze(['fr', 'en', 'es', 'de', 'zh']);
+
+// Match PhoenixMail's locale precedence, including regional tags and English fallback.
+export function resolveLanguage(preference, languages) {
+  if (supportedLanguages.includes(preference)) return preference;
+  for (const locale of (Array.isArray(languages) ? languages : [languages])) {
+    const language = String(locale || '').toLowerCase().split(/[-_]/)[0];
+    if (supportedLanguages.includes(language)) return language;
+  }
+  return 'en';
+}
+
 export const assets = Object.freeze({
   NIM: { unit: 'NIM', network: 'Nimiq', symbol: 'N', decimals: 5 },
   USDT_ETHEREUM: { unit: 'USDT', network: 'Ethereum', symbol: '₮', decimals: 6 },

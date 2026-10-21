@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { assets, previewAmount } from '../internal/web/static/model.js';
+import { assets, previewAmount, resolveLanguage } from '../internal/web/static/model.js';
 
 // Dependency-free DOM contract harness. Real browser visual QA remains a release task.
-function start({ storageUnavailable = false } = {}) {
+function start({ storageUnavailable = false, languages = ['fr-CA'], language = 'fr-CA', savedLanguage } = {}) {
   const html = readFileSync(new URL('../internal/web/static/index.html', import.meta.url), 'utf8');
   const nodes = new Map();
   const translations = [];
@@ -15,9 +15,10 @@ function start({ storageUnavailable = false } = {}) {
   nodes.get('amount').value = '25';
   const document = { documentElement: { dataset: {} }, getElementById(id) { return nodes.get(id); }, querySelectorAll() { return translations; } };
   const stored = new Map();
+  if (savedLanguage) stored.set('wire-language', savedLanguage);
   const localStorage = { getItem(k) { if (storageUnavailable) throw Error('unavailable'); return stored.get(k); }, setItem(k,v) { if (storageUnavailable) throw Error('unavailable'); stored.set(k,v); } };
   const source = readFileSync(new URL('../internal/web/static/app.js', import.meta.url), 'utf8').replace(/^import[^\n]+\n/, '');
-  vm.runInNewContext(source, { document, localStorage, assets, previewAmount });
+  vm.runInNewContext(source, { document, localStorage, assets, previewAmount, resolveLanguage, navigator: { languages, language } });
   const event = (id, name, value) => { const node = nodes.get(id); if (value !== undefined) node.value = value; node.handlers[name]({ target: node, preventDefault() {} }); };
   return { document, nodes, translations, stored, event };
 }
@@ -56,4 +57,33 @@ test('invalid amount preserves the last valid card', () => {
   ui.event('card-form', 'submit');
   assert.equal(ui.nodes.get('card-amount').textContent, '25');
   assert.match(ui.nodes.get('feedback').textContent, /invalide/);
+});
+
+test('first launch follows device language and regional tags', () => {
+  for (const [locale, expected] of [['fr-CA','fr'],['en-US','en'],['es-MX','es'],['de-AT','de'],['zh-Hant-TW','zh']]) {
+    const ui = start({ languages: [locale] });
+    assert.equal(ui.document.documentElement.lang, expected);
+    assert.equal(ui.nodes.get('language').value, 'auto');
+    assert.equal(ui.stored.size, 0);
+  }
+});
+test('unsupported languages use the next supported preference, otherwise English', () => {
+  assert.equal(start({ languages: ['it-IT','de-DE'] }).document.documentElement.lang, 'de');
+  assert.equal(start({ languages: ['it-IT','ja-JP'] }).document.documentElement.lang, 'en');
+  assert.equal(start({ languages: [], language: 'es-AR' }).document.documentElement.lang, 'es');
+});
+test('manual choice persists, takes precedence, and can return to automatic', () => {
+  const ui = start({ savedLanguage: 'fr', languages: ['de-DE'] });
+  assert.equal(ui.document.documentElement.lang, 'fr');
+  ui.event('language', 'change', 'es');
+  assert.equal(ui.document.documentElement.lang, 'es');
+  assert.equal(ui.stored.get('wire-language'), 'es');
+  ui.event('language', 'change', 'auto');
+  assert.equal(ui.document.documentElement.lang, 'de');
+  assert.equal(ui.stored.get('wire-language'), 'auto');
+  assert.equal(ui.nodes.get('language').value, 'auto');
+});
+test('corrupt preferences or unavailable storage do not block device language detection', () => {
+  assert.equal(start({ savedLanguage: '__proto__', languages: ['zh-CN'] }).document.documentElement.lang, 'zh');
+  assert.equal(start({ storageUnavailable: true, languages: ['en-GB'] }).document.documentElement.lang, 'en');
 });

@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { assets, previewAmount } from '../internal/web/static/model.js';
+import { assets, previewAmount, resolveLanguage } from '../internal/web/static/model.js';
+
+test('locale resolver matches PhoenixMail precedence and regional normalization', () => {
+  assert.equal(resolveLanguage('es', ['fr-CA']), 'es');
+  assert.equal(resolveLanguage('auto', ['pt-BR', 'ZH_hant']), 'zh');
+  assert.equal(resolveLanguage('unknown', 'de-DE'), 'de');
+  assert.equal(resolveLanguage('auto', []), 'en');
+  assert.equal(resolveLanguage('auto', [null, undefined, 'it-IT']), 'en');
+});
 
 test('preview supports explicit asset/network pairs', () => {
   assert.deepEqual(Object.keys(assets), ['NIM', 'USDT_ETHEREUM', 'USDT0_POLYGON']);

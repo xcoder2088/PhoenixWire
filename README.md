@@ -31,6 +31,9 @@ Do not expose this foundation as a production financial service.
 - Selected phoenix + luminous wire logo concept.
 - Light/dark appearance, three accent choices, pastel payment-card previews.
 - French, English, Spanish, German, and Chinese UI.
+- First launch follows the device/browser's first supported language (regional tags
+  included), with English fallback, matching PhoenixMail. A saved manual choice takes
+  precedence; choose Automatic to follow the device again. No account is needed.
 - Sender/recipient email, currency, amount, optional note; all form content stays in memory.
 - NIM, USDT Ethereum, USDT0 Polygon **visual previews only**.
 - Permanent footer: **Powered by Phoenix Mail**.
