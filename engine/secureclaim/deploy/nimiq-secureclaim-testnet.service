@@ -1,0 +1,33 @@
+[Unit]
+Description=NimiqSecureClaim email OTP service (Testnet only)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=phoenixmail
+Group=phoenixmail
+WorkingDirectory=/opt/nimiqsecureclaim
+EnvironmentFile=/etc/phoenixmail-web.env
+Environment=NIMIQ_CLAIM_DEV=1
+Environment=PORT=8099
+Environment=NIMIQ_CLAIM_TESTNET_RPC_URL=https://rpc.testnet.nimiqwatch.com
+Environment=NIMIQ_CLAIM_STATE_DIR=/var/lib/nimiqsecureclaim-testnet/state
+Environment=NIMIQ_CLAIM_VAULT_DIR=/var/lib/nimiqsecureclaim-testnet/vault
+ExecStartPre=/usr/bin/install -d -m 0700 /var/lib/nimiqsecureclaim-testnet/state /var/lib/nimiqsecureclaim-testnet/vault
+ExecStart=/opt/nimiqsecureclaim/nimiq-secureclaim
+Restart=on-failure
+RestartSec=5
+UMask=0077
+StateDirectory=nimiqsecureclaim-testnet
+StateDirectoryMode=0700
+NoNewPrivileges=true
+LimitCORE=0
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/var/lib/nimiqsecureclaim-testnet
+
+[Install]
+WantedBy=multi-user.target

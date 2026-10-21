@@ -1,0 +1,17 @@
+node_modules/
+.env
+.env.*
+!.env.example
+dist/
+coverage/
+*.test
+.DS_Store
+**/state/
+**/data/
+**/vault/
+!engine/secureclaim/internal/vault/
+*.sqlite
+*.sqlite3
+*.db
+*.key
+*.pem

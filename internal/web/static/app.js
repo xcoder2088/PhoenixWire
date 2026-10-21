@@ -1,0 +1,56 @@
+import { assets, previewAmount } from './model.js?v=0.1.0';
+
+const messages = {
+  fr: ['Clair / sombre','Un paiement. Un courriel.','Créez une carte, envoyez un paiement. Simplement.','Aperçu local : aucun paiement ni courriel n’est envoyé.','Votre carte de paiement','Votre courriel','Courriel du destinataire','Monnaie','Montant','Petit mot (facultatif)','Le parcours prévu déverrouillera le paiement après vérification du courriel par code à six chiffres.','Prévisualiser la carte','Aperçu de la carte','MAQUETTE','Code par courriel · parcours à intégrer','Pas de QR réclamable, de clé ou de fonds dans cet aperçu.','Aperçu mis à jour. Aucun envoi effectué.','Montant invalide ou trop de décimales.'],
+  en: ['Light / dark','One payment. One email.','Create a card, send a payment. Simply.','Local preview: no payment or email is sent.','Your payment card','Your email','Recipient’s email','Currency','Amount','A note (optional)','The planned flow will unlock the payment after email verification with a six-digit code.','Preview the card','Card preview','PREVIEW','Email code · integration pending','No claimable QR, key, or funds in this preview.','Preview updated. Nothing was sent.','Invalid amount or too many decimal places.'],
+  es: ['Claro / oscuro','Un pago. Un correo.','Crea una tarjeta y envía un pago. Así de simple.','Vista previa local: no se envían pagos ni correos.','Tu tarjeta de pago','Tu correo','Correo del destinatario','Moneda','Importe','Una nota (opcional)','El flujo previsto desbloqueará el pago tras verificar el correo con un código de seis dígitos.','Vista previa de la tarjeta','Vista previa','MAQUETA','Código por correo · integración pendiente','Sin QR canjeable, claves ni fondos en esta vista previa.','Vista previa actualizada. No se ha enviado nada.','Importe no válido o demasiados decimales.'],
+  de: ['Hell / dunkel','Eine Zahlung. Eine E-Mail.','Karte erstellen, Zahlung senden. Ganz einfach.','Lokale Vorschau: Es werden weder Zahlungen noch E-Mails gesendet.','Deine Zahlungskarte','Deine E-Mail','E-Mail des Empfängers','Währung','Betrag','Eine Nachricht (optional)','Der geplante Ablauf gibt die Zahlung nach E-Mail-Bestätigung mit einem sechsstelligen Code frei.','Kartenvorschau anzeigen','Kartenvorschau','ENTWURF','E-Mail-Code · Integration ausstehend','Kein einlösbarer QR-Code, Schlüssel oder Guthaben in dieser Vorschau.','Vorschau aktualisiert. Nichts wurde gesendet.','Ungültiger Betrag oder zu viele Nachkommastellen.'],
+  zh: ['浅色 / 深色','一笔付款，一封邮件。','创建卡片，轻松发送付款。','本地预览：不会发送付款或邮件。','您的付款卡片','您的邮箱','收款人邮箱','币种','金额','留言（可选）','计划在通过六位邮件验证码验证后解锁付款。','预览卡片','卡片预览','设计预览','邮件验证码 · 尚待集成','此预览不含可领取的二维码、密钥或资金。','预览已更新，未发送任何内容。','金额无效或小数位过多。']
+};
+const keys = ['theme','title','subtitle','notice','create','sender','recipient','currency','amount','message','security','preview','previewTitle','sample','locked','previewNote','updated','invalid'];
+const $ = id => document.getElementById(id);
+let lang = 'fr';
+function t(key) { return messages[lang][keys.indexOf(key)]; }
+function readPreference(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
+function savePreference(key, value) { try { localStorage.setItem(key, value); } catch { /* Storage may be unavailable in embedded browsers. */ } }
+function translate(value) {
+  lang = Object.hasOwn(messages, value) ? value : 'fr';
+  document.documentElement.lang = lang;
+  $('language').value = lang;
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $('feedback').textContent = '';
+}
+translate(readPreference('wire-language', 'fr'));
+const theme = readPreference('wire-theme', 'dark');
+document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+const accent = readPreference('wire-accent', 'orange');
+$('accent').value = ['orange','violet','teal'].includes(accent) ? accent : 'orange';
+document.documentElement.dataset.accent = $('accent').value;
+$('language').addEventListener('change', e => { translate(e.target.value); savePreference('wire-language', lang); });
+$('theme').addEventListener('click', () => {
+  const value = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = value;
+  savePreference('wire-theme', value);
+});
+$('accent').addEventListener('change', e => { document.documentElement.dataset.accent = e.target.value; savePreference('wire-accent', e.target.value); });
+function renderCard(amount) {
+  const id = $('currency').value;
+  const asset = assets[id];
+  $('payment-card').dataset.currency = id;
+  $('coin').textContent = asset.symbol;
+  $('card-unit').textContent = asset.unit;
+  $('card-network').textContent = asset.network;
+  $('card-amount').textContent = amount;
+  // User content is text only. Emails and messages are never stored or transmitted.
+  $('card-recipient').textContent = $('recipient').value;
+  $('card-message').textContent = $('message').value;
+}
+$('card-form').addEventListener('submit', e => {
+  e.preventDefault();
+  try { renderCard(previewAmount($('amount').value, $('currency').value)); $('feedback').textContent = t('updated'); }
+  catch { $('feedback').textContent = t('invalid'); }
+});
+$('currency').addEventListener('change', () => {
+  try { renderCard(previewAmount($('amount').value, $('currency').value)); $('feedback').textContent = ''; }
+  catch { $('feedback').textContent = t('invalid'); }
+});

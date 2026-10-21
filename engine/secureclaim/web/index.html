@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PhoenixMail · Secure NIM Claim</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#191747;--card-start:#efddff;--card-end:#d8f5fa;--card-border:#cba5fb}
+*{box-sizing:border-box}[hidden]{display:none!important}html{min-height:100%}body{min-height:100vh;margin:0;padding:24px 16px 40px;display:flex;justify-content:center;align-items:flex-start;background:radial-gradient(ellipse 45% 65% at 12% 65%,#ffe4f5 0%,transparent 100%),radial-gradient(ellipse 42% 75% at 90% 30%,#c7d7ff 0%,transparent 100%),#f2f2ff}
+.shell{width:min(700px,100%);padding:28px 36px 26px;position:relative;isolation:isolate;border-radius:37px;border:1px solid #c3bbf5;background:linear-gradient(130deg,#f6eafa9c,#e5f1ffbb 50%,#f9e1f6a1);box-shadow:0 18px 50px #7778b329}
+header{height:84px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:0 17px 10px}.logo{display:flex;align-items:center;gap:11px}.brand-emblem{width:79px;height:79px;object-fit:contain;}.brand-name{font-size:36px;letter-spacing:-1.2px;font-weight:850;color:#1a164d;white-space:nowrap}.brand-name strong{color:#f39043}.tag{white-space:nowrap;margin-top:16px;border:1px solid #aa9ff1;border-radius:999px;padding:9px 20px;font-weight:800;font-size:14px;color:#6540bc;background:#f6f5ff8c}
+.card{position:relative;isolation:isolate;overflow:hidden;border:1px solid var(--card-border);border-radius:33px;padding:34px 31px 26px;text-align:center;background:radial-gradient(ellipse at 4% 8%,#ffd8f7ba,transparent 47%),radial-gradient(ellipse at 98% 15%,#c1e4ffbd,transparent 52%),radial-gradient(ellipse at 10% 98%,#c5f5ffad,transparent 38%),radial-gradient(ellipse at 96% 95%,#ffe4ecad,transparent 40%),linear-gradient(130deg,var(--card-start),var(--card-end));box-shadow:0 0 0 3px #ffffffaf,0 8px 25px #b0a0d45c,inset 0 0 0 1px #ffffffad}
+.card:before{content:"";position:absolute;inset:-22% -60%;border:1px solid #ffffffaf;border-radius:47%;transform:rotate(-29deg);pointer-events:none;z-index:0}.card:after{content:"";position:absolute;inset:8% -35% -20%;border:1px solid #ffffff80;border-radius:49%;transform:rotate(24deg);pointer-events:none;z-index:0}.card>*{position:relative;z-index:1}
+.eyebrow{font-size:18px;letter-spacing:2.1px;text-transform:uppercase;font-weight:800;color:#7861b7}.amount{font-size:86px;letter-spacing:-4px;font-weight:850;line-height:1.1;margin:21px 0 8px}.amount small{font-size:37px;letter-spacing:0}.sub{font-size:18px;color:#7579a7}.avatar{height:103px;width:103px;margin:23px auto 20px;border:5px solid #ffffffed;border-radius:26px;display:grid;place-items:center;background:linear-gradient(125deg,#e2f4ff,#cbb9ff,#ffe3ef);box-shadow:0 0 0 2px #c7f8ff,0 0 19px #ffaaf0a8,0 10px 25px #8d89d641}.center-emblem{width:91px;height:91px;object-fit:contain;}
+.inner{margin:0;padding:28px 31px 28px;text-align:left;background:#fffffff0;border:1px solid #fff;border-radius:27px;box-shadow:0 9px 23px #8586bb2c}.inner h2{font-size:26px;margin:0 0 9px}.inner p{font-size:17px;line-height:1.48;color:#777ba6;margin:0 0 15px}
+.btn{width:100%;border:0;border-radius:16px;padding:17px;font-size:20px;font-weight:750;cursor:pointer;color:#fff;background:linear-gradient(100deg,#7775fb,#a359ed,#7556fa);box-shadow:0 10px 21px #9079e74d}.btn.secondary{background:transparent;color:#6631d0;box-shadow:none;font-size:16px;margin:17px 0 9px;padding:16px 0}.btn:focus-visible{outline:3px solid #6540bc;outline-offset:3px}
+.btn:disabled{opacity:.55;cursor:default;box-shadow:none}
+.inner label{display:block;margin:0 0 10px;font-size:16px!important}.digits{position:relative;margin:0 0 18px}.digit-visual{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:11px}.digit-visual span{height:65px;display:grid;place-items:center;border:1px solid #c5bdf0;border-radius:14px;background:#ffffffa8;color:#aaa3ce;font-size:23px}.digits input{position:absolute;inset:0;width:100%;height:65px;opacity:.01;z-index:2;cursor:text}.digits:focus-within .digit-visual span{border-color:#7e64e5}.status{min-height:18px!important;margin:9px 0 0!important;font-size:13px!important;text-align:center;color:#6144a8!important}
+footer{display:flex;align-items:center;gap:15px;margin:28px 0 0;font-size:15px;color:#777aa7;white-space:nowrap}footer:before,footer:after{content:"";height:1px;flex:1;background:#8eaff3}footer strong{color:#6534cf}
+/* Keep the approved design intact: scale the entire desktop card uniformly, rather than modifying proportions, colors, logos or typography. */
+@media(min-width:701px){.shell{zoom:.78}}
+@media(max-width:700px){.shell{padding:17px 18px 20px;border-radius:27px}header{padding:0 3px 8px;height:73px}.brand-emblem{width:62px;height:62px}.brand-name{font-size:clamp(21px,5vw,31px)}.tag{font-size:10px;padding:8px 10px}.card{padding:28px 21px 23px}.eyebrow{font-size:14px}.amount{font-size:70px}.amount small{font-size:29px}.sub{font-size:14px}.inner{padding:23px 20px}.inner h2{font-size:23px}.inner p{font-size:14px}.btn.secondary{font-size:14px}.digit-visual{gap:6px}.digit-visual span,.digits input{height:53px}footer{font-size:11px;gap:8px}}
+@media(max-width:410px){body{padding:10px 7px}.shell{padding:10px}.brand-emblem{width:47px;height:47px}.brand-name{font-size:20px}.tag{font-size:9px}.card{padding:21px 12px 17px}.inner{padding:20px 14px}.digit-visual{gap:4px}.digit-visual span,.digits input{height:44px}.btn:disabled{opacity:.55;cursor:default;box-shadow:none}
+.inner label{font-size:13px!important}footer{font-size:9px}.amount{font-size:61px}.avatar{width:90px;height:90px}.center-emblem{width:80px;height:80px}}
+</style></head><body><main class="shell"><header><div class="logo"><img src="/phoenixmail-official-emblem.webp" alt="PhoenixMail phoenix emblem" class="brand-emblem"><span class="brand-name">Phoenix<strong>Mail</strong></span></div><span class="tag">MAINNET</span></header><section class="card"><div class="eyebrow">Secure NIM Claim</div><div class="amount">— <small>NIM</small></div><div class="sub">A payment is waiting for you</div><div class="avatar" id="nimicon" hidden><img id="cashlink-iqon" alt="Nimiq Cashlink Nimicon" class="center-emblem"></div><div class="sub" id="wallet-note"></div><div class="inner"><h2>Verify your email</h2><p>Request a six-digit code to verify your email before continuing to your wallet.</p><button class="btn secondary" id="send" disabled>Send verification code</button><label for="otp" style="font-size:12px;font-weight:750">Verification code</label><div class="digits" id="digits"><div class="digit-visual" aria-hidden="true"><span>•</span><span>•</span><span>•</span><span>•</span><span>•</span><span>•</span></div><input id="otp" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" aria-label="Six digit verification code"></div><button class="btn" id="verify" disabled>Verify code & claim NIM →</button><p id="status" class="status" role="status" aria-live="polite"></p></div><footer><span>Powered by <strong>PhoenixMail</strong> · NimiqSecureClaim</span></footer></section></main><script src="/nimiq-iqons.js?v=sha256-5decdff4dc5c93fa95832b9ad7a9b7b1c7fe601464615d9bf80b80942bc66377"></script><script>
+const status=document.getElementById('status'),send=document.getElementById('send'),verify=document.getElementById('verify');
+const locale=(new URLSearchParams(location.search).get('lang')||navigator.language||'en').slice(0,2);
+const translations={
+ en:['Secure NIM Claim','Verify your email','Request a six-digit code to unlock the protected Cashlink.','Send verification code','Verification code','Verify code & claim NIM →','Verification code sent to the recipient email.','Code accepted. Open the original Nimiq Cashlink to receive your NIM.','Receive my NIM in Nimiq','Request a fresh email code to reopen this Cashlink.','Enter the emailed code to unlock the original Cashlink','Protected Nimiq Cashlink · Mainnet','Preview · no funds deposited'],
+ fr:['Recevoir des NIM en sécurité','Vérifier votre courriel','Demandez un code de six chiffres pour ouvrir le Cashlink protégé.','Envoyer le code','Code de vérification','Vérifier et recevoir les NIM →','Code envoyé au courriel du destinataire.','Code accepté. Ouvrez le Cashlink original pour recevoir vos NIM.','Recevoir mes NIM dans Nimiq','Demandez un nouveau code pour rouvrir ce Cashlink.','Entrez le code reçu pour ouvrir le Cashlink original','Cashlink Nimiq protégé · Mainnet','Aperçu · aucun fonds déposé'],
+ es:['Recibir NIM de forma segura','Verifica tu correo','Solicita un código de seis dígitos para abrir el Cashlink protegido.','Enviar código','Código de verificación','Verificar y recibir NIM →','Código enviado al correo del destinatario.','Código aceptado. Abre el Cashlink original para recibir tus NIM.','Recibir mis NIM en Nimiq','Solicita un código nuevo para volver a abrir este Cashlink.','Introduce el código recibido para abrir el Cashlink','Cashlink Nimiq protegido · Mainnet','Vista previa · sin fondos depositados'],
+ de:['NIM sicher empfangen','E-Mail bestätigen','Fordere einen sechsstelligen Code für den geschützten Cashlink an.','Code senden','Bestätigungscode','Bestätigen und NIM empfangen →','Code an die E-Mail-Adresse des Empfängers gesendet.','Code bestätigt. Öffne den ursprünglichen Cashlink, um NIM zu empfangen.','Meine NIM in Nimiq empfangen','Fordere einen neuen Code an, um diesen Cashlink erneut zu öffnen.','Gib den E-Mail-Code ein, um den Cashlink zu öffnen','Geschützter Nimiq-Cashlink · Mainnet','Vorschau · kein Guthaben eingezahlt'],
+ zh:['安全领取 NIM','验证邮箱','请求六位验证码以打开受保护的 Cashlink。','发送验证码','验证码','验证并领取 NIM →','验证码已发送至收件人邮箱。','验证成功。打开原始 Cashlink 以领取 NIM。','在 Nimiq 中领取 NIM','请求新邮件验证码以重新打开此 Cashlink。','输入邮件验证码以解锁原始 Cashlink','受保护的 Nimiq Cashlink · Mainnet','预览 · 尚未存入资金']
+};
+const feedback={
+ en:['Enter the six-digit code received by email.','This code is incorrect or no longer valid. Request a new code. Your payment has not been claimed by this attempt.','Please wait before requesting another code.','Unable to complete this request. Please try again.'],
+ fr:['Entrez les six chiffres du code reçu par courriel.','Ce code est incorrect ou n’est plus valide. Demandez un nouveau code. Cette tentative n’a pas encaissé le paiement.','Patientez avant de demander un autre code.','Impossible de terminer cette demande. Réessayez.'],
+ es:['Introduce los seis dígitos del código recibido por correo.','El código es incorrecto o ya no es válido. Solicita uno nuevo. Este intento no ha cobrado el pago.','Espera antes de solicitar otro código.','No se pudo completar la solicitud. Inténtalo de nuevo.'],
+ de:['Gib den sechsstelligen Code aus der E-Mail ein.','Der Code ist falsch oder nicht mehr gültig. Fordere einen neuen an. Dieser Versuch hat die Zahlung nicht eingelöst.','Warte, bevor du einen weiteren Code anforderst.','Die Anfrage konnte nicht abgeschlossen werden. Versuche es erneut.'],
+ zh:['请输入邮件中的六位验证码。','验证码错误或已失效。请请求新验证码。本次尝试未领取付款。','请稍后再请求验证码。','无法完成请求，请重试。']
+}[locale]||['Enter the six-digit code received by email.','This code is incorrect or no longer valid. Request a new code. This attempt did not claim the payment.','Please wait before requesting another code.','Unable to complete this request. Please try again.'];
+const words=translations[locale]||translations.en;
+const text={sent:words[6],accepted:words[7],receive:words[8],reopen:words[9],locked:words[10],protected:words[11],preview:words[12]};
+document.documentElement.lang=translations[locale]?locale:'en';
+document.querySelector('.eyebrow').textContent=words[0];document.querySelector('.inner h2').textContent=words[1];document.querySelector('.inner p').textContent=words[2];send.textContent=words[3];document.querySelector('label[for="otp"]').textContent=words[4];verify.textContent=words[5];
+
+const urlClaim=new URLSearchParams(location.search).get('claim')||'demo';
+const claimId=/^(?:demo|[a-f0-9]{48})$/.test(urlClaim)?urlClaim:null;
+const previewMode=claimId==='demo';
+const amountNode=document.querySelector('.amount');
+const descriptionNode=document.querySelector('.card .sub');
+let canVerify=false,requestBusy=false;
+function updateControls(){send.disabled=!canVerify||requestBusy;verify.disabled=!canVerify||requestBusy||!/^[0-9]{6}$/.test(document.getElementById('otp').value.trim());}
+
+const otpInput=document.getElementById('otp'),otpBoxes=[...document.querySelectorAll('.digit-visual span')];
+otpInput.addEventListener('input',()=>{otpInput.value=otpInput.value.replace(/\D/g,'').slice(0,6);otpBoxes.forEach((box,i)=>{box.textContent=otpInput.value[i]||'•';});if(status.textContent===feedback[0]||status.textContent===feedback[1])status.textContent='';updateControls();});
+document.getElementById('digits').addEventListener('click',()=>otpInput.focus());
+// Same twelve pastel families as PhoenixMail; fixed for this claim. No color editor.
+const palettes=[['#deefff','#e6f6ff','#9fc9eb','#719fca'],['#ece3ff','#f4eaff','#c7b1ee','#9b86df'],['#dcf5e9','#e9fbf1','#9bd8bc','#6aaf92'],['#ffe2ee','#fff0f5','#efaac7','#cb86a6'],['#ffe7d8','#fff1e6','#eeb999','#cf9677'],['#fff4cc','#fff9e4','#e8d181','#b5a257'],['#e6ebff','#f0f2ff','#b0bdf4','#8295ce'],['#dcf6fa','#e8fcff','#90d7e5','#66a9be'],['#f4e2fa','#fceeff','#d9afea','#b383c9'],['#ffe2dc','#fff0eb','#edaea1','#cf857d'],['#ecf6d8','#f6fbe9','#bed89a','#93af76'],['#e2f4ef','#f0fcf7','#9ed5c6','#70a894']];
+let previewPalette=1;
+function showPalette(index){const p=palettes[index%palettes.length],root=document.documentElement.style;root.setProperty('--card-start',p[0]);root.setProperty('--card-end',p[1]);root.setProperty('--card-border',p[2]);root.setProperty('--card-action',p[3]);}
+function paletteForClaimId(id){const prefix=String(id||'').slice(0,2);return /^[0-9a-f]{2}$/i.test(prefix)?parseInt(prefix,16)%palettes.length:1;}
+showPalette(previewPalette);
+async function loadClaim(){
+ if(!claimId){status.textContent='Invalid claim identifier';send.disabled=verify.disabled=true;return;}
+ try{
+  const r=await fetch('/api/v1/claims/'+encodeURIComponent(claimId),{cache:'no-store'});
+  const v=await r.json();
+  if(!r.ok)throw Error(v.error||'Claim unavailable');
+  amountNode.firstChild.textContent=v.amount+' ';
+  showPalette(previewMode?previewPalette:paletteForClaimId(v.id));
+  descriptionNode.textContent=previewMode?text.preview:text.protected;
+  if(typeof v.address==='string'&&/^NQ[0-9]{2}[0-9A-Z]{32}$/.test(v.address)){
+   const address=window.PhoenixNimiqIdenticons.normalize(v.address);
+   document.getElementById('cashlink-iqon').src=await window.NimiqIqonsOfficial.toDataUrl(address);
+   document.getElementById('nimicon').hidden=false;
+  }
+  const note=document.getElementById('wallet-note');
+  note.textContent=v.email_verified?text.reopen:text.locked;
+  if(v.email_verified)status.textContent=text.reopen;
+  canVerify=!previewMode&&(v.status==='otp_required'||v.status==='otp_released');
+  updateControls();
+ }catch(e){
+  status.textContent='Cannot open claim: '+e.message;send.disabled=verify.disabled=true;
+ }
+}
+loadClaim();
+
+
+async function action(name,data={}){
+ if(!claimId||!canVerify||requestBusy)return;
+ if(name==='release'&&!/^[0-9]{6}$/.test(data.code||'')){status.textContent=feedback[0];updateControls();return;}
+ requestBusy=true;updateControls();
+ try{
+  const r=await fetch('/api/v1/claims/'+encodeURIComponent(claimId)+'?action='+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  const v=await r.json();
+  if(!r.ok){status.textContent=v.error==='invalid_or_expired_code'?feedback[1]:v.error==='otp_rate_limited'?feedback[2]:feedback[3];return;}
+  if(name==='request'){status.textContent=text.sent;otpInput.value='';otpBoxes.forEach(box=>box.textContent='•');otpInput.focus();}
+  else if(name==='release' && typeof v.cashlink==='string' && /^https:\/\/hub\.nimiq\.com\/cashlink\/#/.test(v.cashlink)){canVerify=false;status.textContent=text.accepted;const button=document.createElement('a');button.className='btn';button.href=v.cashlink;button.rel='noreferrer noopener';button.textContent=text.receive;status.after(button);document.getElementById('wallet-note').textContent='Cashlink unlocked · Mainnet';}
+  else{status.textContent='Claim unavailable.';}
+ }catch(e){status.textContent=feedback[3]}
+ finally{requestBusy=false;updateControls();}
+}
+send.onclick=()=>action('request');verify.onclick=()=>action('release',{code:document.getElementById('otp').value.trim()});
+</script></body></html>

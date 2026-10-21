@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr" data-theme="dark" data-accent="orange">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phoenix Wire</title>
+  <link rel="stylesheet" href="/style.css?v=0.1.0">
+  <script type="module" src="/app.js?v=0.1.0"></script>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <img class="brand" src="/brand/phoenix-wire.webp" alt="Phoenix Wire">
+      <div class="preferences">
+        <select id="language" aria-label="Language"><option value="fr">Français</option><option value="en">English</option><option value="es">Español</option><option value="de">Deutsch</option><option value="zh">中文</option></select>
+        <select id="accent" aria-label="Accent"><option value="orange">Orange</option><option value="violet">Violet</option><option value="teal">Teal</option></select>
+        <button id="theme" type="button" data-i18n="theme">Clair / sombre</button>
+      </div>
+    </header>
+    <main>
+      <section class="intro"><span class="eyebrow">PHOENIX WIRE</span><h1 data-i18n="title">Un paiement. Un courriel.</h1><p data-i18n="subtitle">Créez une carte, envoyez un paiement. Simplement.</p></section>
+      <p id="notice" class="notice" role="status" data-i18n="notice">Aperçu local : aucun paiement ni courriel n’est envoyé.</p>
+      <div class="workspace">
+        <section class="panel">
+          <h2 data-i18n="create">Votre carte de paiement</h2>
+          <form id="card-form">
+            <label><span data-i18n="sender">Votre courriel</span><input id="sender" type="email" autocomplete="off" required maxlength="254" placeholder="vous@exemple.com"></label>
+            <label><span data-i18n="recipient">Courriel du destinataire</span><input id="recipient" type="email" autocomplete="off" required maxlength="254" placeholder="destinataire@exemple.com"></label>
+            <div class="fields"><label><span data-i18n="currency">Monnaie</span><select id="currency"><option value="NIM">NIM · Nimiq</option><option value="USDT_ETHEREUM">USDT · Ethereum</option><option value="USDT0_POLYGON">USDT0 · Polygon</option></select></label><label><span data-i18n="amount">Montant</span><input id="amount" type="text" inputmode="decimal" required maxlength="24" placeholder="25.00" value="25"></label></div>
+            <label><span data-i18n="message">Petit mot (facultatif)</span><textarea id="message" maxlength="160" rows="2"></textarea></label>
+            <p class="security" data-i18n="security">Le parcours prévu déverrouillera le paiement après vérification du courriel par code à six chiffres.</p>
+            <button class="primary" type="submit" data-i18n="preview">Prévisualiser la carte</button>
+            <p id="feedback" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+        <section class="preview-area" aria-labelledby="preview-title">
+          <h2 id="preview-title" data-i18n="previewTitle">Aperçu de la carte</h2>
+          <article class="payment-card" id="payment-card" data-currency="NIM">
+            <div class="card-top"><span>Phoenix Wire</span><span class="sample" data-i18n="sample">MAQUETTE</span></div>
+            <div class="coin" id="coin" aria-hidden="true">N</div>
+            <div class="sum"><span id="card-amount">25</span> <span id="card-unit">NIM</span></div>
+            <p id="card-network">Nimiq</p><p id="card-message"></p>
+            <div class="card-recipient" id="card-recipient"></div>
+            <div class="lock" data-i18n="locked">Code par courriel · parcours à intégrer</div>
+          </article>
+          <p class="preview-note" data-i18n="previewNote">Pas de QR réclamable, de clé ou de fonds dans cet aperçu.</p>
+        </section>
+      </div>
+    </main>
+    <footer>Powered by <a href="https://phoenixmail.ca" target="_blank" rel="noopener noreferrer">Phoenix Mail</a></footer>
+  </div>
+</body>
+</html>
