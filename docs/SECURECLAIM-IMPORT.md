@@ -1,5 +1,13 @@
 # SecureClaim source import
 
+## Subsequent integration
+
+The baseline described below was subsequently integrated into Wire. The engine's
+cmd/server implementation/tests moved into exported package service, preserving a
+small legacy CLI wrapper. service/embedded.go reuses the existing Provisioner,
+claims, vault and OTP handlers in Wire's single process. Public request/release
+remain gated separately from issuer operations by Wire's gateway.
+
 Imported at the owner's explicit request on 2026-10-21.
 
 - Source: `xcoder2088/NimiqSecureClaim`

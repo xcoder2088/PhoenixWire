@@ -1,4 +1,4 @@
-import { assets, previewAmount, resolveLanguage } from './model.js?v=0.1.1';
+import { assets, previewAmount, resolveLanguage } from './model.js?v=0.2.0';
 
 const messages = {
   fr: ['Clair / sombre','Un paiement. Un courriel.','Créez une carte, envoyez un paiement. Simplement.','Aperçu local : aucun paiement ni courriel n’est envoyé.','Votre carte de paiement','Votre courriel','Courriel du destinataire','Monnaie','Montant','Petit mot (facultatif)','Le parcours prévu déverrouillera le paiement après vérification du courriel par code à six chiffres.','Prévisualiser la carte','Aperçu de la carte','MAQUETTE','Code par courriel · parcours à intégrer','Pas de QR réclamable, de clé ou de fonds dans cet aperçu.','Aperçu mis à jour. Aucun envoi effectué.','Montant invalide ou trop de décimales.'],
@@ -11,7 +11,8 @@ const keys = ['theme','title','subtitle','notice','create','sender','recipient',
 const $ = id => document.getElementById(id);
 let lang = 'en';
 const automaticLabels = { fr: 'Automatique', en: 'Automatic', es: 'Automático', de: 'Automatisch', zh: '自动' };
-function t(key) { return key === 'automatic' ? automaticLabels[lang] : messages[lang][keys.indexOf(key)]; }
+const slogans = { fr:'Rapide. Simple. Sécuritaire.', en:'Fast. Simple. Secure.', es:'Rápido. Sencillo. Seguro.', de:'Schnell. Einfach. Sicher.', zh:'快速。简单。安全。' };
+function t(key) { return key === 'subtitle' ? slogans[lang] : key === 'automatic' ? automaticLabels[lang] : messages[lang][keys.indexOf(key)]; }
 function readPreference(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function savePreference(key, value) { try { localStorage.setItem(key, value); } catch { /* Storage may be unavailable in embedded browsers. */ } }
 let languagePreference = readPreference('wire-language', 'auto');
@@ -23,6 +24,7 @@ function translate(value) {
   $('language').value = languagePreference;
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
   $('feedback').textContent = '';
+  globalThis.dispatchEvent?.(new CustomEvent('wire-language'));
 }
 translate(languagePreference);
 const theme = readPreference('wire-theme', 'dark');

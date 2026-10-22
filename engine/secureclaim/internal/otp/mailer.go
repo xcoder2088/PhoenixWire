@@ -26,9 +26,10 @@ func (ConsoleSender) Send(_ context.Context, to, code string) error {
 // MailerSend sends claim verification emails without sharing PhoenixMail login
 // sessions or account OTP endpoints. Credentials remain server-side.
 type MailerSend struct {
-	APIKey string
-	From   string
-	Client *http.Client
+	APIKey    string
+	From      string
+	BrandName string
+	Client    *http.Client
 }
 
 func (m MailerSend) Validate() error {
@@ -47,11 +48,18 @@ func (m MailerSend) Send(ctx context.Context, to, code string) error {
 	if e2 != nil || recipient.Address != to {
 		return errors.New("otp_mail_configuration_invalid")
 	}
-	subject := "NimiqSecureClaim — your verification code"
-	plain := fmt.Sprintf("Your NimiqSecureClaim verification code is %s.\nIt expires in 10 minutes. Never share this code.\nIf you did not request it, ignore this email.\n", code)
+	brand := m.BrandName
+	if brand == "" {
+		brand = "NimiqSecureClaim"
+	}
+	subject := brand + " — your verification code"
+	plain := fmt.Sprintf("Your %s verification code is %s.\nIt expires in 10 minutes. Never share this code.\nIf you did not request it, ignore this email.\n", brand, code)
 	body := `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f4f2fa;color:#292044;font-family:Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f2fa"><tr><td align="center" style="padding:28px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#fff;border:1px solid #ded8ec;border-radius:18px"><tr><td style="padding:28px 24px;font-size:16px;line-height:1.6"><h1 style="margin:0 0 20px;font-size:28px;color:#e87416">PhoenixMail</h1><h2 style="margin:0 0 20px;font-size:20px">Your protected Nimiq payment</h2><p style="margin:0 0 16px">Enter this verification code on the claim page to unlock your payment:</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="padding:20px 12px;background:#eee7ff;border-radius:12px;font-size:32px;font-weight:bold;letter-spacing:6px;color:#583b92">` + html.EscapeString(code) + `</td></tr></table><p style="margin:20px 0 16px">Expires in 10 minutes. Do not share this code.</p><p style="margin:0;color:#626477">If you did not request this code, ignore this email.</p></td></tr></table></td></tr></table></body></html>`
+	if m.BrandName != "" {
+		body = strings.Replace(body, ">PhoenixMail</h1>", ">"+html.EscapeString(m.BrandName)+"</h1>", 1)
+	}
 	payload, err := json.Marshal(map[string]any{
-		"from":    map[string]string{"email": m.From, "name": "NimiqSecureClaim"},
+		"from":    map[string]string{"email": m.From, "name": brand},
 		"to":      []map[string]string{{"email": to}},
 		"subject": subject,
 		"text":    plain,

@@ -16,6 +16,17 @@ export const assets = Object.freeze({
   USDT0_POLYGON: { unit: 'USDT0', network: 'Polygon', symbol: '₮', decimals: 6 }
 });
 
+export function addressValid(address) {
+  const compact=String(address||'').replace(/ /g,'').toUpperCase();
+  if(!/^NQ\d{2}[0-9ABCDEFGHJKLMNPQRSTUVXY]{32}$/.test(compact))return false;
+  let rest=0;
+  for(const c of compact.slice(4)+compact.slice(0,4)){
+    const digits=c>='A'?String(c.charCodeAt(0)-55):c;
+    for(const digit of digits)rest=(rest*10+Number(digit))%97;
+  }
+  return rest===1;
+}
+
 // Preview formatting only. Real transfers must use server-validated integer base units.
 export function previewAmount(value, asset) {
   if (!Object.hasOwn(assets, asset)) throw new Error('invalid_asset');

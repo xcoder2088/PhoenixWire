@@ -1,60 +1,67 @@
 # Phoenix Wire
 
-Lightweight payment-card application in the PhoenixMail ecosystem.
+**Rapide. Simple. Sécuritaire.** — Powered by Phoenix Mail.
 
-**Current state: local UI foundation only. No funds, email, wallet connection,
-OTP verification, or claim handling. Nothing is sent when previewing a card.**
+Lightweight email payment cards with no account or password. Verify the sender's
+email, approve a Nimiq wallet payment, and email an OTP-protected card. The existing
+SecureClaim engine is embedded in the same Go process.
 
-The complete tracked SecureClaim source and tests are included under
-[`engine/secureclaim`](engine/secureclaim), except GitHub workflows. This is a
-separate Go module, not yet connected to the preview. Its original runtime behavior
-is preserved; it is not started automatically and must not be run with funded state
-or production credentials as part of a UI preview.
+## Start locally
 
-## Run locally
-
-Requires Go 1.22+ (1.22.0 or newer). No npm install, credentials, or sibling service required.
+Requires Go 1.22+. No npm installation is needed to run the application.
 
 ```sh
-go run ./cmd/phoenixwire
+./run-local.sh
 ```
 
 Open http://127.0.0.1:8788. One terminal; Ctrl+C stops the application.
-PhoenixMail keeps its own port 8787 and is not modified.
-The UI assets are embedded in the Go binary. A desktop wrapper is not implemented yet.
+Without payment configuration this starts the independent card preview.
+PhoenixMail keeps its port 8787.
 
-Optional override: `PHOENIXWIRE_ADDR=127.0.0.1:8788`. The default binds only to loopback.
-Do not expose this foundation as a production financial service.
+To enable the integration, create an owner-only environment file at
+`~/.config/phoenixwire/local.env` (0600), following `.env.example`.
+Use the real existing MailerSend credentials and a trusted Nimiq Mainnet RPC.
+Then run the same command. See [local testing](docs/LOCAL-TESTING.md).
 
 ## Included
 
-- Selected phoenix + luminous wire logo concept.
-- Light/dark appearance, three accent choices, pastel payment-card previews.
-- French, English, Spanish, German, and Chinese UI.
-- First launch follows the device/browser's first supported language (regional tags
-  included), with English fallback, matching PhoenixMail. A saved manual choice takes
-  precedence; choose Automatic to follow the device again. No account is needed.
-- Sender/recipient email, currency, amount, optional note; all form content stays in memory.
-- NIM, USDT Ethereum, USDT0 Polygon **visual previews only**.
-- Permanent footer: **Powered by Phoenix Mail**.
-- Read-only health/config endpoints; payment creation returns HTTP 503.
-- Standard-library Go server and dependency-free JS tests.
+- Selected phoenix/wire logo, approved slogan, permanent PhoenixMail footer.
+- Five automatic/manual UI languages; light/dark themes, accents and pastel cards.
+- Passwordless sender email verification; durable counters and HttpOnly sessions.
+- Server-side Cashlink generation and encryption before wallet funding.
+- Official Hub checkout to the prepared public address, including mobile redirect.
+- Durable idempotent intents: a started checkout is never automatically restarted.
+- Funding confirmation through the existing SecureClaim verifier.
+- Real MailerSend invitations containing only an opaque protected claim link.
+- Existing recipient OTP verification, official Nimicon and post-OTP wallet link.
+- Sender history/recovery; email retry reuses the existing funded payment.
+
+Only NIM can be sent after explicit local configuration. USDT Ethereum / USDT0
+Polygon remain visual previews. Live email/wallet E2E and browser visual QA still
+need validation. No production service has been deployed.
 
 ## Validate
 
 ```sh
 go test ./... -race -count=1
 go vet ./...
-node --test tests/*.test.mjs
 (cd engine/secureclaim && go test ./... -race -count=1 && go vet ./...)
-node --test engine/secureclaim/web/tests/*.test.cjs
+npm ci --ignore-scripts
+node --test tests/*.test.mjs engine/secureclaim/web/tests/*.test.cjs
 ```
 
-See [architecture and next steps](docs/ARCHITECTURE.md) before implementing payments.
-No workflows or automatic deployments are included.
+Integration tests run the real embedded engine with explicit local RPC/mail fixtures.
+They do not send real email or spend money. Tests cover OTP gating/replay, restarts,
+sender identity, immutable recipients, duplicate checkout blocking, email failure,
+ownership and encrypted state. JSDOM tests exercise the actual flow UI.
 
-## License
+## Repository
 
-MIT; the existing [LICENSE](LICENSE) is preserved. Imported original SecureClaim code
-has its own MIT license; third-party notices remain in place. PhoenixMail itself is
-not relicensed. See [import provenance](docs/SECURECLAIM-IMPORT.md) and [brand notes](docs/BRAND.md).
+- `cmd/phoenixwire`: single application entry point.
+- `internal/wire`: passwordless sessions, durable intents, mail and claim gateway.
+- `internal/web`: embedded responsive UI.
+- `engine/secureclaim`: MIT engine; reusable service package plus legacy CLI.
+- [Architecture](docs/ARCHITECTURE.md), [import provenance](docs/SECURECLAIM-IMPORT.md).
+
+MIT for original code; third-party licenses are retained. PhoenixMail's licensing is
+unchanged. Work branch only; no workflows or automatic deployments.

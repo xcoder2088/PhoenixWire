@@ -1,0 +1,558 @@
+package wire
+
+import (
+	"context"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"net"
+	"net/http"
+	"net/mail"
+	"net/url"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/xcoder2088/NimiqSecureClaim/service"
+)
+
+type Engine interface {
+	Ready(context.Context) bool
+	Create(string, string, string) (service.Claim, error)
+	Provision(string) (string, error)
+	Confirm(context.Context, string) (bool, error)
+	PublicHandler() http.Handler
+	Recovery(string) (string, error)
+}
+type senderOTP interface {
+	IssueClaim(context.Context, string, string) error
+	Verify(string, string, string) error
+}
+type Config struct {
+	Directory, Origin string
+	Master            []byte
+	Engine            Engine
+	Mail              Delivery
+}
+type API struct {
+	mu     sync.Mutex
+	db     *diskStore
+	otp    senderOTP
+	engine Engine
+	mail   Delivery
+	origin string
+	master []byte
+	unlock func()
+	now    func() time.Time
+}
+
+var idRE = regexp.MustCompile(`^[a-f0-9]{48}$`)
+var nonceRE = regexp.MustCompile(`^[a-f0-9]{32}$`)
+var codeRE = regexp.MustCompile(`^[0-9]{6}$`)
+
+func New(c Config) (*API, error) {
+	u, err := url.Parse(c.Origin)
+	if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "" && u.Path != "/" || u.Host == "" {
+		return nil, errors.New("invalid_public_origin")
+	}
+	local := u.Hostname() == "localhost" || net.ParseIP(u.Hostname()) != nil && net.ParseIP(u.Hostname()).IsLoopback()
+	if u.Scheme != "https" && !(u.Scheme == "http" && local) || len(c.Master) != 32 || c.Engine == nil || c.Mail == nil {
+		return nil, errors.New("invalid_wire_configuration")
+	}
+	unlock, err := service.LockDirectory(c.Directory)
+	if err != nil {
+		return nil, err
+	}
+	ok := false
+	defer func() {
+		if !ok {
+			unlock()
+		}
+	}()
+	db, err := newStore(c.Directory, c.Master)
+	if err != nil {
+		return nil, err
+	}
+	otp, err := service.NewSenderOTP(c.Mail, filepath.Join(c.Directory, "sender-otp"), digest(c.Master, "Wire sender OTP v1"))
+	if err != nil {
+		return nil, err
+	}
+	ok = true
+	return &API{db: db, otp: otp, engine: c.Engine, mail: c.Mail, origin: strings.TrimSuffix(c.Origin, "/"), master: append([]byte(nil), c.Master...), unlock: unlock, now: time.Now}, nil
+}
+func (a *API) Close() { clear(a.master); a.unlock() }
+func (a *API) Ready(ctx context.Context) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return !a.db.failed && a.engine.Ready(ctx)
+}
+func respond(w http.ResponseWriter, status int, data any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(data)
+}
+func failure(w http.ResponseWriter, status int, code string) {
+	respond(w, status, map[string]string{"code": code})
+}
+func decode(w http.ResponseWriter, r *http.Request, v any) error {
+	if strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {
+		return errors.New("json_required")
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 8192)
+	d := json.NewDecoder(r.Body)
+	d.DisallowUnknownFields()
+	if err := d.Decode(v); err != nil {
+		return err
+	}
+	if d.Decode(new(any)) != io.EOF {
+		return errors.New("invalid_json")
+	}
+	return nil
+}
+func email(raw string) (string, error) {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	m, err := mail.ParseAddress(s)
+	if err != nil || m.Address != s || len(s) > 254 || strings.ContainsAny(s, "\r\n") {
+		return "", errors.New("invalid_email")
+	}
+	return s, nil
+}
+func (a *API) cookieName() string {
+	if strings.HasPrefix(a.origin, "https:") {
+		return "__Host-wire_session"
+	}
+	return "wire_session"
+}
+func (a *API) setCookie(w http.ResponseWriter, raw string) {
+	http.SetCookie(w, &http.Cookie{Name: a.cookieName(), Value: raw, Path: "/", HttpOnly: true, Secure: strings.HasPrefix(a.origin, "https:"), SameSite: http.SameSiteLaxMode, MaxAge: 86400})
+}
+func (a *API) current(r *http.Request) (string, session, bool) {
+	c, err := r.Cookie(a.cookieName())
+	if err != nil || !idRE.MatchString(c.Value) {
+		return "", session{}, false
+	}
+	key := sessionKey(c.Value)
+	s, ok := a.db.state.Sessions[key]
+	return key, s, ok && a.now().Before(s.Expires)
+}
+func (a *API) Handler() http.Handler { return http.HandlerFunc(a.serve) }
+func (a *API) serve(w http.ResponseWriter, r *http.Request) {
+	// No CORS. Every mutation must originate at the configured Wire origin.
+	if r.Method == "POST" && (r.Header.Get("Origin") != a.origin || r.Header.Get("Sec-Fetch-Site") == "cross-site") {
+		failure(w, 403, "invalid_origin")
+		return
+	}
+	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+		failure(w, 403, "invalid_origin")
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.db.failed {
+		failure(w, 503, "state_unavailable")
+		return
+	}
+	path := r.URL.Path
+	if strings.HasPrefix(path, "/api/claims/") {
+		a.claim(w, r)
+		return
+	}
+	switch path {
+	case "/api/sender/request":
+		if r.Method == "POST" {
+			a.requestSender(w, r)
+			return
+		}
+	case "/api/sender/verify":
+		if r.Method == "POST" {
+			a.verifySender(w, r)
+			return
+		}
+	case "/api/session":
+		if r.Method == "GET" {
+			_, s, ok := a.current(r)
+			respond(w, 200, map[string]any{"verified": ok && s.Verified, "email": func() string {
+				if ok && s.Verified {
+					return s.Email
+				}
+				return ""
+			}()})
+			return
+		}
+	case "/api/logout":
+		if r.Method == "POST" {
+			key, _, _ := a.current(r)
+			delete(a.db.state.Sessions, key)
+			if a.db.save() != nil {
+				failure(w, 503, "state_unavailable")
+				return
+			}
+			a.setCookie(w, "")
+			respond(w, 200, map[string]bool{"ok": true})
+			return
+		}
+	}
+	_, s, ok := a.current(r)
+	if !ok || !s.Verified {
+		failure(w, 401, "sender_verification_required")
+		return
+	}
+	if path == "/api/payments" {
+		if r.Method == "POST" {
+			a.create(w, r, s)
+			return
+		}
+		if r.Method == "GET" {
+			list := []payment{}
+			for _, saved := range a.db.state.Payments {
+				p := saved.Payment
+				if p.Sender == s.Email {
+					list = append(list, p)
+				}
+			}
+			sort.Slice(list, func(i, j int) bool { return list[i].Created.After(list[j].Created) })
+			if len(list) > 50 {
+				list = list[:50]
+			}
+			respond(w, 200, map[string]any{"payments": list})
+			return
+		}
+	}
+	parts := strings.Split(strings.TrimPrefix(path, "/api/payments/"), "/")
+	if len(parts) != 2 || !idRE.MatchString(parts[0]) || r.Method != "POST" {
+		failure(w, 404, "not_found")
+		return
+	}
+	saved, found := a.db.state.Payments[parts[0]]
+	p := saved.Payment
+	p.LastDelivery = saved.LastDelivery
+	p.Deliveries = saved.Deliveries
+	if !found || p.Sender != s.Email {
+		failure(w, 404, "not_found")
+		return
+	}
+	switch parts[1] {
+	case "prepare":
+		if p.Stage != "preparing" {
+			respond(w, 200, map[string]any{"payment": p})
+			return
+		}
+		a.prepare(w, p)
+	case "start":
+		if !a.now().Before(p.Created.Add(24 * time.Hour)) {
+			failure(w, 410, "claim_expired")
+			return
+		}
+		if p.Stage != "ready" {
+			failure(w, 409, "funding_already_started")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
+		defer cancel()
+		if !a.engine.Ready(ctx) {
+			failure(w, 503, "chain_unavailable")
+			return
+		}
+		p.Stage = "funding_started"
+		if !a.savePayment(w, p) {
+			return
+		}
+		respond(w, 200, map[string]any{"payment": p, "checkout": map[string]any{"appName": "Phoenix Wire", "recipient": p.Address, "value": p.Luna, "recipientData": []int{0, 130, 128, 146, 135}}})
+	case "confirm":
+		a.confirm(w, r, p, false)
+	case "resend":
+		a.confirm(w, r, p, true)
+	case "recovery":
+		seed, err := a.engine.Recovery(p.ID)
+		if err != nil {
+			failure(w, 503, "recovery_unavailable")
+			return
+		}
+		link, err := service.RecoveryLink(seed, p.Luna)
+		if err != nil {
+			failure(w, 503, "recovery_unavailable")
+			return
+		}
+		respond(w, 200, map[string]string{"cashlink": link})
+	default:
+		failure(w, 404, "not_found")
+	}
+}
+func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Email string `json:"email"`
+	}
+	if decode(w, r, &input) != nil {
+		failure(w, 400, "invalid_email")
+		return
+	}
+	to, err := email(input.Email)
+	if err != nil {
+		failure(w, 400, "invalid_email")
+		return
+	}
+	now := a.now()
+	for k, s := range a.db.state.Sessions {
+		if !now.Before(s.Expires) {
+			delete(a.db.state.Sessions, k)
+		}
+	}
+	if len(a.db.state.Sessions) >= 10000 {
+		failure(w, 429, "wait_before_resend")
+		return
+	}
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	rateKey := hex.EncodeToString(digest(a.master, "ip:"+host))
+	limit := a.db.state.Rates[rateKey]
+	if now.After(limit.Until) {
+		limit = rate{Until: now.Add(time.Hour)}
+	}
+	if limit.Count >= 20 {
+		failure(w, 429, "wait_before_resend")
+		return
+	}
+	for k, v := range a.db.state.Rates {
+		if now.After(v.Until) {
+			delete(a.db.state.Rates, k)
+		}
+	}
+	if len(a.db.state.Rates) >= 10000 {
+		failure(w, 429, "wait_before_resend")
+		return
+	}
+	limit.Count++
+	a.db.state.Rates[rateKey] = limit
+	if a.db.save() != nil {
+		failure(w, 503, "state_unavailable")
+		return
+	}
+	// Per-email persistent counters cannot be bypassed by changing cookies.
+	challenge := hex.EncodeToString(digest(a.master, "sender:"+to))
+	if err = a.otp.IssueClaim(r.Context(), challenge, to); err != nil {
+		status := 502
+		if errors.Is(err, service.ErrOTPRateLimited) {
+			status = 429
+		}
+		failure(w, status, "wait_or_delivery_unavailable")
+		return
+	}
+	raw := token()
+	a.db.state.Sessions[sessionKey(raw)] = session{Email: to, Expires: now.Add(15 * time.Minute)}
+	if a.db.save() != nil {
+		failure(w, 503, "state_unavailable")
+		return
+	}
+	a.setCookie(w, raw)
+	respond(w, 200, map[string]bool{"sent": true})
+}
+func (a *API) verifySender(w http.ResponseWriter, r *http.Request) {
+	key, s, ok := a.current(r)
+	if !ok || s.Verified {
+		failure(w, 403, "invalid_or_expired_code")
+		return
+	}
+	var input struct {
+		Code string `json:"code"`
+	}
+	if decode(w, r, &input) != nil || !codeRE.MatchString(input.Code) {
+		failure(w, 403, "invalid_or_expired_code")
+		return
+	}
+	challenge := hex.EncodeToString(digest(a.master, "sender:"+s.Email))
+	if a.otp.Verify(challenge, s.Email, input.Code) != nil {
+		failure(w, 403, "invalid_or_expired_code")
+		return
+	}
+	delete(a.db.state.Sessions, key)
+	raw := token()
+	s.Verified = true
+	s.Expires = a.now().Add(24 * time.Hour)
+	a.db.state.Sessions[sessionKey(raw)] = s
+	if a.db.save() != nil {
+		failure(w, 503, "state_unavailable")
+		return
+	}
+	a.setCookie(w, raw)
+	respond(w, 200, map[string]any{"verified": true, "email": s.Email})
+}
+func (a *API) savePayment(w http.ResponseWriter, p payment) bool {
+	a.db.state.Payments[p.ID] = savedPayment{p, p.LastDelivery, p.Deliveries}
+	if a.db.save() != nil {
+		failure(w, 503, "state_unavailable")
+		return false
+	}
+	return true
+}
+func (a *API) create(w http.ResponseWriter, r *http.Request, s session) {
+	var in struct {
+		Recipient string `json:"recipient"`
+		Amount    string `json:"amount"`
+		Currency  string `json:"currency"`
+		Message   string `json:"message"`
+		RequestID string `json:"request_id"`
+		Language  string `json:"language"`
+	}
+	if decode(w, r, &in) != nil || in.Currency != "NIM" || !nonceRE.MatchString(in.RequestID) || len([]rune(in.Message)) > 160 {
+		failure(w, 400, "invalid_payment")
+		return
+	}
+	recipient, err := email(in.Recipient)
+	if err != nil {
+		failure(w, 400, "invalid_payment")
+		return
+	}
+	amount, luna, err := service.ParseAmount(in.Amount)
+	if err != nil {
+		failure(w, 400, "invalid_amount")
+		return
+	}
+	id := hex.EncodeToString(digest(a.master, "payment:"+s.Email+":"+in.RequestID)[:24])
+	if saved, ok := a.db.state.Payments[id]; ok {
+		p := saved.Payment
+		if p.Recipient != recipient || p.Amount != amount || p.Message != in.Message {
+			failure(w, 409, "idempotency_conflict")
+			return
+		}
+		if p.Stage != "preparing" {
+			respond(w, 200, map[string]any{"payment": p})
+			return
+		}
+	}
+	if len(a.db.state.Payments) >= 10000 {
+		failure(w, 429, "payment_capacity")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
+	defer cancel()
+	if !a.engine.Ready(ctx) {
+		failure(w, 503, "chain_unavailable")
+		return
+	}
+	p := payment{ID: id, Sender: s.Email, Recipient: recipient, Amount: amount, Luna: luna, Message: in.Message, Language: in.Language, Stage: "preparing", Created: a.now().UTC()}
+	if existing, ok := a.db.state.Payments[id]; ok {
+		p = existing.Payment
+	}
+	if !a.savePayment(w, p) {
+		return
+	}
+	a.prepare(w, p)
+}
+func (a *API) prepare(w http.ResponseWriter, p payment) {
+	if !a.now().Before(p.Created.Add(24 * time.Hour)) {
+		failure(w, 410, "claim_expired")
+		return
+	}
+	id := p.ID
+	if _, err := a.engine.Create(id, p.Recipient, p.Amount); err != nil {
+		failure(w, 503, "claim_unavailable")
+		return
+	}
+	address, err := a.engine.Provision(id)
+	if err != nil {
+		failure(w, 503, "claim_unavailable")
+		return
+	}
+	p.Address = address
+	p.Stage = "ready"
+	if !a.savePayment(w, p) {
+		return
+	}
+	respond(w, 201, map[string]any{"payment": p})
+}
+func (a *API) confirm(w http.ResponseWriter, r *http.Request, p payment, resend bool) {
+	if p.Stage == "sent" && !resend {
+		respond(w, 200, map[string]any{"payment": p})
+		return
+	}
+	if p.Stage == "funding_started" {
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+		ok, err := a.engine.Confirm(ctx, p.ID)
+		if err != nil || !ok {
+			failure(w, 409, "funding_pending")
+			return
+		}
+		p.Stage = "funded"
+		if !a.savePayment(w, p) {
+			return
+		}
+	}
+	if p.Stage != "funded" && p.Stage != "delivery_pending" && p.Stage != "delivery_failed" && p.Stage != "sent" {
+		failure(w, 409, "funding_not_started")
+		return
+	}
+	if !a.now().Before(p.Created.Add(24 * time.Hour)) {
+		failure(w, 410, "claim_expired")
+		return
+	}
+	if p.Stage != "funded" && !resend {
+		respond(w, 200, map[string]any{"payment": p})
+		return
+	}
+	if p.Deliveries >= 5 || !p.LastDelivery.IsZero() && a.now().Sub(p.LastDelivery) < time.Minute {
+		failure(w, 429, "wait_before_resend")
+		return
+	}
+	p.Deliveries++
+	p.LastDelivery = a.now()
+	p.Stage = "delivery_pending"
+	if !a.savePayment(w, p) {
+		return
+	}
+	if err := a.mail.Invite(r.Context(), p, a.origin+"/?claim="+p.ID); err != nil {
+		p.Stage = "delivery_failed"
+		if a.savePayment(w, p) {
+			failure(w, 502, "email_delivery_unavailable")
+		}
+		return
+	}
+	p.Stage = "sent"
+	if !a.savePayment(w, p) {
+		return
+	}
+	respond(w, 200, map[string]any{"payment": p})
+}
+func (a *API) claim(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/claims/"), "/")
+	if len(parts) < 1 || len(parts) > 2 || !idRE.MatchString(parts[0]) {
+		failure(w, 404, "claim_unavailable")
+		return
+	}
+	saved, ok := a.db.state.Payments[parts[0]]
+	p := saved.Payment
+	if !ok || (p.Stage != "funded" && p.Stage != "delivery_pending" && p.Stage != "delivery_failed" && p.Stage != "sent") {
+		failure(w, 404, "claim_unavailable")
+		return
+	}
+	if r.Method == "GET" && len(parts) == 1 {
+		respond(w, 200, map[string]any{"id": p.ID, "amount": p.Amount, "sender": p.Sender, "message": p.Message, "address": p.Address, "expires_at": p.Created.Add(24 * time.Hour)})
+		return
+	}
+	if r.Method != "POST" || len(parts) != 2 || (parts[1] != "request" && parts[1] != "release") {
+		failure(w, 404, "not_found")
+		return
+	}
+	if parts[1] == "release" {
+		var input struct {
+			Code string `json:"code"`
+		}
+		raw, err := io.ReadAll(io.LimitReader(r.Body, 8193))
+		if err != nil || len(raw) > 8192 || json.Unmarshal(raw, &input) != nil || !codeRE.MatchString(input.Code) {
+			failure(w, 403, "invalid_or_expired_code")
+			return
+		}
+		r.Body = io.NopCloser(strings.NewReader(string(raw)))
+	}
+	// Route only public request/release to the original, audited OTP handler.
+	clone := r.Clone(r.Context())
+	u := *r.URL
+	clone.URL = &u
+	clone.URL.Path = "/api/v1/claims/" + p.ID
+	clone.URL.RawQuery = "action=" + parts[1]
+	a.engine.PublicHandler().ServeHTTP(w, clone)
+}
