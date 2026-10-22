@@ -10,10 +10,10 @@ function start({ storageUnavailable = false, languages = ['fr-CA'], language = '
   const nodes = new Map();
   const translations = [];
   for (const match of html.matchAll(/data-i18n="([^"]+)"/g)) translations.push({ dataset: { i18n: match[1] }, textContent: '' });
-  for (const match of html.matchAll(/id="([^"]+)"/g)) nodes.set(match[1], { value: '', dataset: {}, textContent: '', handlers: {}, addEventListener(event, fn) { this.handlers[event] = fn; } });
+  for (const match of html.matchAll(/id="([^"]+)"/g)) nodes.set(match[1], { value: '', dataset: {}, textContent: '', handlers: {}, append(child){this.child=child;},addEventListener(event, fn) { this.handlers[event] = fn; } });
   nodes.get('currency').value = 'NIM';
   nodes.get('amount').value = '25';
-  const document = { documentElement: { dataset: {} }, getElementById(id) { return nodes.get(id); }, querySelectorAll() { return translations; } };
+  const document = { documentElement: { dataset: {} },createElement(){return {};}, getElementById(id) { return nodes.get(id); }, querySelectorAll() { return translations; } };
   const stored = new Map();
   if (savedLanguage) stored.set('wire-language', savedLanguage);
   const localStorage = { getItem(k) { if (storageUnavailable) throw Error('unavailable'); return stored.get(k); }, setItem(k,v) { if (storageUnavailable) throw Error('unavailable'); stored.set(k,v); } };

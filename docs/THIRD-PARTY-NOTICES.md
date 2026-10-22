@@ -10,3 +10,9 @@
 - JSDOM is used only for development tests; it is not part of the Go binary.
 
 The MIT grant for original code does not replace these licenses or branding rights.
+
+Card branding: the Nimiq wallet's USDT mark is reproduced from
+https://github.com/nimiq/wallet/blob/master/src/components/swap/animation/usdt.svg
+for identification of the token. Nimiq and Tether branding remain their respective
+owners' property; the software MIT license does not grant trademark rights.
+The Phoenix emblem and official Nimiq mark reuse the existing project assets.

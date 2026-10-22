@@ -54,7 +54,7 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		// An explicit allowlist prevents directory listings and SPA fallbacks on unknown APIs.
 		switch r.URL.Path {
-		case "/", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/brand/phoenix-wire.webp":
+		case "/", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/design.css", "/brand/phoenix-wire.webp", "/brand/phoenix-emblem.webp", "/brand/nimiq-logo.svg", "/brand/usdt.svg":
 			static.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)

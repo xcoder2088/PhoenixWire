@@ -1,5 +1,5 @@
-import { flowText } from './flow-text.js?v=0.2.0';
-import { addressValid } from './model.js?v=0.2.0';
+import { flowText } from './flow-text.js?v=0.2.1';
+import { addressValid } from './model.js?v=0.2.1';
 
 // The bundled official Iqons adapter validates public Nimiq addresses through this hook.
 window.PhoenixNimiqPayments={addressValid};
@@ -31,6 +31,7 @@ async function task(run,target='feedback',cleanup){
 }
 function senderUI(email){verified=Boolean(email);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');}
 function showPayment(p){
+ $('preview-empty').hidden=true;$('payment-card').hidden=false;$('preview-title').hidden=false;
  $('recipient').value=p.recipient;$('amount').value=p.amount;$('message').value=p.message;$('currency').value='NIM';
  for(const id of ['recipient','amount','message'])$(id).readOnly=true;$('currency').disabled=true;
  $('card-amount').textContent=p.amount;$('card-unit').textContent='NIM';$('card-network').textContent='Nimiq';$('card-message').textContent=p.message;$('card-recipient').textContent=p.recipient;
