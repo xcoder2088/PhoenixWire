@@ -1,5 +1,5 @@
-import { flowText } from './flow-text.js?v=0.2.1';
-import { addressValid } from './model.js?v=0.2.1';
+import { flowText } from './flow-text.js?v=0.2.2';
+import { addressValid } from './model.js?v=0.2.2';
 
 // The bundled official Iqons adapter validates public Nimiq addresses through this hook.
 window.PhoenixNimiqPayments={addressValid};

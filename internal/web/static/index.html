@@ -1,24 +1,24 @@
 <!doctype html>
-<html lang="fr" data-theme="dark" data-accent="orange">
+<html lang="fr" data-theme="dark" data-accent="phoenixfire" data-palette="phoenixfire">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Phoenix Wire</title>
   <meta name="referrer" content="strict-origin">
-  <link rel="stylesheet" href="/style.css?v=0.2.1">
-  <link rel="stylesheet" href="/flow.css?v=0.2.1">
-  <link rel="stylesheet" href="/design.css?v=0.2.1">
-  <script src="/hub.js?v=0.2.1" defer></script>
-  <script src="/iqons.js?v=0.2.1" defer></script>
-  <script type="module" src="/app.js?v=0.2.1"></script>
-  <script type="module" src="/flow.js?v=0.2.1"></script>
+  <link rel="stylesheet" href="/style.css?v=0.2.2">
+  <link rel="stylesheet" href="/flow.css?v=0.2.2">
+  <link rel="stylesheet" href="/design.css?v=0.2.2">
+  <script src="/hub.js?v=0.2.2" defer></script>
+  <script src="/iqons.js?v=0.2.2" defer></script>
+  <script type="module" src="/app.js?v=0.2.2"></script>
+  <script type="module" src="/flow.js?v=0.2.2"></script>
 </head>
 <body>
   <div class="shell">
     <header>
-      <img class="brand" src="/brand/phoenix-wire.webp" alt="Phoenix Wire">
+      <img class="brand" src="/brand/phoenix-wire.webp?v=0.2.2" alt="Phoenix Wire">
       <div class="preferences">
         <select id="language" aria-label="Language"><option value="auto" data-i18n="automatic">Automatique</option><option value="fr">Français</option><option value="en">English</option><option value="es">Español</option><option value="de">Deutsch</option><option value="zh">中文</option></select>
-        <select id="accent" aria-label="Accent"><option value="orange">Orange</option><option value="violet">Violet</option><option value="teal">Teal</option></select>
+        <select id="accent" aria-label="Theme"><option value="aurora">Aurora</option><option value="phoenixfire">PhoenixFire</option><option value="ocean">Ocean</option></select>
         <button id="theme" type="button" data-i18n="theme">Clair / sombre</button>
       </div>
     </header>
@@ -48,18 +48,17 @@
           <div id="preview-empty" class="preview-empty"><span class="empty-cards" aria-hidden="true"></span><p data-i18n="emptyPreview">Créez une carte pour la prévisualiser.</p></div>
           <h2 id="preview-title" data-i18n="previewTitle" hidden>Aperçu de la carte</h2>
           <article class="payment-card" id="payment-card" data-currency="NIM" hidden>
-            <div class="card-top"><span class="card-brand"><img src="/brand/phoenix-emblem.webp?v=0.2.1" width="42" height="42" alt=""><span>Phoenix<span class="wire-word">Wire</span></span></span><span class="sample" data-i18n="sample">MAQUETTE</span></div>
+            <div class="card-top"><span class="card-brand"><img src="/brand/phoenix-wire.webp?v=0.2.2" width="215" height="57" alt="Phoenix Wire"></span><span class="sample" data-i18n="sample">MAQUETTE</span></div>
             <p class="card-heading" data-i18n="cardHeading">Paiement sécurisé</p>
             <p id="card-network" class="card-network">Nimiq</p>
             <div class="sum"><span id="card-amount">25</span> <span id="card-unit">NIM</span></div>
             <div class="card-content">
-              <div class="coin" id="coin"><img src="/brand/nimiq-logo.svg?v=0.2.1" width="80" height="80" alt="Nimiq"></div>
+              <div class="coin" id="coin"><img src="/brand/nimiq-logo.svg?v=0.2.2" width="80" height="80" alt="Nimiq"></div>
               <p class="lock" data-i18n="locked">Un code envoyé par courriel permet de déverrouiller le paiement.</p>
               <p id="card-message"></p>
               <div class="card-recipient" id="card-recipient"></div>
               <button type="button" class="card-action" disabled data-i18n="cardAction">Vérifier mon code</button>
             </div>
-            <p class="card-footer">Powered by <strong>Phoenix Mail</strong></p>
           </article>
           <p class="preview-note" data-i18n="previewNote" id="preview-note" hidden>Pas de QR réclamable, de clé ou de fonds dans cet aperçu.</p>
         </section>

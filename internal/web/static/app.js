@@ -1,4 +1,4 @@
-import { assets, previewAmount, resolveLanguage } from './model.js?v=0.2.1';
+import { assets, previewAmount, resolveLanguage } from './model.js?v=0.2.2';
 
 const messages = {
   fr: ['Clair / sombre','Un paiement. Un courriel.','Créez une carte, envoyez un paiement. Simplement.','Aperçu local : aucun paiement ni courriel n’est envoyé.','Votre carte de paiement','Votre courriel','Courriel du destinataire','Monnaie','Montant','Petit mot (facultatif)','Le parcours prévu déverrouillera le paiement après vérification du courriel par code à six chiffres.','Prévisualiser la carte','Aperçu de la carte','MAQUETTE','Code par courriel · parcours à intégrer','Pas de QR réclamable, de clé ou de fonds dans cet aperçu.','Aperçu mis à jour. Aucun envoi effectué.','Montant invalide ou trop de décimales.'],
@@ -36,9 +36,16 @@ function translate(value) {
 translate(languagePreference);
 const theme = readPreference('wire-theme', 'dark');
 document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
-const accent = readPreference('wire-accent', 'orange');
-$('accent').value = ['orange','violet','teal'].includes(accent) ? accent : 'orange';
-document.documentElement.dataset.accent = $('accent').value;
+const palettes = ['aurora','phoenixfire','ocean'];
+const oldPalettes = {orange:'phoenixfire',violet:'aurora',teal:'ocean'};
+const savedPalette = readPreference('wire-palette', '');
+function applyPalette(value) {
+  const palette=palettes.includes(value)?value:'phoenixfire';
+  $('accent').value=palette;
+  document.documentElement.dataset.palette=palette;
+  document.documentElement.dataset.accent=palette;
+}
+applyPalette(palettes.includes(savedPalette)?savedPalette:(oldPalettes[readPreference('wire-accent','orange')]||'phoenixfire'));
 $('language').addEventListener('change', e => {
   languagePreference = e.target.value === 'auto' || Object.hasOwn(messages, e.target.value) ? e.target.value : 'auto';
   translate(languagePreference);
@@ -50,14 +57,14 @@ $('theme').addEventListener('click', () => {
   document.documentElement.dataset.theme = value;
   savePreference('wire-theme', value);
 });
-$('accent').addEventListener('change', e => { document.documentElement.dataset.accent = e.target.value; savePreference('wire-accent', e.target.value); });
+$('accent').addEventListener('change', e => { applyPalette(e.target.value); savePreference('wire-palette', document.documentElement.dataset.palette); });
 function renderCard(amount) {
   const id = $('currency').value;
   const asset = assets[id];
   $('payment-card').dataset.currency = id;
   $('coin').textContent = '';
   const image=document.createElement('img');image.width=image.height=80;
-  image.src=id==='NIM'?'/brand/nimiq-logo.svg?v=0.2.1':'/brand/usdt.svg?v=0.2.1';
+  image.src=id==='NIM'?'/brand/nimiq-logo.svg?v=0.2.2':'/brand/usdt.svg?v=0.2.2';
   image.alt=id==='NIM'?'Nimiq Nimicon':'Tether USDT';$('coin').append(image);
   // An illustrative public address only; this preview has no seed or funding intent.
   if(id==='NIM')globalThis.PhoenixNimiqIdenticons?.paint(image,'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');

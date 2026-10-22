@@ -1,6 +1,13 @@
 /* PhoenixMail payment-window proportions and shared pastel card language. */
 :root{--preview-bg:#191c2a;--field:#202537}
 :root[data-theme=light]{--preview-bg:#f4f5fa;--field:#f5f6fa}
+:root[data-palette=phoenixfire]{--bg:#15131b;--panel:#1d1a24;--preview-bg:#211b29;--field:#272130;--line:#3b3044;--accent:#ffb16b;--accent-end:#ff84aa;--button-text:#291522}
+:root[data-palette=aurora]{--bg:#11121e;--panel:#1b1b2d;--preview-bg:#1c1e34;--field:#25253e;--line:#353750;--accent:#b6a0ff;--accent-end:#74baff;--button-text:#191b35}
+:root[data-palette=ocean]{--bg:#10191f;--panel:#172630;--preview-bg:#182a38;--field:#203544;--line:#304959;--accent:#6dd8e6;--accent-end:#80afff;--button-text:#112532}
+:root[data-theme=light][data-palette=phoenixfire]{--bg:#faf5f3;--panel:#fff;--preview-bg:#fff5f4;--field:#faf4f3;--line:#e6d8d6;--accent:#af450d;--accent-end:#a72851;--button-text:#fff}
+:root[data-theme=light][data-palette=aurora]{--bg:#f5f4fb;--panel:#fff;--preview-bg:#f3f1fd;--field:#f5f4fb;--line:#dedbef;--accent:#7145cd;--accent-end:#306bc5;--button-text:#fff}
+:root[data-theme=light][data-palette=ocean]{--bg:#f0f7fa;--panel:#fff;--preview-bg:#eff8fb;--field:#f0f7fa;--line:#d4e3ea;--accent:#087185;--accent-end:#245bc9;--button-text:#fff}
+.primary,.wallet-link{background:linear-gradient(115deg,var(--accent),var(--accent-end,var(--accent)));color:var(--button-text)}
 .shell{max-width:1000px;padding:24px 24px 0;gap:20px}
 header{padding:0;border:0;gap:20px}.brand{width:240px;max-width:43%}
 .app-window{border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--panel);box-shadow:0 24px 70px #0002}
@@ -22,7 +29,7 @@ input,select,textarea{padding:11px 12px;font-size:13px;min-height:44px}.fields{g
 .payment-card{width:100%;max-width:400px;min-height:0;padding:22px 20px 18px;margin:0;border-radius:26px;border:1px solid #c8bae9;background:#eee5ff;background-image:linear-gradient(125deg,#eee5ff 0%,#e2eeff 56%,#ffe8f4 100%);color:#211e49;font-family:Arial,Helvetica,sans-serif;box-shadow:0 15px 35px #080a131c}
 .payment-card[data-currency=USDT_ETHEREUM]{background:#e0f5e9;background-image:linear-gradient(125deg,#def5e6 0%,#e1f5f1 56%,#e9edff 100%);border-color:#b5d9c6;color:#211e49}
 .payment-card[data-currency=USDT0_POLYGON]{background:#eee4fb;background-image:linear-gradient(125deg,#eee4fb 0%,#e5eaff 56%,#f8e8f6 100%);border-color:#cebbea;color:#211e49}
-.card-top{gap:8px;align-items:center;margin-bottom:14px}.card-brand{display:inline-flex;align-items:center;gap:7px;font-size:20px;font-weight:750;letter-spacing:-.7px;white-space:nowrap}.card-brand img{object-fit:contain;flex:none;width:40px;height:40px}.wire-word{color:#dc7b28}
+.card-top{gap:12px;align-items:center;margin-bottom:14px}.card-brand{display:flex;align-items:center;flex:1;min-width:0}.card-brand img{display:block;object-fit:contain;object-position:left center;width:100%;max-width:215px;height:auto;max-height:62px}
 .sample{font-size:8px;letter-spacing:.5px;border:1px solid #d4c7ed;border-radius:20px;background:#fff;color:#6752a2;padding:6px 8px;white-space:nowrap}
 .payment-card .card-heading{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#7461aa;margin:17px 0 4px}
 .payment-card .card-network{font-size:11px;color:#7461aa;margin:0 0 5px}.payment-card .sum{font-size:40px;line-height:1.3;font-weight:750;margin:6px 0 16px;letter-spacing:-1px}
@@ -32,9 +39,8 @@ input,select,textarea{padding:11px 12px;font-size:13px;min-height:44px}.fields{g
 .payment-card[data-currency^=USDT] .coin{background:#26a17b;border-radius:50%}.payment-card[data-currency^=USDT] .coin img{border-radius:0;width:86px;height:86px}
 .payment-card .lock{margin:0;padding:0;border:0;font-size:12px;line-height:1.55;color:#49415f}
 .payment-card #card-message{font-size:12px;margin:12px 0 0;line-height:1.5}.card-recipient{font-size:10px;color:#73759c;margin:10px 0 0}
-.card-action{width:auto;max-width:100%;margin:16px auto 0;padding:12px 17px;background:#8170ed;color:#fff;border:0;border-radius:12px;font-size:13px;font-weight:700;opacity:1!important;cursor:default!important}
-.payment-card .card-footer{font-size:10px;color:#73759c;margin:18px 0 0}.card-footer strong{color:#6843ca}
+.card-action{width:auto;max-width:100%;margin:16px auto 0;padding:12px 17px;background:linear-gradient(115deg,var(--accent),var(--accent-end,var(--accent)));color:var(--button-text);border:0;border-radius:12px;font-size:13px;font-weight:700;opacity:1!important;cursor:default!important}
 #my-payments{margin:0;border:0;border-top:1px solid var(--line);border-radius:0;box-shadow:none}
 footer{border:0;margin-top:auto;padding:0 0 20px;font-size:11px}
 @media(max-width:700px){.shell{padding:16px 12px 0;gap:16px}header{flex-direction:column;gap:14px}.brand{max-width:100%;width:230px}.preferences{gap:6px}.intro{padding:18px}.workspace{grid-template-columns:1fr;min-height:0}.workspace>.panel{padding:22px 18px}.preview-area{border-left:0;border-top:1px solid var(--line);padding:28px 18px;min-height:200px}.app-window{border-radius:16px}.notice{padding:10px 18px}.payment-card{max-width:390px}}
-@media(max-width:370px){.card-brand{font-size:18px;gap:4px}.card-brand img{width:34px;height:34px}.payment-card{padding:18px 15px}.sample{font-size:7px;padding:5px 6px}.preferences select,.preferences button{font-size:11px}}
+@media(max-width:370px){.payment-card{padding:18px 15px}.sample{font-size:7px;padding:5px 6px}.preferences select,.preferences button{font-size:11px}}

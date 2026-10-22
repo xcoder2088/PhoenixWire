@@ -47,8 +47,8 @@ test('themes and accents work even when storage is unavailable', () => {
   const ui = start({ storageUnavailable: true });
   ui.event('theme', 'click');
   assert.equal(ui.document.documentElement.dataset.theme, 'light');
-  ui.event('accent', 'change', 'teal');
-  assert.equal(ui.document.documentElement.dataset.accent, 'teal');
+  ui.event('accent', 'change', 'ocean');
+  assert.equal(ui.document.documentElement.dataset.palette, 'ocean');
 });
 test('invalid amount preserves the last valid card', () => {
   const ui = start();
