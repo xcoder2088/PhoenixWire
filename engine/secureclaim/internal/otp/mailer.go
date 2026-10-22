@@ -3,6 +3,8 @@ package otp
 import (
 	"bytes"
 	"context"
+	_ "embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,13 +25,33 @@ func (ConsoleSender) Send(_ context.Context, to, code string) error {
 	return nil
 }
 
+// The PhoenixMail emblem is written into the HTML itself (data: image). MailerSend does not honour inline attachments (the picture
+// ended up as a separate attachment and an empty square), and a hosted image is blocked by many mail apps. The name stays next to
+// the emblem, so clients that drop data: images still show a complete header.
+//
+//go:embed assets/phoenixmail-email-icon.png
+var logoPNG []byte
+
 // MailerSend sends claim verification emails without sharing PhoenixMail login
 // sessions or account OTP endpoints. Credentials remain server-side.
 type MailerSend struct {
-	APIKey    string
-	From      string
+	APIKey string
+	From   string
+	// BrandName is the product shown as sender, in the subject and in the header ("PhoenixMail" when empty, "Phoenix Wire" for
+	// PhoenixWire). A name starting with "Phoenix" is written like the cards: "Phoenix" in navy, the rest in orange.
 	BrandName string
 	Client    *http.Client
+}
+
+func (m MailerSend) brand() (name, first, second string) {
+	name = strings.TrimSpace(m.BrandName)
+	if name == "" {
+		name = "PhoenixMail"
+	}
+	if strings.HasPrefix(name, "Phoenix") {
+		return name, "Phoenix", strings.TrimSpace(strings.TrimPrefix(name, "Phoenix"))
+	}
+	return name, name, ""
 }
 
 func (m MailerSend) Validate() error {
@@ -48,22 +70,22 @@ func (m MailerSend) Send(ctx context.Context, to, code string) error {
 	if e2 != nil || recipient.Address != to {
 		return errors.New("otp_mail_configuration_invalid")
 	}
-	brand := m.BrandName
-	if brand == "" {
-		brand = "NimiqSecureClaim"
-	}
-	subject := brand + " — your verification code"
+	brand, brandFirst, brandSecond := m.brand()
+	subject := "Your " + brand + " verification code"
 	plain := fmt.Sprintf("Your %s verification code is %s.\nIt expires in 10 minutes. Never share this code.\nIf you did not request it, ignore this email.\n", brand, code)
-	body := `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f4f2fa;color:#292044;font-family:Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f2fa"><tr><td align="center" style="padding:28px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#fff;border:1px solid #ded8ec;border-radius:18px"><tr><td style="padding:28px 24px;font-size:16px;line-height:1.6"><h1 style="margin:0 0 20px;font-size:28px;color:#e87416">PhoenixMail</h1><h2 style="margin:0 0 20px;font-size:20px">Your protected Nimiq payment</h2><p style="margin:0 0 16px">Enter this verification code on the claim page to unlock your payment:</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="padding:20px 12px;background:#eee7ff;border-radius:12px;font-size:32px;font-weight:bold;letter-spacing:6px;color:#583b92">` + html.EscapeString(code) + `</td></tr></table><p style="margin:20px 0 16px">Expires in 10 minutes. Do not share this code.</p><p style="margin:0;color:#626477">If you did not request this code, ignore this email.</p></td></tr></table></td></tr></table></body></html>`
-	if m.BrandName != "" {
-		body = strings.Replace(body, ">PhoenixMail</h1>", ">"+html.EscapeString(m.BrandName)+"</h1>", 1)
-	}
+	body := `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f4f2fa;color:#292044;font-family:Arial,sans-serif"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f2fa"><tr><td align="center" style="padding:28px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:520px;background:#fff;border:1px solid #ded8ec;border-radius:18px"><tr><td style="padding:28px 24px;font-size:16px;line-height:1.6"><table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 22px"><tr><td style="padding-right:12px"><a href="https://phoenixmail.ca" target="_blank" rel="noopener" style="text-decoration:none;border:0"><img src="data:image/png;base64,` + base64.StdEncoding.EncodeToString(logoPNG) + `" width="60" height="58" alt="" style="display:block;border:0"></a></td><td style="font-size:32px;line-height:34px;font-weight:bold;letter-spacing:-1px;color:#1a164d"><a href="https://phoenixmail.ca" target="_blank" rel="noopener" style="text-decoration:none;color:#1a164d">` + html.EscapeString(brandFirst) + `` + func() string {
+		if brandSecond == "" {
+			return ""
+		}
+		return `<span style="color:#f39043">` + html.EscapeString(brandSecond) + `</span>`
+	}() + `</a></td></tr></table><h2 style="margin:0 0 20px;font-size:20px">Your protected Nimiq payment</h2><p style="margin:0 0 16px">Enter this verification code on the claim page to unlock your payment:</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="padding:20px 12px;background:#eee7ff;border-radius:12px;font-size:32px;font-weight:bold;letter-spacing:6px;color:#583b92">` + html.EscapeString(code) + `</td></tr></table><p style="margin:20px 0 16px">Expires in 10 minutes. Do not share this code.</p><p style="margin:0;color:#626477">If you did not request this code, ignore this email.</p></td></tr></table></td></tr></table></body></html>`
 	payload, err := json.Marshal(map[string]any{
-		"from":    map[string]string{"email": m.From, "name": brand},
-		"to":      []map[string]string{{"email": to}},
-		"subject": subject,
-		"text":    plain,
-		"html":    body,
+		"from":     map[string]string{"email": m.From, "name": brand},
+		"to":       []map[string]string{{"email": to}},
+		"subject":  subject,
+		"text":     plain,
+		"html":     body,
+		"settings": map[string]bool{"track_clicks": false, "track_opens": false, "track_content": false},
 	})
 	if err != nil {
 		return err
@@ -74,6 +96,7 @@ func (m MailerSend) Send(ctx context.Context, to, code string) error {
 	}
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(m.APIKey))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "PhoenixMail-claim/1.0")
 	client := m.Client
 	if client == nil {
 		client = &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}

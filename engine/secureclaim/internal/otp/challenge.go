@@ -22,6 +22,12 @@ var (
 	ErrUnavailable     = errors.New("otp_not_configured")
 )
 
+// A new code may be requested after 20 seconds; 8 code requests and 5 wrong guesses are allowed per 15 minutes.
+const (
+	resendDelay = 20 * time.Second
+	maxRequests = 8
+)
+
 type Sender interface {
 	Send(context.Context, string, string) error
 }
@@ -116,7 +122,7 @@ func (m *Manager) issue(ctx context.Context, id, email string, recoverClaim bool
 		c.window = time.Time{}
 		c.requests, c.attempts = 0, 0
 	}
-	if !c.lastSent.IsZero() && now.Sub(c.lastSent) < time.Minute || c.requests >= 5 || c.attempts >= 5 {
+	if !c.lastSent.IsZero() && now.Sub(c.lastSent) < resendDelay || c.requests >= maxRequests || c.attempts >= 5 {
 		return ErrRateLimited
 	}
 	n, err := rand.Int(rand.Reader, big.NewInt(1000000))

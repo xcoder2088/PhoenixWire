@@ -18,15 +18,29 @@ footer{display:flex;align-items:center;gap:15px;margin:28px 0 0;font-size:15px;c
 @media(max-width:700px){.shell{padding:17px 18px 20px;border-radius:27px}header{padding:0 3px 8px;height:73px}.brand-emblem{width:62px;height:62px}.brand-name{font-size:clamp(21px,5vw,31px)}.tag{font-size:10px;padding:8px 10px}.card{padding:28px 21px 23px}.eyebrow{font-size:14px}.amount{font-size:70px}.amount small{font-size:29px}.sub{font-size:14px}.inner{padding:23px 20px}.inner h2{font-size:23px}.inner p{font-size:14px}.btn.secondary{font-size:14px}.digit-visual{gap:6px}.digit-visual span,.digits input{height:53px}footer{font-size:11px;gap:8px}}
 @media(max-width:410px){body{padding:10px 7px}.shell{padding:10px}.brand-emblem{width:47px;height:47px}.brand-name{font-size:20px}.tag{font-size:9px}.card{padding:21px 12px 17px}.inner{padding:20px 14px}.digit-visual{gap:4px}.digit-visual span,.digits input{height:44px}.btn:disabled{opacity:.55;cursor:default;box-shadow:none}
 .inner label{font-size:13px!important}footer{font-size:9px}.amount{font-size:61px}.avatar{width:90px;height:90px}.center-emblem{width:80px;height:80px}}
-</style></head><body><main class="shell"><header><div class="logo"><img src="/phoenixmail-official-emblem.webp" alt="PhoenixMail phoenix emblem" class="brand-emblem"><span class="brand-name">Phoenix<strong>Mail</strong></span></div><span class="tag">MAINNET</span></header><section class="card"><div class="eyebrow">Secure NIM Claim</div><div class="amount">— <small>NIM</small></div><div class="sub">A payment is waiting for you</div><div class="avatar" id="nimicon" hidden><img id="cashlink-iqon" alt="Nimiq Cashlink Nimicon" class="center-emblem"></div><div class="sub" id="wallet-note"></div><div class="inner"><h2>Verify your email</h2><p>Request a six-digit code to verify your email before continuing to your wallet.</p><button class="btn secondary" id="send" disabled>Send verification code</button><label for="otp" style="font-size:12px;font-weight:750">Verification code</label><div class="digits" id="digits"><div class="digit-visual" aria-hidden="true"><span>•</span><span>•</span><span>•</span><span>•</span><span>•</span><span>•</span></div><input id="otp" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" aria-label="Six digit verification code"></div><button class="btn" id="verify" disabled>Verify code & claim NIM →</button><p id="status" class="status" role="status" aria-live="polite"></p></div><footer><span>Powered by <strong>PhoenixMail</strong> · NimiqSecureClaim</span></footer></section></main><script src="/nimiq-iqons.js?v=sha256-5decdff4dc5c93fa95832b9ad7a9b7b1c7fe601464615d9bf80b80942bc66377"></script><script>
+/* Feedback on every action: hover, press, busy, and a clearly visible message next to the buttons. */
+.btn{transition:transform .08s,box-shadow .15s,filter .15s,background .15s,border-color .15s}
+.btn:hover:not(:disabled){filter:brightness(1.07);box-shadow:0 12px 26px #9079e766}
+.btn:active:not(:disabled){transform:translateY(1px) scale(.99);filter:brightness(.95)}
+.btn.secondary{border:1.5px solid #bdaef0;background:#f6f2ff;border-radius:14px;margin:14px 0 12px;padding:14px 0}
+.btn.secondary:hover:not(:disabled){background:#ebe3ff;border-color:#9a83e6;box-shadow:none;filter:none}
+.btn.secondary:active:not(:disabled){background:#ddd0ff}
+.btn[aria-busy=true]{cursor:progress}
+.btn[aria-busy=true]::after{content:"";display:inline-block;width:15px;height:15px;margin-left:10px;vertical-align:-2px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:claim-spin .7s linear infinite}
+@keyframes claim-spin{to{transform:rotate(360deg)}}
+.status:not(:empty){padding:11px 14px;border-radius:12px;background:#efe9ff;border:1px solid #c9bcf3;font-size:15px!important;font-weight:650;line-height:1.4;color:#4b2f9c!important}
+.status.ok:not(:empty){background:#e6f8ee;border-color:#a8e0c0;color:#1b6b43!important}
+.status.error:not(:empty){background:#ffecef;border-color:#f3b4c0;color:#a3203f!important}
+.status{margin:0 0 14px!important}
+</style></head><body><main class="shell"><header><div class="logo"><img src="/phoenixmail-official-emblem.webp" alt="PhoenixMail phoenix emblem" class="brand-emblem"><span class="brand-name">Phoenix<strong>Mail</strong></span></div></header><section class="card"><div class="eyebrow">Secure NIM Claim</div><div class="amount">— <small>NIM</small></div><div class="sub">A payment is waiting for you</div><div class="avatar" id="nimicon" hidden><img id="cashlink-iqon" alt="Nimiq Cashlink Nimicon" class="center-emblem"></div><div class="sub" id="wallet-note"></div><div class="inner"><h2>Verify your email</h2><p>Request a six-digit code to verify your email before continuing to your wallet.</p><button class="btn secondary" id="send" disabled>Send verification code</button><p id="status" class="status" role="status" aria-live="polite"></p><label for="otp" style="font-size:12px;font-weight:750">Verification code</label><div class="digits" id="digits"><div class="digit-visual" aria-hidden="true"><span>•</span><span>•</span><span>•</span><span>•</span><span>•</span><span>•</span></div><input id="otp" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" aria-label="Six digit verification code"></div><button class="btn" id="verify" disabled>Verify code & claim NIM →</button></div><footer><span>Powered by <strong>PhoenixMail</strong> · NimiqSecureClaim</span></footer></section></main><script src="/nimiq-iqons.js?v=sha256-5decdff4dc5c93fa95832b9ad7a9b7b1c7fe601464615d9bf80b80942bc66377"></script><script>
 const status=document.getElementById('status'),send=document.getElementById('send'),verify=document.getElementById('verify');
 const locale=(new URLSearchParams(location.search).get('lang')||navigator.language||'en').slice(0,2);
 const translations={
- en:['Secure NIM Claim','Verify your email','Request a six-digit code to unlock the protected Cashlink.','Send verification code','Verification code','Verify code & claim NIM →','Verification code sent to the recipient email.','Code accepted. Open the original Nimiq Cashlink to receive your NIM.','Receive my NIM in Nimiq','Request a fresh email code to reopen this Cashlink.','Enter the emailed code to unlock the original Cashlink','Protected Nimiq Cashlink · Mainnet','Preview · no funds deposited'],
- fr:['Recevoir des NIM en sécurité','Vérifier votre courriel','Demandez un code de six chiffres pour ouvrir le Cashlink protégé.','Envoyer le code','Code de vérification','Vérifier et recevoir les NIM →','Code envoyé au courriel du destinataire.','Code accepté. Ouvrez le Cashlink original pour recevoir vos NIM.','Recevoir mes NIM dans Nimiq','Demandez un nouveau code pour rouvrir ce Cashlink.','Entrez le code reçu pour ouvrir le Cashlink original','Cashlink Nimiq protégé · Mainnet','Aperçu · aucun fonds déposé'],
- es:['Recibir NIM de forma segura','Verifica tu correo','Solicita un código de seis dígitos para abrir el Cashlink protegido.','Enviar código','Código de verificación','Verificar y recibir NIM →','Código enviado al correo del destinatario.','Código aceptado. Abre el Cashlink original para recibir tus NIM.','Recibir mis NIM en Nimiq','Solicita un código nuevo para volver a abrir este Cashlink.','Introduce el código recibido para abrir el Cashlink','Cashlink Nimiq protegido · Mainnet','Vista previa · sin fondos depositados'],
- de:['NIM sicher empfangen','E-Mail bestätigen','Fordere einen sechsstelligen Code für den geschützten Cashlink an.','Code senden','Bestätigungscode','Bestätigen und NIM empfangen →','Code an die E-Mail-Adresse des Empfängers gesendet.','Code bestätigt. Öffne den ursprünglichen Cashlink, um NIM zu empfangen.','Meine NIM in Nimiq empfangen','Fordere einen neuen Code an, um diesen Cashlink erneut zu öffnen.','Gib den E-Mail-Code ein, um den Cashlink zu öffnen','Geschützter Nimiq-Cashlink · Mainnet','Vorschau · kein Guthaben eingezahlt'],
- zh:['安全领取 NIM','验证邮箱','请求六位验证码以打开受保护的 Cashlink。','发送验证码','验证码','验证并领取 NIM →','验证码已发送至收件人邮箱。','验证成功。打开原始 Cashlink 以领取 NIM。','在 Nimiq 中领取 NIM','请求新邮件验证码以重新打开此 Cashlink。','输入邮件验证码以解锁原始 Cashlink','受保护的 Nimiq Cashlink · Mainnet','预览 · 尚未存入资金']
+ en:['Secure NIM Claim','Verify your email','Request a six-digit code to unlock the protected Cashlink.','Send verification code','Verification code','Verify code & claim NIM →','Verification code sent to the recipient email.','Code accepted. Open the original Nimiq Cashlink to receive your NIM.','Receive my NIM in Nimiq','Request a fresh email code to reopen this Cashlink.','Enter the emailed code to unlock the original Cashlink','Protected Nimiq Cashlink','Preview · no funds deposited'],
+ fr:['Recevoir des NIM en sécurité','Vérifier votre courriel','Demandez un code de six chiffres pour ouvrir le Cashlink protégé.','Envoyer le code','Code de vérification','Vérifier et recevoir les NIM →','Code envoyé au courriel du destinataire.','Code accepté. Ouvrez le Cashlink original pour recevoir vos NIM.','Recevoir mes NIM dans Nimiq','Demandez un nouveau code pour rouvrir ce Cashlink.','Entrez le code reçu pour ouvrir le Cashlink original','Cashlink Nimiq protégé','Aperçu · aucun fonds déposé'],
+ es:['Recibir NIM de forma segura','Verifica tu correo','Solicita un código de seis dígitos para abrir el Cashlink protegido.','Enviar código','Código de verificación','Verificar y recibir NIM →','Código enviado al correo del destinatario.','Código aceptado. Abre el Cashlink original para recibir tus NIM.','Recibir mis NIM en Nimiq','Solicita un código nuevo para volver a abrir este Cashlink.','Introduce el código recibido para abrir el Cashlink','Cashlink Nimiq protegido','Vista previa · sin fondos depositados'],
+ de:['NIM sicher empfangen','E-Mail bestätigen','Fordere einen sechsstelligen Code für den geschützten Cashlink an.','Code senden','Bestätigungscode','Bestätigen und NIM empfangen →','Code an die E-Mail-Adresse des Empfängers gesendet.','Code bestätigt. Öffne den ursprünglichen Cashlink, um NIM zu empfangen.','Meine NIM in Nimiq empfangen','Fordere einen neuen Code an, um diesen Cashlink erneut zu öffnen.','Gib den E-Mail-Code ein, um den Cashlink zu öffnen','Geschützter Nimiq-Cashlink','Vorschau · kein Guthaben eingezahlt'],
+ zh:['安全领取 NIM','验证邮箱','请求六位验证码以打开受保护的 Cashlink。','发送验证码','验证码','验证并领取 NIM →','验证码已发送至收件人邮箱。','验证成功。打开原始 Cashlink 以领取 NIM。','在 Nimiq 中领取 NIM','请求新邮件验证码以重新打开此 Cashlink。','输入邮件验证码以解锁原始 Cashlink','受保护的 Nimiq Cashlink','预览 · 尚未存入资金']
 };
 const feedback={
  en:['Enter the six-digit code received by email.','This code is incorrect or no longer valid. Request a new code. Your payment has not been claimed by this attempt.','Please wait before requesting another code.','Unable to complete this request. Please try again.'],
@@ -46,7 +60,8 @@ const previewMode=claimId==='demo';
 const amountNode=document.querySelector('.amount');
 const descriptionNode=document.querySelector('.card .sub');
 let canVerify=false,requestBusy=false;
-function updateControls(){send.disabled=!canVerify||requestBusy;verify.disabled=!canVerify||requestBusy||!/^[0-9]{6}$/.test(document.getElementById('otp').value.trim());}
+let cooling=0,coolTimer=null,receiveUrl='';
+function updateControls(){send.disabled=!canVerify||requestBusy||cooling>0;verify.disabled=receiveUrl?false:(!canVerify||requestBusy||!/^[0-9]{6}$/.test(document.getElementById('otp').value.trim()));}
 
 const otpInput=document.getElementById('otp'),otpBoxes=[...document.querySelectorAll('.digit-visual span')];
 otpInput.addEventListener('input',()=>{otpInput.value=otpInput.value.replace(/\D/g,'').slice(0,6);otpBoxes.forEach((box,i)=>{box.textContent=otpInput.value[i]||'•';});if(status.textContent===feedback[0]||status.textContent===feedback[1])status.textContent='';updateControls();});
@@ -83,19 +98,39 @@ async function loadClaim(){
 loadClaim();
 
 
+const more={
+ en:{busySend:'Sending…',busyVerify:'Verifying…',wait:'Please wait a minute before requesting another code.',again:'Send again in',sec:'s'},
+ fr:{busySend:'Envoi…',busyVerify:'Vérification…',wait:'Patientez une minute avant de demander un autre code.',again:'Renvoyer dans',sec:'s'},
+ es:{busySend:'Enviando…',busyVerify:'Verificando…',wait:'Espera un minuto antes de solicitar otro código.',again:'Reenviar en',sec:'s'},
+ de:{busySend:'Wird gesendet…',busyVerify:'Wird geprüft…',wait:'Warte eine Minute, bevor du einen weiteren Code anforderst.',again:'Erneut senden in',sec:'s'},
+ zh:{busySend:'发送中…',busyVerify:'验证中…',wait:'请等待一分钟后再请求验证码。',again:'重新发送：',sec:'秒'}
+}[locale]||{busySend:'Sending…',busyVerify:'Verifying…',wait:'Please wait a minute before requesting another code.',again:'Send again in',sec:'s'};
+function setStatus(message,kind){status.className='status'+(kind?' '+kind:'');status.textContent=message;if(message)status.scrollIntoView({block:'nearest',behavior:'smooth'});}
+function startCooldown(seconds){clearInterval(coolTimer);cooling=seconds;const tick=()=>{if(cooling<=0){clearInterval(coolTimer);send.textContent=words[3];}else{send.textContent=more.again+' '+cooling+more.sec;}updateControls();};tick();coolTimer=setInterval(()=>{cooling--;tick();},1000);}
 async function action(name,data={}){
  if(!claimId||!canVerify||requestBusy)return;
- if(name==='release'&&!/^[0-9]{6}$/.test(data.code||'')){status.textContent=feedback[0];updateControls();return;}
- requestBusy=true;updateControls();
+ if(name==='release'&&!/^[0-9]{6}$/.test(data.code||'')){setStatus(feedback[0],'error');updateControls();return;}
+ const button=name==='request'?send:verify;let label=button.textContent;
+ requestBusy=true;button.setAttribute('aria-busy','true');button.textContent=name==='request'?more.busySend:more.busyVerify;setStatus('','');updateControls();
+ let ok=false;
  try{
   const r=await fetch('/api/v1/claims/'+encodeURIComponent(claimId)+'?action='+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-  const v=await r.json();
-  if(!r.ok){status.textContent=v.error==='invalid_or_expired_code'?feedback[1]:v.error==='otp_rate_limited'?feedback[2]:feedback[3];return;}
-  if(name==='request'){status.textContent=text.sent;otpInput.value='';otpBoxes.forEach(box=>box.textContent='•');otpInput.focus();}
-  else if(name==='release' && typeof v.cashlink==='string' && /^https:\/\/hub\.nimiq\.com\/cashlink\/#/.test(v.cashlink)){canVerify=false;status.textContent=text.accepted;const button=document.createElement('a');button.className='btn';button.href=v.cashlink;button.rel='noreferrer noopener';button.textContent=text.receive;status.after(button);document.getElementById('wallet-note').textContent='Cashlink unlocked · Mainnet';}
-  else{status.textContent='Claim unavailable.';}
- }catch(e){status.textContent=feedback[3]}
- finally{requestBusy=false;updateControls();}
+  const v=await r.json().catch(()=>({}));
+  if(!r.ok){
+   if(v.error==='wait_before_resend'){setStatus(more.wait,'error');startCooldown(60);}
+   else setStatus(v.error==='invalid_or_expired_code'?feedback[1]:v.error==='otp_rate_limited'?feedback[2]:feedback[3],'error');
+   return;
+  }
+  if(name==='request'){ok=true;setStatus(text.sent,'ok');otpInput.value='';otpBoxes.forEach(box=>box.textContent='•');otpInput.focus();startCooldown(60);}
+  else if(name==='release' && typeof v.cashlink==='string' && /^https:\/\/hub\.nimiq\.com\/cashlink\/#/.test(v.cashlink)){
+   // The same button that verified the code becomes the one that opens the wallet: nothing else is left to press.
+   canVerify=false;receiveUrl=v.cashlink;setStatus(text.accepted,'ok');
+   send.hidden=true;document.getElementById('digits').hidden=true;document.querySelector('label[for="otp"]').hidden=true;
+   verify.textContent=text.receive+' →';label=verify.textContent;
+   document.getElementById('wallet-note').textContent='Cashlink unlocked';}
+  else{setStatus('Claim unavailable.','error');}
+ }catch(e){setStatus(feedback[3],'error')}
+ finally{requestBusy=false;button.removeAttribute('aria-busy');if(name==='request'&&cooling>0){send.textContent=more.again+' '+cooling+more.sec}else{button.textContent=label}updateControls();}
 }
-send.onclick=()=>action('request');verify.onclick=()=>action('release',{code:document.getElementById('otp').value.trim()});
+send.onclick=()=>action('request');verify.onclick=()=>{if(receiveUrl){window.open(receiveUrl,'_blank','noopener,noreferrer');return}return action('release',{code:document.getElementById('otp').value.trim()})};
 </script></body></html>
