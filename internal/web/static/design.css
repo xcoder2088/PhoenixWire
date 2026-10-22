@@ -30,7 +30,7 @@ input,select,textarea{padding:11px 12px;font-size:13px;min-height:44px}.fields{g
 .payment-card[data-currency=USDT_ETHEREUM]{background:#e0f5e9;background-image:linear-gradient(125deg,#def5e6 0%,#e1f5f1 56%,#e9edff 100%);border-color:#b5d9c6;color:#211e49}
 .payment-card[data-currency=USDT0_POLYGON]{background:#eee4fb;background-image:linear-gradient(125deg,#eee4fb 0%,#e5eaff 56%,#f8e8f6 100%);border-color:#cebbea;color:#211e49}
 .card-top{gap:12px;align-items:center;margin-bottom:14px}.card-brand{display:flex;align-items:center;flex:1;min-width:0}.card-brand img{display:block;object-fit:contain;object-position:left center;width:100%;max-width:215px;height:auto;max-height:62px}
-.sample{font-size:8px;letter-spacing:.5px;border:1px solid #d4c7ed;border-radius:20px;background:#fff;color:#6752a2;padding:6px 8px;white-space:nowrap}
+.sample{font-size:10px;letter-spacing:.1px;border:1.5px solid var(--accent);border-radius:20px;background:#fff;color:#3d2f78;padding:7px 9px;white-space:nowrap}
 .payment-card .card-heading{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#7461aa;margin:17px 0 4px}
 .payment-card .card-network{font-size:11px;color:#7461aa;margin:0 0 5px}.payment-card .sum{font-size:40px;line-height:1.3;font-weight:750;margin:6px 0 16px;letter-spacing:-1px}
 .card-content{padding:20px 16px 18px;background:#fff;border:1px solid #fff;border-radius:20px}
@@ -39,7 +39,16 @@ input,select,textarea{padding:11px 12px;font-size:13px;min-height:44px}.fields{g
 .payment-card[data-currency^=USDT] .coin{background:#26a17b;border-radius:50%}.payment-card[data-currency^=USDT] .coin img{border-radius:0;width:86px;height:86px}
 .payment-card .lock{margin:0;padding:0;border:0;font-size:12px;line-height:1.55;color:#49415f}
 .payment-card #card-message{font-size:12px;margin:12px 0 0;line-height:1.5}.card-recipient{font-size:10px;color:#73759c;margin:10px 0 0}
-.card-action{width:auto;max-width:100%;margin:16px auto 0;padding:12px 17px;background:linear-gradient(115deg,var(--accent),var(--accent-end,var(--accent)));color:var(--button-text);border:0;border-radius:12px;font-size:13px;font-weight:700;opacity:1!important;cursor:default!important}
+.card-action{display:block;width:auto;max-width:100%;min-height:44px;margin:18px auto 0;padding:12px 20px;background:color-mix(in srgb,var(--accent) 18%,#fff);color:#211c49;border:1.5px solid var(--accent);border-radius:12px;font-size:13px;font-weight:700;opacity:1!important;cursor:default!important}
+.payment-card[data-currency=NIM]{border-color:var(--card-border,#9fc9eb);background-color:var(--card-bg,#deefff);background-image:linear-gradient(125deg,var(--card-bg,#deefff) 0%,#e2eeff 56%,#ffe8f4 100%)}
+.panel button,.history-row button{border:1px solid var(--accent)}
+#claim-status.ok{color:var(--accent)}#claim-status.error{color:#e36d82}
+.claim-panel{max-width:480px;border:0;background:none;box-shadow:none;padding:20px 12px}
+#claim-card{margin:auto}#claim-form{margin:0}#claim-card label{color:#49415f;margin:16px 0 0}#claim-card input{background:#f5f4fb;border-color:#d3cce4;color:#211e49;margin:0 auto}
+#claim-card #request-claim-code,#claim-card #release-claim{display:block;width:auto;max-width:100%;margin:18px auto 0;min-height:44px;border:1.5px solid var(--accent);background:color-mix(in srgb,var(--accent) 18%,#fff);color:#211c49;padding:12px 17px;font-size:13px}
+#claim-card #claim-status{font-size:12px;line-height:1.5;color:#49415f}#claim-card #claim-status.ok{color:#17664d}#claim-card #claim-status.error{color:#a52b47}
+#claim-iqon{border-radius:16px;margin:0 auto 12px}
+.claim-panel button{transition:filter .15s,transform .08s}.claim-panel button:hover{filter:brightness(1.08)}.claim-panel button:active{transform:translateY(1px)}button[aria-busy=true]{cursor:wait;opacity:.7}
 #my-payments{margin:0;border:0;border-top:1px solid var(--line);border-radius:0;box-shadow:none}
 footer{border:0;margin-top:auto;padding:0 0 20px;font-size:11px}
 @media(max-width:700px){.shell{padding:16px 12px 0;gap:16px}header{flex-direction:column;gap:14px}.brand{max-width:100%;width:230px}.preferences{gap:6px}.intro{padding:18px}.workspace{grid-template-columns:1fr;min-height:0}.workspace>.panel{padding:22px 18px}.preview-area{border-left:0;border-top:1px solid var(--line);padding:28px 18px;min-height:200px}.app-window{border-radius:16px}.notice{padding:10px 18px}.payment-card{max-width:390px}}

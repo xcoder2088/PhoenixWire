@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"html"
 	"io"
 	"net/http"
 	"net/mail"
 	"strings"
 	"time"
+
+	"github.com/xcoder2088/NimiqSecureClaim/service"
+	"github.com/xcoder2088/PhoenixWire/internal/cards"
 )
 
 type Delivery interface {
@@ -31,13 +32,15 @@ func (m MailerSend) Validate() error {
 	return nil
 }
 func (m MailerSend) Send(ctx context.Context, to, code string) error {
-	return m.send(ctx, to, "Phoenix Wire — verify your sender email", "Your Phoenix Wire sender verification code: "+code+"\nExpires in 10 minutes. Never share it.", "<h2>Verify your sender email</h2><p>Your Phoenix Wire code:</p><p style=\"font-size:32px;letter-spacing:6px\">"+html.EscapeString(code)+"</p><p>Expires in 10 minutes. Never share it. Ignore this message if you did not request it.</p>")
+	return (service.MailerSend{APIKey: m.APIKey, From: m.From, BrandName: "Phoenix Wire", Purpose: "sender", Client: m.Client}).Send(ctx, to, code)
 }
 func (m MailerSend) Invite(ctx context.Context, p payment, claimURL string) error {
 	// Recipient gets an opaque claim URL only. No address QR, seed or bearer Cashlink.
-	plain := fmt.Sprintf("%s sent you %s NIM with Phoenix Wire.\n%s\nOpen your protected payment: %s\nYou will receive a verification code at this email address.\nPowered by Phoenix Mail", p.Sender, p.Amount, p.Message, claimURL)
-	body := `<h1 style="color:#d66720;margin:0 0 20px">Phoenix Wire</h1><p>` + html.EscapeString(p.Sender) + `</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:30px 20px;background:#eee7ff;border-radius:18px;color:#392e55"><strong style="font-size:32px">` + html.EscapeString(p.Amount) + ` NIM</strong><p>` + html.EscapeString(p.Message) + `</p><a style="display:inline-block;padding:12px 20px;background:#d66720;color:#fff;border-radius:9px;text-decoration:none" href="` + html.EscapeString(claimURL) + `">Open protected payment</a><p>A code will be sent to your email to unlock this payment.</p></td></tr></table><p style="font-size:12px">Powered by Phoenix Mail</p>`
-	return m.send(ctx, p.Recipient, "Phoenix Wire — a protected Nimiq payment", plain, body)
+	subject, plain, body, err := cards.Invitation(p.Sender, cards.ProtectedCashlinkCard{ClaimID: p.ID, ClaimURL: claimURL, Amount: p.Amount, Network: "mainnet", Message: p.Message, Address: p.Address}, p.Language, p.Nimicon)
+	if err != nil {
+		return err
+	}
+	return m.send(ctx, p.Recipient, subject, plain, body)
 }
 func (m MailerSend) send(ctx context.Context, to, subject, plain, body string) error {
 	if err := m.Validate(); err != nil {
@@ -47,14 +50,14 @@ func (m MailerSend) send(ctx context.Context, to, subject, plain, body string) e
 	if err != nil || a.Address != to {
 		return errors.New("invalid_recipient")
 	}
-	wrapped := `<!doctype html><html><body style="margin:0;background:#f4f2fa;font:16px Arial,sans-serif;color:#292044"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 16px"><table role="presentation" width="100%" style="max-width:520px;background:white;border-radius:18px"><tr><td style="padding:28px 24px;line-height:1.6">` + body + `</td></tr></table></td></tr></table></body></html>`
-	payload, _ := json.Marshal(map[string]any{"from": map[string]string{"email": m.From, "name": "Phoenix Wire"}, "to": []map[string]string{{"email": to}}, "subject": subject, "text": plain, "html": wrapped})
+	payload, _ := json.Marshal(map[string]any{"from": map[string]string{"email": m.From, "name": "Phoenix Wire"}, "to": []map[string]string{{"email": to}}, "subject": subject, "text": plain, "html": body, "settings": map[string]bool{"track_opens": false, "track_clicks": false, "track_content": false}})
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.mailersend.com/v1/email", bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+m.APIKey)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "PhoenixWire/0.3.0")
 	client := m.Client
 	if client == nil {
 		client = &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}

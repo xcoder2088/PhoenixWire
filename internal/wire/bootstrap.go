@@ -39,6 +39,9 @@ func FromEnv() (*API, func(), error) {
 	if custom := os.Getenv("PHOENIXWIRE_CONFIG_DIR"); custom != "" {
 		configDir = custom
 	}
+	if err = separateWireDirectories(configDir, stateDir); err != nil {
+		return nil, nil, err
+	}
 	// Configuration holds key material and is separate from the state backup.
 	if err = os.MkdirAll(configDir, 0700); err != nil {
 		return nil, nil, err

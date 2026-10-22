@@ -3,13 +3,16 @@
 ## Startup
 
 Run ./run-local.sh in one terminal. It runs the UI, gateway and SecureClaim engine
-in one process on 127.0.0.1:8788. The legacy engine CLI is not needed alongside Wire.
+in one process on 127.0.0.1:8790. The legacy engine CLI is not needed alongside Wire.
 Never launch two processes over the same state.
 
 The optional environment file is ~/.config/phoenixwire/local.env, owner-only 0600.
-Follow .env.example and supply the real MailerSend credentials, a trusted Mainnet
+Follow .env.example and supply the real MailerSend credentials, a trusted Nimiq
 RPC and the exact Wire public origin. PHOENIXWIRE_ENABLE_PAYMENTS=1 explicitly
 enables the integration. Missing configuration stops startup; credentials are not logged.
+If you already have a local environment file using 8788, update its
+`PHOENIXWIRE_PUBLIC_URL` to `http://127.0.0.1:8790` (and any explicit
+`PHOENIXWIRE_ADDR`), retaining the original keys and state directories.
 
 The master key is generated once at ~/.config/phoenixwire/master.key (0600).
 State lives under ~/.local/share/phoenixwire/state/, in private engine/gateway
@@ -26,7 +29,7 @@ concurrent writers fail closed. Previous PhoenixMail/SecureClaim state is not mo
 4. After confirmation, verify receipt of the pastel card email.
 5. Open its opaque link: no claimable QR or wallet bearer link should appear.
 6. Request the recipient code. Invalid/incomplete codes must not expose a wallet link.
-7. Enter a valid code and use Receive in my wallet; verify wallet receipt.
+7. Enter a valid code; the same button becomes Receive my NIM in Nimiq. Verify wallet receipt.
 8. Check sender recovery with an unclaimed payment and confirm it cannot be spent twice.
 
 Use an explicitly approved small amount for the first live check. Automated tests
@@ -44,7 +47,8 @@ claim, with a one-minute cooldown and maximum five delivery attempts. Re-verifyi
 the sender email restores history on another device. Recovery opens the original
 Cashlink; it is not an automatic refund and only works while funds are unspent.
 
-OTP codes expire after 10 minutes with five guesses and resend limits. Recipient
+Email codes expire after 10 minutes, with five guesses and eight requests per
+15-minute window. Requesting another code requires a 20-second wait. Recipient
 claims expire after 24 hours; the authenticated sender recovery path remains separate.
 
 ## Remote testing and remaining constraints
@@ -59,5 +63,9 @@ refunds, EVM escrow and production-scale abuse protection are not implemented.
 Do not trust forwarded IP headers without a reviewed reverse-proxy configuration.
 The embedded durable engine currently requires Linux filesystem locks.
 
-The UI supports five languages. Delivery templates currently use English. Full
-recipient-language email templates and live desktop/mobile browser QA remain.
+The UI, invitations and verification templates support five languages. The sender's
+selected language is retained with the immutable payment for recipient emails.
+Official Nimicon artwork is rasterized in the browser, validated and re-encoded
+server-side, then persisted privately before checkout. It is decorative, never
+proof of a payment. The opaque invitation is sent only after funding confirmation.
+See DEPLOYMENT.md for the separate keys, tunnel ingress and pending live acceptance.

@@ -9,6 +9,7 @@ branch="$(git -C "$src" branch --show-current)"
 [[ "$branch" == "main" ]] || { echo "NimiqSecureClaim must be on main (is on '$branch')" >&2; exit 1; }
 git -C "$src" diff --quiet && git -C "$src" diff --cached --quiet || { echo "NimiqSecureClaim has uncommitted changes" >&2; exit 1; }
 files=(internal/otp/mailer.go internal/otp/mailer_test.go internal/otp/challenge.go internal/otp/challenge_test.go
+       internal/otp/mail_language.go internal/otp/mail_language_test.go
        internal/otp/assets/phoenixmail-email-icon.png web/index.html web/tests/claim.test.cjs)
 for f in "${files[@]}"; do mkdir -p "$here/engine/secureclaim/$(dirname "$f")"; cp "$src/$f" "$here/engine/secureclaim/$f"; done
 echo "Mirrored NimiqSecureClaim $(git -C "$src" rev-parse --short HEAD) into engine/secureclaim"

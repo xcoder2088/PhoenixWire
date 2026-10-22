@@ -3,7 +3,7 @@
 **Rapide. Simple. Sécuritaire.** — Powered by Phoenix Mail.
 
 Lightweight email payment cards with no account or password. Verify the sender's
-email, approve a Nimiq wallet payment, and email an OTP-protected card. The existing
+email, approve a Nimiq wallet payment, and email a protected card. The existing
 SecureClaim engine is embedded in the same Go process.
 
 ## Start locally
@@ -14,13 +14,13 @@ Requires Go 1.22+. No npm installation is needed to run the application.
 ./run-local.sh
 ```
 
-Open http://127.0.0.1:8788. One terminal; Ctrl+C stops the application.
+Open http://127.0.0.1:8790. One terminal; Ctrl+C stops the application.
 Without payment configuration this starts the independent card preview.
-PhoenixMail keeps its port 8787.
+PhoenixMail's existing ports remain available, including the hosted service on 8788.
 
 To enable the integration, create an owner-only environment file at
 `~/.config/phoenixwire/local.env` (0600), following `.env.example`.
-Use the real existing MailerSend credentials and a trusted Nimiq Mainnet RPC.
+Use the real existing MailerSend credentials and a trusted Nimiq RPC.
 Then run the same command. See [local testing](docs/LOCAL-TESTING.md).
 
 ## Included
@@ -33,12 +33,14 @@ Then run the same command. See [local testing](docs/LOCAL-TESTING.md).
 - Durable idempotent intents: a started checkout is never automatically restarted.
 - Funding confirmation through the existing SecureClaim verifier.
 - Real MailerSend invitations containing only an opaque protected claim link.
-- Existing recipient OTP verification, official Nimicon and post-OTP wallet link.
+- Existing recipient email verification, official Nimicon and a wallet link after verification.
+- PhoenixMail's mirrored pastel renderer, centered linked footer and untracked email delivery.
 - Sender history/recovery; email retry reuses the existing funded payment.
 
 Only NIM can be sent after explicit local configuration. USDT Ethereum / USDT0
-Polygon remain visual previews. Live email/wallet E2E and browser visual QA still
-need validation. No production service has been deployed.
+Polygon remain visual previews. Real email/wallet acceptance with **1 NIM** still
+needs validation; browser and automated checks use fixtures. No production service
+has been deployed. See [hosting and acceptance](docs/DEPLOYMENT.md).
 
 ## Validate
 
@@ -51,7 +53,7 @@ node --test tests/*.test.mjs engine/secureclaim/web/tests/*.test.cjs
 ```
 
 Integration tests run the real embedded engine with explicit local RPC/mail fixtures.
-They do not send real email or spend money. Tests cover OTP gating/replay, restarts,
+They do not send real email or spend money. Tests cover code gating/replay, restarts,
 sender identity, immutable recipients, duplicate checkout blocking, email failure,
 ownership and encrypted state. JSDOM tests exercise the actual flow UI.
 
@@ -64,4 +66,4 @@ ownership and encrypted state. JSDOM tests exercise the actual flow UI.
 - [Architecture](docs/ARCHITECTURE.md), [import provenance](docs/SECURECLAIM-IMPORT.md).
 
 MIT for original code; third-party licenses are retained. PhoenixMail's licensing is
-unchanged. Work branch only; no workflows or automatic deployments.
+unchanged. Development on `main`; commits use `[skip ci]`, without workflows or PRs.

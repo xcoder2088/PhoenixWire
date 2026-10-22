@@ -6,5 +6,12 @@ es:['Verificar mi correo','Código de seis dígitos','Confirmar código','Cambia
 de:['Meine E-Mail bestätigen','Sechsstelliger Code','Code bestätigen','Absender wechseln','Meine Sendungen und Rückholung','Neue Karte','Deine geschützte Zahlung','Code per E-Mail erhalten','Zahlung freigeben','In meiner Wallet empfangen','Bezahlen und Karte senden','Bestätige zuerst deine E-Mail.','Code gesendet. Prüfe deinen Posteingang.','E-Mail bestätigt','Wird verarbeitet…','Konfiguriere den Dienst, um Zahlungen zu senden.','Finanzierung ausstehend. Aktualisieren startet keine zweite Zahlung.','Karte gesendet','Aktualisieren','E-Mail erneut senden','Guthaben zurückholen','Von','Der Einlösezeitraum ist abgelaufen. Kontaktiere den Absender.','Ungültiger oder abgelaufener Code. Fordere einen neuen an.','Vorgang fehlgeschlagen. Prüfen und erneut versuchen.','Finanzierung gestartet','Bereit zur Finanzierung','E-Mail-Versand prüfen','E-Mail nicht gesendet','Finanzierung bestätigt','Vorbereitung','Der Empfänger gibt die Zahlung mit einem E-Mail-Code frei.','Durch E-Mail-Code geschützt','Nur Nimiq-Zahlungen. USDT-Karten bleiben Vorschauen.','Wallet-Ergebnis unklar. Prüfe zuerst die Finanzierung.'],
 zh:['验证我的邮箱','六位验证码','确认验证码','更换发件人','我的发送与资金恢复','新建卡片','您的受保护付款','通过邮件获取验证码','解锁付款','接收到我的钱包','付款并发送卡片','请先验证您的邮箱。','验证码已发送，请查收。','邮箱已验证','正在处理…','请配置服务以启用发送功能。','等待资金确认。刷新不会发起第二次付款。','卡片已发送','刷新','重新发送邮件','取回资金','来自','领取期限已过，请联系发件人。','验证码无效或已过期，请重新获取。','无法完成，请检查后重试。','已开始注资','准备付款','请检查邮件发送结果','邮件未发送','资金已确认','正在准备','收款人使用发送到其邮箱的验证码解锁付款。','邮件验证码保护','目前仅支持 Nimiq 发送。USDT 卡片仅供预览。','钱包结果不确定，请先刷新资金状态。']
 };
-export function flowText(language,key){const row=rows[language]||rows.en;return row[keys.indexOf(key)]||key;}
+const claimWords={
+ fr:{receive:'Recevoir mes NIM dans Nimiq →',resendIn:'Renvoyer dans',waitCode:'Patientez avant de demander un autre code.',accepted:'Code accepté. Vous pouvez recevoir vos NIM.'},
+ en:{receive:'Receive my NIM in Nimiq →',resendIn:'Send again in',waitCode:'Please wait before requesting another code.',accepted:'Code accepted. You can receive your NIM.'},
+ es:{receive:'Recibir mis NIM en Nimiq →',resendIn:'Reenviar en',waitCode:'Espera antes de solicitar otro código.',accepted:'Código aceptado. Ya puedes recibir tus NIM.'},
+ de:{receive:'Meine NIM in Nimiq empfangen →',resendIn:'Erneut senden in',waitCode:'Warte, bevor du einen weiteren Code anforderst.',accepted:'Code bestätigt. Du kannst deine NIM empfangen.'},
+ zh:{receive:'在 Nimiq 中领取我的 NIM →',resendIn:'重新发送倒计时',waitCode:'请稍候再请求验证码。',accepted:'验证成功，可以领取您的 NIM。'}
+};
+export function flowText(language,key){const row=rows[language]||rows.en;return (claimWords[language]||claimWords.en)[key]||row[keys.indexOf(key)]||key;}
 export const flowLanguages=Object.keys(rows);

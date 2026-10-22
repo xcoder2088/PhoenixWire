@@ -2,6 +2,7 @@ package wire
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/xcoder2088/NimiqSecureClaim/service"
+	"github.com/xcoder2088/PhoenixWire/internal/cards"
 )
 
 type Engine interface {
@@ -232,11 +234,35 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	p := saved.Payment
 	p.LastDelivery = saved.LastDelivery
 	p.Deliveries = saved.Deliveries
+	p.Nimicon = saved.Nimicon
 	if !found || p.Sender != s.Email {
 		failure(w, 404, "not_found")
 		return
 	}
 	switch parts[1] {
+	case "art":
+		var input struct {
+			PNG string `json:"png"`
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 95000)
+		d := json.NewDecoder(r.Body)
+		d.DisallowUnknownFields()
+		if d.Decode(&input) != nil || d.Decode(new(any)) != io.EOF {
+			failure(w, 400, "invalid_nimicon")
+			return
+		}
+		image, err := cards.CleanNimicon(input.PNG)
+		if err != nil || p.Address == "" {
+			failure(w, 400, "invalid_nimicon")
+			return
+		}
+		if p.Nimicon == "" {
+			p.Nimicon = base64.StdEncoding.EncodeToString(image)
+			if !a.savePayment(w, p) {
+				return
+			}
+		}
+		respond(w, 200, map[string]bool{"saved": true})
 	case "prepare":
 		if p.Stage != "preparing" {
 			respond(w, 200, map[string]any{"payment": p})
@@ -285,7 +311,8 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 }
 func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Email string `json:"email"`
+		Email    string `json:"email"`
+		Language string `json:"language"`
 	}
 	if decode(w, r, &input) != nil {
 		failure(w, 400, "invalid_email")
@@ -333,7 +360,7 @@ func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
 	}
 	// Per-email persistent counters cannot be bypassed by changing cookies.
 	challenge := hex.EncodeToString(digest(a.master, "sender:"+to))
-	if err = a.otp.IssueClaim(r.Context(), challenge, to); err != nil {
+	if err = a.otp.IssueClaim(service.WithEmailLanguage(r.Context(), cards.Language(input.Language)), challenge, to); err != nil {
 		status := 502
 		if errors.Is(err, service.ErrOTPRateLimited) {
 			status = 429
@@ -381,7 +408,7 @@ func (a *API) verifySender(w http.ResponseWriter, r *http.Request) {
 	respond(w, 200, map[string]any{"verified": true, "email": s.Email})
 }
 func (a *API) savePayment(w http.ResponseWriter, p payment) bool {
-	a.db.state.Payments[p.ID] = savedPayment{p, p.LastDelivery, p.Deliveries}
+	a.db.state.Payments[p.ID] = savedPayment{Payment: p, LastDelivery: p.LastDelivery, Deliveries: p.Deliveries, Nimicon: p.Nimicon}
 	if a.db.save() != nil {
 		failure(w, 503, "state_unavailable")
 		return false
@@ -549,7 +576,7 @@ func (a *API) claim(w http.ResponseWriter, r *http.Request) {
 		r.Body = io.NopCloser(strings.NewReader(string(raw)))
 	}
 	// Route only public request/release to the original, audited OTP handler.
-	clone := r.Clone(r.Context())
+	clone := r.Clone(service.WithEmailLanguage(r.Context(), cards.Language(p.Language)))
 	u := *r.URL
 	clone.URL = &u
 	clone.URL.Path = "/api/v1/claims/" + p.ID

@@ -1,4 +1,19 @@
+import {cardWords,cardPalettes} from './card-mirror.js?v=0.3.0';
 export const supportedLanguages = Object.freeze(['fr', 'en', 'es', 'de', 'zh']);
+
+export function cardPresentation(language,id='00') {
+ const words=cardWords[language]||cardWords.en;
+ const first=/^[a-f0-9]{2}/i.test(id)?parseInt(id.slice(0,2),16):0;
+ const [background,border]=cardPalettes[first%cardPalettes.length];
+ return {heading:words[0],action:words[1],locked:words[2],protected:words[3],background,border};
+}
+
+export function paintCard(element,language,id='00') {
+ const p=cardPresentation(language,id);
+ element.style.setProperty('--card-bg',p.background);
+ element.style.setProperty('--card-border',p.border);
+ return p;
+}
 
 // Match PhoenixMail's locale precedence, including regional tags and English fallback.
 export function resolveLanguage(preference, languages) {

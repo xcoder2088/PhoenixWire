@@ -1,0 +1,4 @@
+# Insert BEFORE the existing catch-all; preserve mail/ai/claim entries.
+# Use the existing tunnel and credentials. Do not create a second tunnel.
+- hostname: wire.phoenixmail.ca
+  service: http://127.0.0.1:8790

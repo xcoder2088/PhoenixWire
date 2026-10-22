@@ -33,6 +33,7 @@ type payment struct {
 	Created      time.Time `json:"created"`
 	LastDelivery time.Time `json:"-"`
 	Deliveries   int       `json:"-"`
+	Nimicon      string    `json:"-"`
 }
 
 // Internal snapshot fields for delivery counters must persist across restart.
@@ -40,6 +41,7 @@ type savedPayment struct {
 	Payment      payment
 	LastDelivery time.Time
 	Deliveries   int
+	Nimicon      string
 }
 type rate struct {
 	Until time.Time

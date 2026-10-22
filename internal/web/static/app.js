@@ -1,4 +1,4 @@
-import { assets, previewAmount, resolveLanguage } from './model.js?v=0.2.2';
+import { assets, previewAmount, resolveLanguage,cardPresentation,paintCard } from './model.js?v=0.3.0';
 
 const messages = {
   fr: ['Clair / sombre','Un paiement. Un courriel.','Créez une carte, envoyez un paiement. Simplement.','Aperçu local : aucun paiement ni courriel n’est envoyé.','Votre carte de paiement','Votre courriel','Courriel du destinataire','Monnaie','Montant','Petit mot (facultatif)','Le parcours prévu déverrouillera le paiement après vérification du courriel par code à six chiffres.','Prévisualiser la carte','Aperçu de la carte','MAQUETTE','Code par courriel · parcours à intégrer','Pas de QR réclamable, de clé ou de fonds dans cet aperçu.','Aperçu mis à jour. Aucun envoi effectué.','Montant invalide ou trop de décimales.'],
@@ -19,7 +19,7 @@ const cardLabels = {
  de:{emptyPreview:'Erstelle eine Karte für die Vorschau.',cardHeading:'Geschützte Zahlung',cardAction:'Code bestätigen',locked:'Ein E-Mail-Code gibt diese Zahlung frei.'},
  zh:{emptyPreview:'创建卡片以查看预览。',cardHeading:'受保护的付款',cardAction:'验证我的验证码',locked:'使用邮件验证码解锁此付款。'}
 };
-function t(key) { return cardLabels[lang][key] || (key === 'subtitle' ? slogans[lang] : key === 'automatic' ? automaticLabels[lang] : messages[lang][keys.indexOf(key)]); }
+function t(key) { const c=cardPresentation(lang);return ({cardHeading:'Nimiq · '+c.heading,cardAction:c.action,locked:c.locked,protected:c.protected})[key]||cardLabels[lang][key] || (key === 'subtitle' ? slogans[lang] : key === 'automatic' ? automaticLabels[lang] : messages[lang][keys.indexOf(key)]); }
 function readPreference(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function savePreference(key, value) { try { localStorage.setItem(key, value); } catch { /* Storage may be unavailable in embedded browsers. */ } }
 let languagePreference = readPreference('wire-language', 'auto');
@@ -62,14 +62,16 @@ function renderCard(amount) {
   const id = $('currency').value;
   const asset = assets[id];
   $('payment-card').dataset.currency = id;
+  paintCard($('payment-card'),lang,'00');
   $('coin').textContent = '';
   const image=document.createElement('img');image.width=image.height=80;
-  image.src=id==='NIM'?'/brand/nimiq-logo.svg?v=0.2.2':'/brand/usdt.svg?v=0.2.2';
+  image.src=id==='NIM'?'/brand/nimiq-logo.svg?v=0.3.0':'/brand/usdt.svg?v=0.3.0';
   image.alt=id==='NIM'?'Nimiq Nimicon':'Tether USDT';$('coin').append(image);
   // An illustrative public address only; this preview has no seed or funding intent.
   if(id==='NIM')globalThis.PhoenixNimiqIdenticons?.paint(image,'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');
   $('card-unit').textContent = asset.unit;
   $('card-network').textContent = asset.network;
+  $('card-network').hidden = id==='NIM';
   $('card-amount').textContent = amount;
   // User content is text only. Emails and messages are never stored or transmitted.
   $('card-recipient').textContent = $('recipient').value;

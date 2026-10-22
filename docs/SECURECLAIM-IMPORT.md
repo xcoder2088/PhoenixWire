@@ -34,7 +34,7 @@ grant trademark rights or relicense the rest of PhoenixMail.
 ## Important behavior preserved
 
 This is a source import, not a payment integration or production approval. The source
-branch already contains Mainnet-specific support. Nothing in this import enables it
+branch already contains live-network support. Nothing in this import enables it
 in the Phoenix Wire UI, starts the service, funds a wallet or copies live state.
 
 Historical Testnet notes and an old deployment template are preserved as source
@@ -43,7 +43,7 @@ The upstream README's current integration section takes precedence over its clea
 labeled historical notes. Do not run deployment templates without review.
 
 The OTP-before-vault-decrypt audit fix is included. Remaining known constraints include
-trust in one public Mainnet RPC, a 50-transaction scan window, sender recovery rather
+trust in one public Nimiq RPC, a 50-transaction scan window, sender recovery rather
 than automatic refunds, and lack of independently validated real email/wallet E2E.
 Keep these visible when designing the future shared API.
 
@@ -56,6 +56,8 @@ or access settings. Making any repository private later cannot revoke MIT rights
 already granted for copies distributed under that license.
 
 ## Sync log (engine/secureclaim is a mirror of NimiqSecureClaim `main`, not a fork)
+
+- **2026-10-22 — NimiqSecureClaim `addff7a65d7b4ebb038bd17c1eae5ecf07e086dd`**: shared sender/recipient verification template in FR/EN/ES/DE/ZH. Mirrored `internal/otp/mailer.go`, `mail_language.go`, `mail_language_test.go` after upstream Go race/vet and JS tests passed. Legacy default English claim email remains unchanged. Wire's service adapter exports the language context; the shared files remain exact upstream copies.
 
 - **2026-10-22 — NimiqSecureClaim `89bc070`** (by the maintainer, at the owner's request). Mirrored: `internal/otp/{mailer.go,mailer_test.go,challenge.go,challenge_test.go}`,
   `internal/otp/assets/phoenixmail-email-icon.png`, `web/index.html`, `web/tests/claim.test.cjs`. What this brings: claim page with visible feedback (hover/press/busy,

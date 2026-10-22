@@ -25,6 +25,7 @@ type testDelivery struct {
 	invites  int
 	fail     bool
 	lastLink string
+	lastArt  string
 }
 
 func (m *testDelivery) Send(_ context.Context, to, code string) error {
@@ -38,6 +39,7 @@ func (m *testDelivery) Invite(_ context.Context, p payment, link string) error {
 	defer m.mu.Unlock()
 	m.invites++
 	m.lastLink = link
+	m.lastArt = p.Nimicon
 	if m.fail {
 		return errors.New("fixture_delivery_failure")
 	}
@@ -182,6 +184,17 @@ func TestCompleteWireFlowWithRealEngineAndRestart(t *testing.T) {
 	}
 	f.cookie = owner
 	p := f.create()
+	art := testNimicon(t)
+	if w := f.call("POST", "/api/payments/"+p.ID+"/art", map[string]string{"png": base64.StdEncoding.EncodeToString([]byte(`<svg onload="bad()"/>`))}); w.Code != 400 {
+		t.Fatal("non-raster artwork accepted")
+	}
+	good(f.call("POST", "/api/payments/"+p.ID+"/art", map[string]string{"png": art}), t)
+	ownerCookie := f.cookie
+	f.cookie = nil
+	if w := f.call("POST", "/api/payments/"+p.ID+"/art", map[string]string{"png": art}); w.Code != 401 {
+		t.Fatal("anonymous artwork mutation")
+	}
+	f.cookie = ownerCookie
 	same := f.create()
 	if p.ID != same.ID || p.Address != same.Address {
 		t.Fatal("idempotent create changed funding")
@@ -212,6 +225,9 @@ func TestCompleteWireFlowWithRealEngineAndRestart(t *testing.T) {
 	}
 	f.restart()
 	good(f.call("GET", "/api/session", nil), t)
+	if f.api.db.state.Payments[p.ID].Nimicon == "" {
+		t.Fatal("artwork lost on restart")
+	}
 	if w := f.call("POST", "/api/payments/"+p.ID+"/start", map[string]string{}); w.Code != 409 {
 		t.Fatal("restart permitted a second funding")
 	}
@@ -222,6 +238,9 @@ func TestCompleteWireFlowWithRealEngineAndRestart(t *testing.T) {
 	good(f.call("POST", "/api/payments/"+p.ID+"/confirm", map[string]string{}), t)
 	if f.mail.invites != 1 || strings.Contains(f.mail.lastLink, "cashlink") || !strings.HasSuffix(f.mail.lastLink, "?claim="+p.ID) {
 		t.Fatal("invalid card delivery")
+	}
+	if f.mail.lastArt == "" {
+		t.Fatal("invitation has no persisted Nimicon")
 	}
 	public := f.call("GET", "/api/claims/"+p.ID, nil)
 	good(public, t)

@@ -17,7 +17,7 @@ import (
 func main() {
 	addr := os.Getenv("PHOENIXWIRE_ADDR")
 	if addr == "" {
-		addr = "127.0.0.1:8788"
+		addr = "127.0.0.1:8790"
 	}
 	api, closeServices, err := wire.FromEnv()
 	if err != nil {

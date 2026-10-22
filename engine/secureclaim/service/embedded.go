@@ -31,6 +31,10 @@ type Config struct {
 type Claim = claim.Public
 type MailerSend = otp.MailerSend
 
+func WithEmailLanguage(ctx context.Context, language string) context.Context {
+	return otp.WithEmailLanguage(ctx, language)
+}
+
 var ErrOTPRateLimited = otp.ErrRateLimited
 
 func LockDirectory(path string) (func(), error) { return lockPrivateState(path) }

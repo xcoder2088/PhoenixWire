@@ -40,7 +40,9 @@ type MailerSend struct {
 	// BrandName is the product shown as sender, in the subject and in the header ("PhoenixMail" when empty, "Phoenix Wire" for
 	// PhoenixWire). A name starting with "Phoenix" is written like the cards: "Phoenix" in navy, the rest in orange.
 	BrandName string
-	Client    *http.Client
+	// Purpose "sender" uses the same email template for Wire's sender sign-in.
+	Purpose string
+	Client  *http.Client
 }
 
 func (m MailerSend) brand() (name, first, second string) {
@@ -79,6 +81,16 @@ func (m MailerSend) Send(ctx context.Context, to, code string) error {
 		}
 		return `<span style="color:#f39043">` + html.EscapeString(brandSecond) + `</span>`
 	}() + `</a></td></tr></table><h2 style="margin:0 0 20px;font-size:20px">Your protected Nimiq payment</h2><p style="margin:0 0 16px">Enter this verification code on the claim page to unlock your payment:</p><table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td align="center" style="padding:20px 12px;background:#eee7ff;border-radius:12px;font-size:32px;font-weight:bold;letter-spacing:6px;color:#583b92">` + html.EscapeString(code) + `</td></tr></table><p style="margin:20px 0 16px">Expires in 10 minutes. Do not share this code.</p><p style="margin:0;color:#626477">If you did not request this code, ignore this email.</p></td></tr></table></td></tr></table></body></html>`
+	lang, words := mailWords(ctx, m.Purpose == "sender")
+	if lang != "en" || m.Purpose == "sender" {
+		body = strings.NewReplacer(`<html lang="en">`, `<html lang="`+lang+`">`,
+			"Your protected Nimiq payment", html.EscapeString(words[2]),
+			"Enter this verification code on the claim page to unlock your payment:", html.EscapeString(words[3]),
+			"Expires in 10 minutes. Do not share this code.", html.EscapeString(words[4]),
+			"If you did not request this code, ignore this email.", html.EscapeString(words[5])).Replace(body)
+		subject = fmt.Sprintf(words[0], brand)
+		plain = fmt.Sprintf(words[1], brand, code) + "\n" + words[4] + "\n" + words[5] + "\n"
+	}
 	payload, err := json.Marshal(map[string]any{
 		"from":     map[string]string{"email": m.From, "name": brand},
 		"to":       []map[string]string{{"email": to}},

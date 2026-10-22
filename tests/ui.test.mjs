@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { assets, previewAmount, resolveLanguage } from '../internal/web/static/model.js';
+import { assets, previewAmount, resolveLanguage,cardPresentation,paintCard } from '../internal/web/static/model.js';
 
 // Dependency-free DOM contract harness. Real browser visual QA remains a release task.
 function start({ storageUnavailable = false, languages = ['fr-CA'], language = 'fr-CA', savedLanguage } = {}) {
@@ -10,7 +10,7 @@ function start({ storageUnavailable = false, languages = ['fr-CA'], language = '
   const nodes = new Map();
   const translations = [];
   for (const match of html.matchAll(/data-i18n="([^"]+)"/g)) translations.push({ dataset: { i18n: match[1] }, textContent: '' });
-  for (const match of html.matchAll(/id="([^"]+)"/g)) nodes.set(match[1], { value: '', dataset: {}, textContent: '', handlers: {}, append(child){this.child=child;},addEventListener(event, fn) { this.handlers[event] = fn; } });
+  for (const match of html.matchAll(/id="([^"]+)"/g)) nodes.set(match[1], { value: '', dataset: {},style:{setProperty(){}}, textContent: '', handlers: {}, append(child){this.child=child;},addEventListener(event, fn) { this.handlers[event] = fn; } });
   nodes.get('currency').value = 'NIM';
   nodes.get('amount').value = '25';
   const document = { documentElement: { dataset: {} },createElement(){return {};}, getElementById(id) { return nodes.get(id); }, querySelectorAll() { return translations; } };
@@ -18,7 +18,7 @@ function start({ storageUnavailable = false, languages = ['fr-CA'], language = '
   if (savedLanguage) stored.set('wire-language', savedLanguage);
   const localStorage = { getItem(k) { if (storageUnavailable) throw Error('unavailable'); return stored.get(k); }, setItem(k,v) { if (storageUnavailable) throw Error('unavailable'); stored.set(k,v); } };
   const source = readFileSync(new URL('../internal/web/static/app.js', import.meta.url), 'utf8').replace(/^import[^\n]+\n/, '');
-  vm.runInNewContext(source, { document, localStorage, assets, previewAmount, resolveLanguage, navigator: { languages, language } });
+  vm.runInNewContext(source, { document, localStorage, assets, previewAmount, resolveLanguage,cardPresentation,paintCard, navigator: { languages, language } });
   const event = (id, name, value) => { const node = nodes.get(id); if (value !== undefined) node.value = value; node.handlers[name]({ target: node, preventDefault() {} }); };
   return { document, nodes, translations, stored, event };
 }

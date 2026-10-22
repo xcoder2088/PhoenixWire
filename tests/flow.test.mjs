@@ -4,17 +4,18 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { JSDOM } from 'jsdom';
 import { flowText, flowLanguages } from '../internal/web/static/flow-text.js';
-import { addressValid } from '../internal/web/static/model.js';
+import { addressValid,cardPresentation,paintCard } from '../internal/web/static/model.js';
 
 const id='a'.repeat(48);
 const address='NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function settle(){for(let i=0;i<12;i++)await tick();}
-async function start({claim=false,verified=true,pending=false,mobile=false}={}){
+async function start({claim=false,verified=true,pending=false,mobile=false,returning=false,expired=false}={}){
  const dom=new JSDOM(fs.readFileSync(new URL('../internal/web/static/index.html',import.meta.url),'utf8'),{url:'https://wire.example.test/'+(claim?'?claim='+id:''),runScripts:'outside-only'});
  const {window}=dom;window.document.documentElement.lang='en';
+ if(returning){window.sessionStorage.setItem('wire-pending-payment',id);window.sessionStorage.setItem('wire-form',JSON.stringify({payment:id,message:'Hi',amount:'2.5',recipient:'recipient@example.test'}));}
  if(mobile)Object.defineProperty(window.navigator,'userAgent',{value:'iPhone'});
- const calls=[],checkouts=[],behaviors=[];
+ const calls=[],checkouts=[],behaviors=[],opened=[],referrers=[];
  let validOTP=false,deliveryVerified=verified;
  const p={id,sender:'sender@example.test',recipient:'recipient@example.test',amount:'2.5',luna:250000,message:'Hi',address,stage:pending?'funding_started':'ready'};
  let payments=pending?[p]:[];
@@ -27,31 +28,33 @@ async function start({claim=false,verified=true,pending=false,mobile=false}={}){
   if(path==='/api/payments'){payments=[p];return response(201,{payment:p});}
   if(path.endsWith('/start')){p.stage='funding_started';return response(200,{payment:p,checkout:{appName:'Phoenix Wire',recipient:address,value:250000,recipientData:[0,130,128,146,135]}});}
   if(path.endsWith('/confirm')){p.stage='sent';return response(200,{payment:p});}
+  if(path.endsWith('/art'))return response(200,{saved:true});
   if(path==='/api/sender/request')return response(200,{sent:true});
   if(path==='/api/sender/verify'){deliveryVerified=true;return response(200,{email:p.sender,verified:true});}
-  if(path==='/api/claims/'+id)return response(200,{...p,expires_at:new Date(Date.now()+3600000).toISOString()});
+  if(path==='/api/claims/'+id)return response(200,{...p,expires_at:new Date(Date.now()+(expired?-3600000:3600000)).toISOString()});
   if(path.endsWith('/request'))return response(200,{sent:true});
   if(path.endsWith('/release'))return validOTP?response(200,{cashlink:'https://hub.nimiq.com/cashlink/#'+Buffer.alloc(40,5).toString('base64url')}):response(403,{error:'invalid_or_expired_code'});
   throw Error('unexpected API '+path);
  };
  const popup={closed:false,close(){this.closed=true;}};
- window.open=()=>popup;
+ window.open=(url)=>{opened.push(url);return popup;};
  class Hub{
   constructor(endpoint,behavior){assert.equal(endpoint,'https://hub.nimiq.com');this.behavior=behavior;}
-  async checkout(request){checkouts.push(request);return{hash:'f'.repeat(64)};}
-  on(){}
-  async checkRedirectResponse(){}
+  async checkout(request){referrers.push(Array.from(window.document.querySelectorAll('meta[name=referrer]')).at(-1)?.content);checkouts.push(request);return{hash:'f'.repeat(64)};}
+  on(type,success){this.callback=success;}
+  async checkRedirectResponse(){if(returning)await this.callback();}
  }
  Hub.PopupRequestBehavior=class{constructor(){}};
+ Hub.RequestType={CHECKOUT:'checkout'};
  Hub.RedirectRequestBehavior=class{constructor(url,state){behaviors.push({url,state});}};
  window.HubApi=Hub;
- window.PhoenixNimiqIdenticons={paint(image){image.hidden=false;image.src='data:image/png;base64,test';}};
- Object.assign(dom.getInternalVMContext(),{flowText,addressValid});
+ window.PhoenixNimiqIdenticons={async png(){return 'fixture-artwork';},paint(image){image.hidden=false;image.src='data:image/png;base64,test';}};
+ Object.assign(dom.getInternalVMContext(),{flowText,addressValid,cardPresentation,paintCard});
  const source=fs.readFileSync(new URL('../internal/web/static/flow.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'');
  vm.runInContext(source,dom.getInternalVMContext());await settle();
  const $=id=>window.document.getElementById(id);
  const submit=async()=>{$('card-form').dispatchEvent(new window.Event('submit',{cancelable:true}));await settle();};
- return{dom,window,$,calls,checkouts,behaviors,submit,allowOTP(){validOTP=true;}};
+ return{dom,window,$,calls,checkouts,behaviors,opened,referrers,submit,allowOTP(){validOTP=true;}};
 }
 
 test('real DOM sender verification and checkout use the same immutable public address',async()=>{
@@ -91,9 +94,12 @@ test('claim DOM reveals no wallet link before a correct six-digit OTP',async()=>
  assert.equal(s.$('wallet-link').hidden,true);
  assert.match(s.$('claim-status').textContent,/Invalid or expired/);
  s.allowOTP();s.$('claim-form').dispatchEvent(new s.window.Event('submit',{cancelable:true}));await settle();
- assert.equal(s.$('wallet-link').hidden,false);
- assert.match(s.$('wallet-link').href,/^https:\/\/hub\.nimiq\.com\/cashlink\/#/);
- assert.equal(s.$('release-claim').disabled,true);
+ assert.equal(s.$('wallet-link').hidden,true,'no duplicate action link');
+ assert.match(s.$('release-claim').textContent,/Receive my NIM in Nimiq/);
+ assert.equal(s.$('release-claim').disabled,false);
+ assert.equal(s.$('request-claim-code').hidden,true);
+ s.$('release-claim').click();
+ assert.match(s.opened.at(-1),/^https:\/\/hub\.nimiq\.com\/cashlink\/#/);
  s.dom.window.close();
 });
 test('mobile checkout records its existing payment before redirecting to Hub',async()=>{
@@ -102,9 +108,37 @@ test('mobile checkout records its existing payment before redirecting to Hub',as
  assert.equal(s.behaviors[0].url,'https://wire.example.test/');
  assert.equal(s.behaviors[0].state.wirePayment,id);
  assert.equal(s.window.sessionStorage.getItem('wire-pending-payment'),id);
+ assert.equal(JSON.parse(s.window.sessionStorage.getItem('wire-form')).payment,id);
+ assert.equal(s.referrers[0],'strict-origin');
+ assert.equal(s.window.document.querySelectorAll('meta[name=referrer]').length,1);
+ assert.equal(s.window.document.querySelector('meta[name=referrer]').content,'no-referrer');
  s.dom.window.close();
 });
 test('flow labels and safety feedback exist in every supported language',()=>{
  for(const lang of flowLanguages){for(const key of ['verifyEmail','verifyFirst','pending','recover','unlock','receive','unknownWallet'])assert.notEqual(flowText(lang,key),key);}
  assert.equal(addressValid(address),true);assert.equal(addressValid(address.slice(0,-1)+'0'),false);
+});
+
+test('claim code request gives immediate feedback and a 20-second resend countdown',async()=>{
+ const s=await start({claim:true});s.$('request-claim-code').click();await settle();
+ assert.match(s.$('claim-status').textContent,/Code sent/);
+ assert.match(s.$('request-claim-code').textContent,/20 s/);
+ assert.equal(s.$('request-claim-code').disabled,true);
+ assert.equal(s.$('request-claim-code').nextElementSibling,s.$('claim-status'));
+ s.dom.window.close();
+});
+test('iPhone return restores the original form and confirms without a second checkout',async()=>{
+ const s=await start({pending:true,mobile:true,returning:true});
+ assert.equal(s.$('recipient').value,'recipient@example.test');
+ assert.equal(s.$('amount').value,'2.5');assert.equal(s.$('message').value,'Hi');
+ assert.equal(s.checkouts.length,0);assert.equal(s.calls.filter(([p])=>p.endsWith('/start')).length,0);
+ assert.ok(s.calls.some(([p])=>p.endsWith('/confirm')));
+ assert.equal(s.$('feedback').textContent,'Card sent');s.dom.window.close();
+});
+test('expired claim keeps its explanation visible while disabling code actions',async()=>{
+ const s=await start({claim:true,expired:true});
+ assert.match(s.$('claim-status').textContent,/period has ended/);
+ assert.equal(s.$('claim-form').hidden,false);
+ assert.equal(s.$('request-claim-code').hidden,true);
+ assert.equal(s.$('release-claim').hidden,true);s.dom.window.close();
 });
