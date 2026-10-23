@@ -1,7 +1,7 @@
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.3.0';
-import { mountNimFlow } from './flow.js?v=0.4.2';
+import { mountNimFlow } from './flow.js?v=0.4.4';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -13,6 +13,14 @@ const STORE = 'wire-usdt-cards', words = {
  zh: { nimRecipient: "收款人邮箱", nimAmount: "金额（NIM）", nimMessage: "留言（可选）", nimCard: "你的 Nimiq 卡片", nimPreview: "卡片预览", nimEmpty: "创建卡片以查看预览。", nimProtected: "受保护", lightTheme: "切换为浅色主题", darkTheme: "切换为深色主题", sessionHelp: "你只需确认一次邮箱：在此设备上 24 小时内保持已确认。", sessionConfirmed: "已确认 24 小时。", back: "返回 PhoenixWire", title: '一笔付款。一封邮件。', sub: "把 NIM、USDC 或 USDT 发给任何有邮箱的人。只有对方在输入发送到该邮箱的验证码后才能收款。", email: '你的邮箱', send: '给我发验证码', code: '六位验证码', verify: '确认', as: '登录身份', out: '更换发送者', pay: '付款', codeSent: '验证码已发送，请查收邮件。', wrong: '验证码无效。', off: '此处未启用付款。', funded: '卡片已充值。正在发送邀请…', sent: '卡片已发送到 {email}。在被领取之前它仍属于你。', retry: '邮件暂时无法发送。正在重试…', classic: '发送 NIM', fail: '出错了，请重试。' },
 };
 
+const walletChoiceWords={
+ en:{choiceTitle:'How would you like to pay?',openPay:'I already have Nimiq Pay',getPay:'Get Nimiq Pay',useHub:'Use the Nimiq wallet (Hub)',cancelPay:'Cancel',choiceHelp:'Nimiq Pay opens Wire in the app. Confirm your email there once; it stays confirmed for 24 hours. Your browser session is separate.',openPayHelp:'If the app did not open, try again, install Nimiq Pay, or use the Hub. No payment has started.',storeHelp:'Choose the store for your phone.'},
+ fr:{choiceTitle:'Comment voulez-vous payer ?',openPay:'J’ai déjà Nimiq Pay',getPay:'Obtenir Nimiq Pay',useHub:'Utiliser le portefeuille Nimiq (Hub)',cancelPay:'Annuler',choiceHelp:'Nimiq Pay ouvre Wire dans l’application. Confirmez-y votre courriel une fois : il reste confirmé 24 heures. La session du navigateur est distincte.',openPayHelp:'Si l’application ne s’est pas ouverte, réessayez, installez Nimiq Pay ou utilisez le Hub. Aucun paiement n’a commencé.',storeHelp:'Choisissez la boutique de votre téléphone.'},
+ es:{choiceTitle:'¿Cómo quieres pagar?',openPay:'Ya tengo Nimiq Pay',getPay:'Obtener Nimiq Pay',useHub:'Usar la cartera Nimiq (Hub)',cancelPay:'Cancelar',choiceHelp:'Nimiq Pay abre Wire en la aplicación. Confirma allí tu correo una vez: queda confirmado 24 horas. La sesión del navegador es independiente.',openPayHelp:'Si la aplicación no se abrió, inténtalo de nuevo, instala Nimiq Pay o usa el Hub. No se ha iniciado ningún pago.',storeHelp:'Elige la tienda de tu teléfono.'},
+ de:{choiceTitle:'Wie möchtest du bezahlen?',openPay:'Ich habe bereits Nimiq Pay',getPay:'Nimiq Pay herunterladen',useHub:'Nimiq Wallet (Hub) verwenden',cancelPay:'Abbrechen',choiceHelp:'Nimiq Pay öffnet Wire in der App. Bestätige dort einmal deine E-Mail: Sie bleibt 24 Stunden bestätigt. Die Browsersitzung ist davon getrennt.',openPayHelp:'Falls die App nicht geöffnet wurde, versuche es erneut, installiere Nimiq Pay oder nutze den Hub. Es wurde keine Zahlung gestartet.',storeHelp:'Wähle den Store für dein Smartphone.'},
+ zh:{choiceTitle:'你想如何付款？',openPay:'我已安装 Nimiq Pay',getPay:'获取 Nimiq Pay',useHub:'使用 Nimiq 钱包（Hub）',cancelPay:'取消',choiceHelp:'Nimiq Pay 会在应用内打开 Wire。请在那里确认一次邮箱，确认状态将保持 24 小时。浏览器的会话与应用内的会话相互独立。',openPayHelp:'如果应用未打开，请重试、安装 Nimiq Pay，或使用 Hub。尚未开始付款。',storeHelp:'请选择你手机的应用商店。'}
+};
+for(const language of Object.keys(walletChoiceWords))Object.assign(words[language],walletChoiceWords[language]);
 function read(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem(key, value); } catch { /* storage may be unavailable */ } }
 let preference = read('wire-language', 'auto'), lang = 'en', email = '', payments = null, usdtOn = false, nimOn = false, enabled = false, nimView = null, resumed = false;
@@ -40,7 +48,40 @@ function paint() {
  window.dispatchEvent(new Event('wire-language'));
  $('wire-session-help').textContent = t('sessionHelp'); $('wire-session-confirmed').textContent = t('sessionConfirmed');
  document.querySelectorAll('.wire-window-back').forEach(button => { button.textContent = '← ' + t('back'); });
+ document.querySelectorAll('[data-wallet-text]').forEach(el=>{el.textContent=t(el.dataset.walletText);});
 }
+// iOS cannot reliably disclose whether another app is installed. Ask, without timers or blur heuristics.
+const payLink='https://nimpay.app/miniapps/open/wire.phoenixmail.ca';
+const iosStore='https://apps.apple.com/app/nimiq-pay/id6471844738';
+const androidStore='https://play.google.com/store/apps/details?id=com.nimiq.pay';
+let choiceCallback=null,choiceFocus=null,choiceParent=null;
+function closeWalletChoice(){
+ $('wire-nim-choice').hidden=true;choiceCallback=null;choiceParent?.removeAttribute('inert');choiceParent=null;choiceFocus?.focus();
+}
+function chooseWallet(useHub){
+ choiceCallback=useHub;choiceFocus=document.activeElement;choiceParent=document.querySelector('.wire-nim-window');choiceParent?.setAttribute('inert','');
+ $('wire-choice-status').hidden=true;$('wire-choice-stores').hidden=true;$('wire-nim-choice').hidden=false;
+ $('wire-choice-open').href=payLink;
+ const ua=navigator.userAgent||'';
+ $('wire-choice-get').href=/Android/i.test(ua)?androidStore:/iPhone|iPad|iPod/i.test(ua)||navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1?iosStore:'#';
+ $('wire-choice-open').focus();
+}
+$('wire-choice-open').addEventListener('click',()=>{$('wire-choice-status').hidden=false;});
+$('wire-choice-get').addEventListener('click',event=>{
+ if($('wire-choice-get').getAttribute('href')==='#'){event.preventDefault();$('wire-choice-stores').hidden=false;}
+});
+$('wire-choice-hub').addEventListener('click',()=>{const useHub=choiceCallback;closeWalletChoice();useHub?.();});
+$('wire-choice-cancel').addEventListener('click',closeWalletChoice);
+document.addEventListener('keydown',event=>{
+ if($('wire-nim-choice').hidden)return;
+ if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeWalletChoice();}
+ if(event.key==='Tab'){
+  const controls=[...$('wire-nim-choice').querySelectorAll('a,button')].filter(el=>!el.closest('[hidden]'));
+  const first=controls[0],last=controls.at(-1);
+  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+ }
+},true);
 function paintTheme() {
  const light = document.documentElement.dataset.theme === 'light-paper';
  const button = $('wire-theme'); button.textContent = light ? '☾' : '☀';
@@ -76,7 +117,7 @@ function openNimWindow() {
  back.onclick = dismiss; modal.querySelector('.wire-nim-close').onclick = dismiss;
  document.addEventListener('keydown', escape);
  document.body.append(modal); nimView = { root: modal, dismiss };
- paintNim(modal); flow = mountNimFlow(root, { embedded: true });
+ paintNim(modal); flow = mountNimFlow(root, { embedded: true, chooseWallet });
  back.focus();
 }
 function setLanguage(value) {

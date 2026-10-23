@@ -17,23 +17,41 @@ const doms = [];
 test.after(() => doms.forEach(d => d.window.close()));
 
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
-async function start({ session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false } = {}) {
+async function start({ session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false } = {}) {
   const dom = new JSDOM(read('../internal/web/static/index.html'), { url: 'https://wire.example.test/', runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
   Object.defineProperty(window, 'crypto', { value: webcrypto, configurable: true });
   Object.assign(window, { TextEncoder, TextDecoder, open: () => ({ closed: false, close() { this.closed = true; } }) });
   window.localStorage.setItem('wire-theme', theme);
-  if (mobile) Object.defineProperty(window.navigator, 'userAgent', { value: 'iPhone' });
+  if (mobile || android) Object.defineProperty(window.navigator, 'userAgent', { value: android ? 'Android' : 'iPhone' });
   for (const f of ['../engine/secureclaim/web/cashlink.js', '../internal/web/static/pm/usdt-cashlink.js', '../internal/web/static/pm/usdt-payments.js', '../internal/web/static/pm/nimiq-payments.js']) vm.runInContext(read(f), ctx);
-  const C = window.PhoenixCashlink, calls = [], checkouts = [], behaviors = [];
+  const C = window.PhoenixCashlink, calls = [], checkouts = [], behaviors = [], nativeCalls = [], confirmations = [];
+  let currentSession=session;
+  window.confirm = message => { confirmations.push(message); return true; };
+  let fundingVisible = !nativeMode;
+  if(nativeMode){
+    window.nimiqPay={network,language:'en'};
+    if(nativeMode!=='missing')window.nimiq={async sendBasicTransactionWithData(request){
+      // Model the native host: String(data), then BufferUtils.fromUtf8(message).
+      const encoded = new TextEncoder().encode(String(request.data ?? ''));
+      nativeCalls.push({request,hex:Buffer.from(encoded).toString('hex')});
+      assert.equal(request.data, '\u0000\u0082\u0080\u0092\u0087');
+      assert.equal(Buffer.from(encoded).toString('hex'), '00c282c280c292c287');
+      if(nativeMode==='denied')throw {type:'PERMISSION_DENIED',code:4001};
+      if(nativeMode==='legacy-denied')return {error:{type:'PERMISSION_DENIED'}};
+      fundingVisible=nativeMode==='success'||nativeMode==='error-after-send';
+      if(nativeMode==='error'||nativeMode==='error-after-send')throw {type:'NETWORK_ERROR'};
+      return 'b'.repeat(64);
+    }};
+  }
   const nim = { id: 'a'.repeat(48), sender: 'sender@example.test', recipient: 'friend@example.test', amount: '2.5', luna: 250000, message: 'Hi', address: 'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY', stage: nimPending || returning ? 'funding_started' : 'ready' };
   let nimPayments = nimPending || returning ? [nim] : [];
   if (returning) window.sessionStorage.setItem('wire-pending-payment', nim.id);
   window.PhoenixNimiqIdenticons = { async png() { return 'fixture-artwork'; }, paint() {} };
   class Hub {
     constructor(url, behavior) { assert.equal(url, 'https://hub.nimiq.com'); this.behavior = behavior; }
-    async checkout(request) { checkouts.push(request); return { hash: 'f'.repeat(64) }; }
+    async checkout(request) { checkouts.push(request); fundingVisible=true; return { hash: 'f'.repeat(64) }; }
     on(type, success) { this.callback = success; }
     async checkRedirectResponse() { if (returning) await this.callback(); }
   }
@@ -46,12 +64,16 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
     const body = options.body ? JSON.parse(options.body) : undefined;
     calls.push([path, body]);
     if (path === '/api/config') return answer(200, { mode: 'integrated', payments_enabled: true, assets: nimOnly ? ['NIM'] : ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM'] });
-    if (path === '/api/session') return answer(200, session);
+    if (path === '/api/session') return answer(200, currentSession);
     if (path === '/api/payments' && !options.method) return answer(200, { payments: nimPayments });
     if (path === '/api/payments') { nimPayments = [nim]; return answer(201, { payment: nim }); }
     if (path.endsWith('/art')) return answer(200, { saved: true });
-    if (path.endsWith('/start')) { nim.stage = 'funding_started'; return answer(200, { payment: nim, checkout: { appName: 'Phoenix Wire', recipient: nim.address, value: nim.luna, recipientData: [0,130,128,146,135] } }); }
-    if (path.endsWith('/confirm')) { nim.stage = 'sent'; return answer(200, { payment: nim }); }
+    if (path.endsWith('/start')) { nim.stage = 'funding_started'; return answer(200, { payment: nim, checkout: { appName: 'Phoenix Wire', recipient: nim.address, value: nim.luna, recipientData: rawMarker } }); }
+    if (path.endsWith('/confirm')) {
+      if(nativeMode==='success-no-confirm')return answer(503,{code:'chain_unavailable'});
+      if(!fundingVisible)return answer(409,{code:'funding_pending'});
+      nim.stage = 'sent'; return answer(200, { payment: nim });
+    }
     if (path.endsWith('/recovery')) return answer(200, { cashlink: 'https://hub.nimiq.com/cashlink/#' + Buffer.alloc(40, 5).toString('base64url') });
     if (path === '/api/usdt/status') return answer(200, { requests: false, send: true, protected: true, cashlink: true, gas: false, assets: ['usdc_polygon'], max_send: 1000 });
     if (path === '/api/usdt/cashlink/gas-status') return answer(200, { available: false, reason: 'off' });
@@ -65,7 +87,8 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
     }
     if (path === '/api/usdt/cashlink/status') return answer(200, state(body));
     if (path.endsWith('/invite')) return answer(200, invite(body));
-    if (path === '/api/sender/request' || path === '/api/sender/verify' || path === '/api/logout') return answer(200, { email: 'sender@example.test', ok: true });
+    if (path === '/api/sender/verify') {currentSession={verified:true,email:'sender@example.test'};return answer(200,currentSession);}
+    if (path === '/api/sender/request' || path === '/api/logout') return answer(200, { email: 'sender@example.test', ok: true });
     throw Error('unexpected API ' + path);
   };
   const source = read('../internal/web/static/wire-pay.js').replace(/^import[^\n]+\n/gm, '');
@@ -73,7 +96,7 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
   vm.runInContext(read('../internal/web/static/flow.js').replace(/^import[^\n]+\n/gm, '').replace(/^export /gm, ''), ctx);
   vm.runInContext('{' + source + '\n}', ctx);
   await settle();
-  return { window, $: id => window.document.getElementById(id), calls, doc: window.document, checkouts, behaviors };
+  return { window, $: id => window.document.getElementById(id), calls, doc: window.document, checkouts, behaviors, nativeCalls, confirmations, fundOnChain(){fundingVisible=true;} };
 }
 
 async function makeCard(t) {
@@ -206,6 +229,7 @@ test('NIM uses the common sender session and existing protected checkout in the 
   assert.equal(t.doc.querySelectorAll('.wire-nim-assets button').length, 4);
   t.$('recipient').value = 'friend@example.test';
   t.$('card-form').dispatchEvent(new t.window.Event('submit', { cancelable: true })); await settle();
+  t.$('wire-choice-hub').click(); await settle();
   assert.equal(t.checkouts.length, 1);
   assert.equal(t.checkouts[0].recipient, 'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');
   assert.deepEqual(Array.from(t.checkouts[0].extraData), [0,130,128,146,135]);
@@ -235,6 +259,7 @@ test('mobile NIM checkout and return use the same saved payment behind the share
   const t = await start({ mobile: true, nimOnly: true });
   t.$('pay').click(); await settle(); t.$('recipient').value = 'friend@example.test';
   t.$('card-form').dispatchEvent(new t.window.Event('submit', { cancelable: true })); await settle();
+  t.$('wire-choice-hub').click(); await settle();
   assert.equal(t.checkouts.length, 1);
   assert.equal(t.window.sessionStorage.getItem('wire-pending-payment'), 'a'.repeat(48));
   assert.equal(t.behaviors.at(-1).state.wirePayment, 'a'.repeat(48));
@@ -288,4 +313,142 @@ test('the embedded NIM form follows the host language in all five languages', as
     assert.equal(t.$('preview-submit').textContent, flowText(lang, 'pay'));
     assert.equal(t.doc.querySelector('.wire-nim-host .security').textContent, flowText(lang, 'security'));
   }
+});
+
+async function submitNim(t){
+  t.$('pay').click();await settle();
+  if(!t.doc.querySelector('.wire-nim-window')){t.doc.querySelector('.nimiq-payment-assets button').click();await settle();}
+  t.$('recipient').value='friend@example.test';
+  t.$('card-form').dispatchEvent(new t.window.Event('submit',{cancelable:true}));await settle();
+}
+
+test('wallet choice precedes card creation, stays retryable after opening Pay and can be cancelled', async()=>{
+  const t=await start({nimOnly:true,mobile:true});await submitNim(t);
+  assert.equal(t.$('wire-nim-choice').hidden,false);
+  assert.ok(!t.calls.some(([p,b])=>p==='/api/payments'&&b));
+  assert.equal(t.checkouts.length,0);
+  const link=t.$('wire-choice-open');
+  assert.equal(link.href,'https://nimpay.app/miniapps/open/wire.phoenixmail.ca');
+  assert.equal(link.target,'_blank');assert.match(link.rel,/noopener/);assert.match(link.rel,/noreferrer/);
+  link.addEventListener('click',e=>e.preventDefault());link.click();link.click();
+  assert.equal(t.$('wire-choice-status').hidden,false);
+  assert.equal(t.$('wire-nim-choice').hidden,false);
+  t.$('wire-choice-cancel').click();await settle();
+  assert.equal(t.$('wire-nim-choice').hidden,true);
+  assert.ok(!t.doc.querySelector('.wire-nim-window').hasAttribute('inert'));
+  assert.equal(t.nativeCalls.length,0);assert.equal(t.checkouts.length,0);
+});
+
+test('wallet choice has all four actions in the five languages and Escape preserves the NIM form',async()=>{
+  const t=await start({nimOnly:true});await submitNim(t);
+  const expected={
+    fr:['J’ai déjà Nimiq Pay','Obtenir Nimiq Pay','Utiliser le portefeuille Nimiq (Hub)','Annuler'],
+    en:['I already have Nimiq Pay','Get Nimiq Pay','Use the Nimiq wallet (Hub)','Cancel'],
+    es:['Ya tengo Nimiq Pay','Obtener Nimiq Pay','Usar la cartera Nimiq (Hub)','Cancelar'],
+    de:['Ich habe bereits Nimiq Pay','Nimiq Pay herunterladen','Nimiq Wallet (Hub) verwenden','Abbrechen'],
+    zh:['我已安装 Nimiq Pay','获取 Nimiq Pay','使用 Nimiq 钱包（Hub）','取消']
+  };
+  for(const [lang,labels]of Object.entries(expected)){
+    t.$('wire-language').value=lang;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
+    assert.deepEqual(['open','get','hub','cancel'].map(id=>t.$('wire-choice-'+id).textContent),labels);
+    assert.match(t.$('wire-choice-help').textContent,/24/);
+    assert.ok(t.$('wire-choice-title').textContent);assert.ok(t.$('wire-choice-status').textContent);
+  }
+  t.$('wire-choice-open').focus();
+  t.doc.dispatchEvent(new t.window.KeyboardEvent('keydown',{key:'Tab',shiftKey:true,bubbles:true,cancelable:true}));
+  assert.equal(t.doc.activeElement,t.$('wire-choice-cancel'));
+  t.doc.dispatchEvent(new t.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+  assert.equal(t.$('wire-nim-choice').hidden,true);assert.ok(t.doc.querySelector('.wire-nim-window'));
+});
+
+test('Get Nimiq Pay uses the phone store and offers both stores on desktop',async()=>{
+  for(const options of [{mobile:true},{android:true},{}]){
+    const t=await start({nimOnly:true,...options});await submitNim(t);
+    const link=t.$('wire-choice-get');
+    if(options.mobile)assert.equal(link.href,'https://apps.apple.com/app/nimiq-pay/id6471844738');
+    else if(options.android)assert.equal(link.href,'https://play.google.com/store/apps/details?id=com.nimiq.pay');
+    else {link.click();assert.equal(t.$('wire-choice-stores').hidden,false);assert.equal(t.$('wire-choice-stores').querySelectorAll('a').length,2);}
+    assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);
+  }
+});
+
+test('native NIM funding preserves the exact text including NUL and its UTF-8 bytes, recipient and Luna',async()=>{
+  const t=await start({nimOnly:true,nativeMode:'success',mobile:true});await submitNim(t);
+  assert.equal(t.$('wire-nim-choice').hidden,true);assert.equal(t.nativeCalls.length,1);
+  const {request,hex}=t.nativeCalls[0];
+  assert.equal(request.recipient,'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');assert.equal(request.value,250000);
+  assert.equal(request.data,'\u0000\u0082\u0080\u0092\u0087');
+  assert.equal(typeof request.data,'string');assert.equal(request.data.charCodeAt(0),0);
+  assert.equal(hex,'00c282c280c292c287');assert.notEqual(hex,'0082809287');
+  assert.deepEqual(Object.keys(request).sort(),['data','recipient','value']);
+  assert.ok(t.calls.some(([p])=>p.endsWith('/confirm')));assert.equal(t.$('feedback').textContent,'Card sent');
+  assert.equal(t.checkouts.length,0);assert.equal(t.window.sessionStorage.getItem('wire-pending-payment'),'');
+  t.$('card-form').dispatchEvent(new t.window.Event('submit',{cancelable:true}));await settle();
+  assert.equal(t.nativeCalls.length,1);assert.equal(t.calls.filter(([p])=>p.endsWith('/start')).length,1);
+});
+
+test('a returned native hash alone is never shown as a successful card payment',async()=>{
+  const t=await start({nimOnly:true,nativeMode:'success-no-confirm'});await submitNim(t);
+  assert.equal(t.nativeCalls.length,1);assert.notEqual(t.$('feedback').textContent,'Card sent');
+  assert.equal(t.checkouts.length,0);assert.equal(t.window.sessionStorage.getItem('wire-pending-payment'),'a'.repeat(48));
+});
+
+test('an app without an injected NIM provider uses the existing Hub checkout',async()=>{
+  const t=await start({nimOnly:true,nativeMode:'missing',mobile:true});await submitNim(t);
+  assert.equal(t.$('wire-nim-choice').hidden,true);assert.equal(t.nativeCalls.length,0);assert.equal(t.checkouts.length,1);
+  assert.deepEqual(Array.from(t.checkouts[0].extraData),[0,130,128,146,135]);
+  assert.equal(t.checkouts[0].value,250000);
+});
+
+test('native refusal, including the legacy error envelope, is cancellation without Hub or re-payment',async()=>{
+  for(const nativeMode of ['denied','legacy-denied']){
+    const t=await start({nimOnly:true,nativeMode});await submitNim(t);
+    assert.equal(t.$('feedback').textContent,'Payment cancelled in Nimiq Pay.');
+    assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,1);
+    assert.equal(t.doc.querySelector('.wire-nim-hub-fallback').hidden,true);
+    t.$('card-form').dispatchEvent(new t.window.Event('submit',{cancelable:true}));await settle();
+    assert.equal(t.nativeCalls.length,1);assert.ok(t.calls.some(([p])=>p.endsWith('/confirm')));
+  }
+});
+
+test('native errors check funding before offering Hub, then reuse the same card and original raw Hub marker',async()=>{
+  const t=await start({nimOnly:true,nativeMode:'error'});await submitNim(t);
+  assert.ok(t.calls.some(([p])=>p.endsWith('/confirm')));assert.equal(t.checkouts.length,0);
+  const fallback=t.doc.querySelector('.wire-nim-hub-fallback');assert.equal(fallback.hidden,false);
+  fallback.click();await settle();
+  assert.equal(t.confirmations.length,1);assert.equal(t.checkouts.length,1);
+  assert.equal(t.checkouts[0].recipient,t.nativeCalls[0].request.recipient);
+  assert.equal(t.checkouts[0].value,t.nativeCalls[0].request.value);
+  assert.deepEqual(Array.from(t.checkouts[0].extraData),[0,130,128,146,135]);
+  assert.equal(t.calls.filter(([p])=>p.endsWith('/start')).length,1);
+  assert.equal(t.calls.filter(([p,b])=>p==='/api/payments'&&b).length,1);
+  assert.equal(t.$('feedback').textContent,'Card sent');
+});
+
+test('an error after native broadcast, or later funding before the fallback click, never launches Hub',async()=>{
+  const sent=await start({nimOnly:true,nativeMode:'error-after-send'});await submitNim(sent);
+  assert.equal(sent.$('feedback').textContent,'Card sent');assert.equal(sent.checkouts.length,0);
+  assert.equal(sent.doc.querySelector('.wire-nim-hub-fallback').hidden,true);
+  const late=await start({nimOnly:true,nativeMode:'error'});await submitNim(late);
+  late.fundOnChain();late.doc.querySelector('.wire-nim-hub-fallback').click();await settle();
+  assert.equal(late.checkouts.length,0);assert.equal(late.confirmations.length,0);
+  assert.equal(late.$('feedback').textContent,'Card sent');
+});
+
+test('native checkout rejects another funding marker and a different host network before sending money',async()=>{
+  const altered=await start({nimOnly:true,nativeMode:'success',rawMarker:[0,130,128,146,136]});await submitNim(altered);
+  assert.equal(altered.nativeCalls.length,0);assert.equal(altered.checkouts.length,0);
+  const wrong=await start({nimOnly:true,nativeMode:'success',network:'testnet'});await submitNim(wrong);
+  assert.equal(wrong.nativeCalls.length,0);assert.equal(wrong.checkouts.length,0);
+  assert.ok(!wrong.calls.some(([p])=>p.endsWith('/start')));
+});
+
+test('a new Nimiq Pay context uses the existing sender email confirmation and does not inherit browser state',async()=>{
+  const t=await start({nimOnly:true,nativeMode:'success',session:{verified:false}});
+  assert.equal(t.$('wire-sender').hidden,false);assert.equal(t.$('wire-ready').hidden,true);
+  assert.equal(t.nativeCalls.length,0);
+  t.$('wire-email').value='sender@example.test';t.$('wire-send-code').click();await settle();
+  t.$('wire-code').value='123456';t.$('wire-verify').click();await settle();
+  await submitNim(t);assert.equal(t.nativeCalls.length,1);
+  assert.equal(t.calls.filter(([p])=>p==='/api/sender/verify').length,1);
 });
