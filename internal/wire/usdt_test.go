@@ -17,6 +17,8 @@ type evmNode struct {
 	mu      sync.Mutex
 	balance string // balanceOf answer, hex without 0x, 64 digits
 	native  string // the relayer's native coin, hex with 0x (1 coin when empty)
+	sent    int    // transactions the engine broadcast
+	poor    string // an address that holds no native coin
 	block   int
 }
 
@@ -48,6 +50,13 @@ func (n *evmNode) serve() *httptest.Server {
 			if n.native != "" {
 				result = n.native
 			}
+			var who string
+			if len(in.Params) > 0 {
+				json.Unmarshal(in.Params[0], &who)
+			}
+			if n.poor != "" && strings.EqualFold(who, n.poor) { // a sender with no native coin at all
+				result = "0x0"
+			}
 		case "eth_getCode":
 			result = "0x"
 		case "eth_getBlockByNumber":
@@ -56,6 +65,13 @@ func (n *evmNode) serve() *httptest.Server {
 			result = "0x3b9aca00"
 		case "eth_getTransactionReceipt":
 			result = nil
+		case "eth_getTransactionCount":
+			result = "0x0"
+		case "eth_sendRawTransaction":
+			n.sent++
+			result = "0x" + strings.Repeat("ab", 32)
+		case "eth_estimateGas":
+			result = "0x5208"
 		default:
 			json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": in.ID, "error": map[string]any{"code": -32601, "message": "no " + in.Method}})
 			return

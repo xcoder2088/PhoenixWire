@@ -2,12 +2,15 @@ package wire
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
+	"github.com/xcoder2088/NimiqSecureClaim/service"
 	"github.com/xcoder2088/PhoenixWire/internal/qrcode"
 )
 
@@ -99,9 +102,33 @@ func (a *API) usdtCompat(w http.ResponseWriter, r *http.Request, s session, engi
 		// The browser keeps nothing secret here: Wire holds the card's sender token and checks the sender's session on every call.
 		respond(w, 200, map[string]any{"card": out["card"], "pay": pay, "claimBase": a.origin + "/usdt.html", "senderToken": in.CardID})
 	case "gas-status":
-		respond(w, 200, map[string]any{"available": false, "reason": "off"})
+		// the light on the payment screen: green when Wire can pay the gas of the sender's payment, red with the reason otherwise
+		if !service.USDTAssetKnown(in.Asset) {
+			respond(w, 400, map[string]string{"error": "invalid_request"})
+			return
+		}
+		available, reason := a.gasStatus(r.Context(), engine, in.Asset)
+		respond(w, 200, map[string]any{"available": available, "reason": reason})
 	case "gas":
-		respond(w, 503, map[string]string{"error": "gas_service_unavailable"})
+		// a few cents of native coin for the sender's one payment, from Wire's relayer, once per card (the engine bounds it: float floor, quotas, credit)
+		c, ok := a.db.state.USDT[in.ID]
+		if !ok || c.Sender != s.Email || !cardID32.MatchString(in.ID) {
+			respond(w, 404, map[string]string{"error": "not_found"})
+			return
+		}
+		if !evmAddress.MatchString(in.SenderAddress) {
+			respond(w, 400, map[string]string{"error": "invalid_request"})
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+		defer cancel()
+		body, _ := json.Marshal(map[string]string{"sender_token": c.SenderToken, "sender_address": in.SenderAddress})
+		out, status, code := engineAnswer(engine.IssuerCall(ctx, "POST", "/api/v1/usdt/issuer/cards/"+c.ID+"/gas", body))
+		if code != "" {
+			respond(w, status, map[string]string{"error": code})
+			return
+		}
+		respond(w, 200, map[string]json.RawMessage{"tx": out["tx"], "wei": out["wei"], "already": out["already"]})
 	case "status", "cancel", "refund", "refund-claim":
 		c, ok := a.db.state.USDT[in.ID]
 		if !ok || c.Sender != s.Email || !cardID32.MatchString(in.ID) {
@@ -127,4 +154,28 @@ func (a *API) usdtCompat(w http.ResponseWriter, r *http.Request, s session, engi
 	default:
 		respond(w, 404, map[string]string{"error": "not_found"})
 	}
+}
+
+// gasStatus asks the engine whether the relayer of this asset can pay the gas of a sender's payment ("off" when the feature is not switched on).
+func (a *API) gasStatus(ctx context.Context, engine USDTEngine, asset string) (bool, string) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	body, _ := json.Marshal(map[string]string{"asset": asset})
+	out, status, code := engineAnswer(engine.IssuerCall(ctx, "POST", "/api/v1/usdt/issuer/gas-status", body))
+	if code != "" || status != 0 {
+		return false, "off"
+	}
+	var available bool
+	_ = json.Unmarshal(out["available"], &available)
+	reason := str(out, "reason")
+	if reason == "" {
+		reason = "off"
+	}
+	return available, reason
+}
+
+// gasOffered says whether Wire gives the sender's gas at all (the window shows its light only then).
+func (a *API) gasOffered(ctx context.Context, engine USDTEngine) bool {
+	_, reason := a.gasStatus(ctx, engine, "usdc_polygon")
+	return reason != "off"
 }

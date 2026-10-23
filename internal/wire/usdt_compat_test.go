@@ -118,3 +118,60 @@ func TestPaymentWindowSaysWhenTheRelayerIsNotReady(t *testing.T) {
 		}
 	}
 }
+
+// The sender's gas: Wire's relayer gives a few cents of native coin for the one payment, once per card, when that is switched on.
+func TestPaymentWindowGasForTheSender(t *testing.T) {
+	node := &evmNode{balance: word(0), block: 5000}
+	rpc := node.serve()
+	defer rpc.Close()
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_EVM_RPC_POLYGON", rpc.URL)
+	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_GAS", "on")
+	f := newFixture(t)
+	f.verifySender("sender@example.test")
+	var capability struct{ Gas bool }
+	if w := f.call("GET", "/api/usdt/status", nil); json.Unmarshal(w.Body.Bytes(), &capability) != nil || !capability.Gas {
+		t.Fatalf("the window shows its gas light only when Wire gives gas: %s", f.call("GET", "/api/usdt/status", nil).Body)
+	}
+	if w := f.call("POST", "/api/usdt/cashlink/gas-status", map[string]string{"asset": "usdc_polygon"}); !strings.Contains(w.Body.String(), `"available":true`) || !strings.Contains(w.Body.String(), `"reason":"ok"`) {
+		t.Fatalf("green when the relayer can pay: %s", w.Body)
+	}
+	if w := f.call("POST", "/api/usdt/cashlink/gas-status", map[string]string{"asset": "doge"}); w.Code != 400 {
+		t.Fatalf("an unknown asset: %d", w.Code)
+	}
+	id, _, owner, err := service.NewCardLink()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cardID := hex.EncodeToString(id)
+	if w := f.call("POST", "/api/usdt/cashlink/create", map[string]string{"asset": "usdc_polygon", "cardId": cardID, "linkOwner": owner, "amount": "2.5", "recipient": "friend@example.test", "lang": "en"}); w.Code != 200 {
+		t.Fatalf("create: %d %s", w.Code, w.Body)
+	}
+	sender := "0x" + strings.Repeat("12", 20)
+	node.mu.Lock()
+	node.poor = sender
+	node.mu.Unlock()
+	// not another sender's card, not a bad address
+	if w := f.call("POST", "/api/usdt/cashlink/gas", map[string]string{"id": hex.EncodeToString([]byte("0123456789abcdef")), "senderAddress": sender}); w.Code != 404 {
+		t.Fatalf("someone else's card: %d", w.Code)
+	}
+	if w := f.call("POST", "/api/usdt/cashlink/gas", map[string]string{"id": cardID, "senderAddress": "nope"}); w.Code != 400 {
+		t.Fatalf("a bad address: %d", w.Code)
+	}
+	w := f.call("POST", "/api/usdt/cashlink/gas", map[string]string{"id": cardID, "senderAddress": sender})
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"tx"`) || node.sent != 1 {
+		t.Fatalf("the gas of the sender's payment: %d %s (sent %d)", w.Code, w.Body, node.sent)
+	}
+	// once per card: asking again gives the same answer and sends nothing more
+	if again := f.call("POST", "/api/usdt/cashlink/gas", map[string]string{"id": cardID, "senderAddress": sender}); again.Code != 200 || !strings.Contains(again.Body.String(), `"already":true`) || node.sent != 1 {
+		t.Fatalf("once per card: %d %s (sent %d)", again.Code, again.Body, node.sent)
+	}
+	// a relayer below its floor: red, with the reason
+	node.mu.Lock()
+	node.native = "0x0"
+	node.mu.Unlock()
+	if w := f.call("POST", "/api/usdt/cashlink/gas-status", map[string]string{"asset": "usdc_polygon"}); !strings.Contains(w.Body.String(), `"available":false`) || !strings.Contains(w.Body.String(), `"reason":"float"`) {
+		t.Fatalf("red when the relayer is low: %s", w.Body)
+	}
+}
