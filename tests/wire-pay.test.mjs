@@ -30,7 +30,7 @@ function fakeClock(window){
 }
 
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
-async function start({ session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024 } = {}) {
+async function start({ session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
   const dom = new JSDOM(read('../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
@@ -80,6 +80,7 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
   const answer = (status, body) => ({ ok: status < 300, status, json: async () => JSON.parse(JSON.stringify(body)) });
   window.fetch = async (path, options = {}) => {
     const body = options.body ? JSON.parse(options.body) : undefined;
+    if (path === '/api/gas') return answer(200, gas);
     calls.push([path, body]);
     if (path === '/api/config') return answer(200, { mode: 'integrated', payments_enabled: true, assets: nimOnly ? ['NIM'] : ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM'] });
     if (path === '/api/session') return answer(200, currentSession);
@@ -1063,4 +1064,24 @@ test('at 375 px the NIM completion hides every other panel and has no sticky or 
  assert.match(css,/\.wire-nim-window:has\(\.wire-nim-complete\)\{[^}]*width:min\(520px,calc\(100vw - 24px\)\);min-width:0;box-sizing:border-box/);
  assert.match(css,/\.wire-nim-complete \.wire-nim-progress\{[^}]*position:static[^}]*align-items:center[^}]*width:100%[^}]*box-sizing:border-box/);
  assert.match(css,/@media\(max-width:420px\)\{\.wire-nim-host\.wire-nim-complete\{padding:16px\}/);
+});
+
+test('the gas light is a quiet line on the sign-in screen, in five languages, shown only while Wire really pays the fee', async () => {
+  const on = { polygon: { available: true, reason: 'ok' }, ethereum: { available: false, reason: 'off' } };
+  const t0 = await start({ session: { verified: false }, gas: on });
+  assert.equal(t0.$('wire-sender').hidden, false, 'the sign-in screen is what is shown');
+  assert.equal(t0.$('wire-gas').hidden, false, 'the light is there before anyone signs in');
+  assert.equal(t0.$('wire-gas-text').textContent, 'Network fees on USDC and USDT are paid by Phoenix Wire');
+  for (const [lang, word] of Object.entries({ fr: 'frais de réseau', es: 'comisiones de red', de: 'Netzwerkgebühren', zh: '网络费用' })) {
+    t0.$('wire-language').value = lang;
+    t0.$('wire-language').dispatchEvent(new t0.window.Event('change'));
+    assert.match(t0.$('wire-gas-text').textContent, new RegExp(word), lang);
+    assert.ok(t0.$('wire-gas-text').textContent.includes('Phoenix Wire'), lang);
+  }
+  const css = read('../internal/web/static/wire-pay.css');
+  assert.match(css, /\.wire-led\{[^}]*width:8px[^}]*animation:wire-heartbeat/, 'a small beating dot, not a pill');
+  assert.match(css, /prefers-reduced-motion:reduce\)\{\.wire-led\{animation:none/, 'no motion for those who ask for none');
+  // signed in, it stays; not available (or off): nothing is shown
+  assert.equal((await start({ gas: on })).$('wire-gas').hidden, false);
+  assert.equal((await start({ session: { verified: false } })).$('wire-gas').hidden, true);
 });

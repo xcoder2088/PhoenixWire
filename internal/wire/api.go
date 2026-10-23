@@ -50,6 +50,9 @@ type API struct {
 	master []byte
 	unlock func()
 	now    func() time.Time
+	// the public gas light: remembered for a short while, with its own lock (it asks the chain, so it never waits behind a.mu)
+	gasMu    sync.Mutex
+	gasCache map[string]gasEntry
 }
 
 var idRE = regexp.MustCompile(`^[a-f0-9]{48}$`)
@@ -167,6 +170,10 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
 		failure(w, 403, "invalid_origin")
+		return
+	}
+	if r.URL.Path == "/api/gas" && r.Method == "GET" { // public: the light is shown before anyone signs in
+		a.gasPublic(w)
 		return
 	}
 	a.mu.Lock()

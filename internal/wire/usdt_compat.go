@@ -179,3 +179,44 @@ func (a *API) gasOffered(ctx context.Context, engine USDTEngine) bool {
 	_, reason := a.gasStatus(ctx, engine, "usdc_polygon")
 	return reason != "off"
 }
+
+type gasEntry struct {
+	at        time.Time
+	available bool
+	reason    string
+}
+
+const gasLightTTL = 30 * time.Second
+
+// gasLight is gasStatus, remembered for gasLightTTL: a public light that many visitors look at must not ask the chain each time.
+func (a *API) gasLight(ctx context.Context, engine USDTEngine, asset string) (bool, string) {
+	a.gasMu.Lock()
+	if e, ok := a.gasCache[asset]; ok && a.now().Sub(e.at) < gasLightTTL {
+		a.gasMu.Unlock()
+		return e.available, e.reason
+	}
+	a.gasMu.Unlock()
+	available, reason := a.gasStatus(ctx, engine, asset)
+	a.gasMu.Lock()
+	if a.gasCache == nil {
+		a.gasCache = map[string]gasEntry{}
+	}
+	a.gasCache[asset] = gasEntry{at: a.now(), available: available, reason: reason}
+	a.gasMu.Unlock()
+	return available, reason
+}
+
+// gasPublic answers GET /api/gas for anyone: whether Wire pays the network fee of an USDC / USDT payment, per chain. Nothing here is private.
+func (a *API) gasPublic(w http.ResponseWriter) {
+	light := func(asset string) map[string]any {
+		engine := a.USDT()
+		if engine == nil {
+			return map[string]any{"available": false, "reason": "off"}
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		available, reason := a.gasLight(ctx, engine, asset)
+		return map[string]any{"available": available, "reason": reason}
+	}
+	respond(w, 200, map[string]any{"polygon": light("usdc_polygon"), "ethereum": light("usdt_ethereum")})
+}

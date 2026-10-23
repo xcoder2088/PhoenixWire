@@ -132,3 +132,10 @@ body.wire-body{background:var(--bg);color:var(--text)}
 .wire-card-banner{display:flex;align-items:center;gap:12px;margin-top:18px;padding:16px;border:1px solid var(--accent);border-radius:14px;background:var(--panel);color:var(--text)}
 .wire-card-banner p{flex:1;min-width:0;margin:0;line-height:1.5;font-weight:650;overflow-wrap:anywhere}
 .wire-card-banner button{flex:none;min-width:44px;min-height:44px;border-radius:9px;font-size:22px}
+
+/* The gas light: one quiet line with a small heart-beating dot, never a pill. */
+.wire-gas{display:flex;align-items:center;gap:9px;margin:-8px 0 16px;font-size:12.5px;line-height:1.4;color:var(--muted,#9ba2b1)}
+.wire-gas[hidden]{display:none}
+.wire-led{flex:none;width:8px;height:8px;border-radius:50%;background:#3ccf8e;box-shadow:0 0 0 0 #3ccf8e66;animation:wire-heartbeat 2.4s ease-in-out infinite}
+@keyframes wire-heartbeat{0%,56%,100%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}8%{transform:scale(1.35);box-shadow:0 0 0 5px #3ccf8e40}18%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}28%{transform:scale(1.25);box-shadow:0 0 0 4px #3ccf8e33}40%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}}
+@media (prefers-reduced-motion:reduce){.wire-led{animation:none}}

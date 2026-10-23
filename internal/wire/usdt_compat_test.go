@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/xcoder2088/NimiqSecureClaim/service"
 )
@@ -173,5 +174,52 @@ func TestPaymentWindowGasForTheSender(t *testing.T) {
 	node.mu.Unlock()
 	if w := f.call("POST", "/api/usdt/cashlink/gas-status", map[string]string{"asset": "usdc_polygon"}); !strings.Contains(w.Body.String(), `"available":false`) || !strings.Contains(w.Body.String(), `"reason":"float"`) {
 		t.Fatalf("red when the relayer is low: %s", w.Body)
+	}
+}
+
+// The light is public (shown on the sign-in screen), cheap (remembered for a moment) and says nothing private.
+func TestGasLightIsPublic(t *testing.T) {
+	node := &evmNode{balance: word(0), block: 5000}
+	rpc := node.serve()
+	defer rpc.Close()
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_EVM_RPC_POLYGON", rpc.URL)
+	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_GAS", "on")
+	f := newFixture(t) // nobody is signed in
+	read := func() (polygon, ethereum struct {
+		Available bool
+		Reason    string
+	}) {
+		t.Helper()
+		w := f.call("GET", "/api/gas", nil)
+		var out struct {
+			Polygon, Ethereum struct {
+				Available bool
+				Reason    string
+			}
+		}
+		if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &out) != nil {
+			t.Fatalf("/api/gas: %d %s", w.Code, w.Body)
+		}
+		return out.Polygon, out.Ethereum
+	}
+	if polygon, ethereum := read(); !polygon.Available || polygon.Reason != "ok" || ethereum.Available || ethereum.Reason != "off" {
+		t.Fatalf("green for Polygon, nothing for a chain that is not running: %+v %+v", polygon, ethereum)
+	}
+	// remembered for a moment: the chain is not asked again, then it is
+	node.mu.Lock()
+	node.native = "0x0"
+	node.mu.Unlock()
+	if polygon, _ := read(); !polygon.Available {
+		t.Fatal("the light is remembered for a short while")
+	}
+	later := f.api.now().Add(gasLightTTL + time.Second)
+	f.api.now = func() time.Time { return later }
+	if polygon, _ := read(); polygon.Available || polygon.Reason != "float" {
+		t.Fatalf("then it follows the relayer: %+v", polygon)
+	}
+	if strings.Contains(f.call("GET", "/api/gas", nil).Body.String(), "0x") {
+		t.Fatal("nothing private in the public light")
 	}
 }

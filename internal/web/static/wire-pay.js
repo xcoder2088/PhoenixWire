@@ -20,6 +20,15 @@ const walletChoiceWords={
  de:{choiceTitle:'Wie möchtest du bezahlen?',openPay:'Ich habe bereits Nimiq Pay',getPay:'Nimiq Pay herunterladen',useHub:'Nimiq Wallet (Hub) verwenden',cancelPay:'Abbrechen',choiceHelp:'Nimiq Pay öffnet Wire in der App. Bestätige dort einmal deine E-Mail: Sie bleibt 24 Stunden bestätigt. Die Browsersitzung ist davon getrennt.',openPayHelp:'Falls die App nicht geöffnet wurde, versuche es erneut, installiere Nimiq Pay oder nutze den Hub. Es wurde keine Zahlung gestartet.',storeHelp:'Wähle den Store für dein Smartphone.'},
  zh:{choiceTitle:'你想如何付款？',openPay:'我已安装 Nimiq Pay',getPay:'获取 Nimiq Pay',useHub:'使用 Nimiq 钱包（Hub）',cancelPay:'取消',choiceHelp:'Nimiq Pay 会在应用内打开 Wire。请在那里确认一次邮箱，确认状态将保持 24 小时。浏览器的会话与应用内的会话相互独立。',openPayHelp:'如果应用未打开，请重试、安装 Nimiq Pay，或使用 Hub。尚未开始付款。',storeHelp:'请选择你手机的应用商店。'}
 };
+// The public light: Wire pays the network fee (gas) of an USDC / USDT payment. It is a quiet line, shown only while it is true.
+const gasLightWords={
+ en:'Network fees on USDC and USDT are paid by Phoenix Wire',
+ fr:'Les frais de réseau USDC et USDT sont payés par Phoenix Wire',
+ es:'Phoenix Wire paga las comisiones de red de USDC y USDT',
+ de:'Phoenix Wire übernimmt die Netzwerkgebühren für USDC und USDT',
+ zh:'USDC 和 USDT 的网络费用由 Phoenix Wire 承担'
+};
+for(const language of Object.keys(gasLightWords))words[language].gasLed=gasLightWords[language];
 for(const language of Object.keys(walletChoiceWords))Object.assign(words[language],walletChoiceWords[language]);
 const cardWords={
  fr:{myCards:'Mes cartes',emptyCards:'Aucune carte pour le moment.',waitingCard:'En attente de votre paiement',confirmingCard:'Paiement reçu, confirmation en cours',fundedCard:'Carte alimentée. Wire envoie la carte à {email}.',sentCard:'Carte envoyée à {email}',claimedCard:'Réclamée',refundedCard:'Remboursée',expiredCard:'Expirée',cancelledCard:'Annulée',otherCard:'Dépensée ailleurs',checkingCard:'Vérification de la carte en cours…',mailFailedCard:'Carte alimentée. Le courriel n’a pas pu être envoyé. Wire réessaiera.',missingLinkCard:'Carte alimentée. Le lien d’invitation est nécessaire : utilisez le navigateur où la carte a été créée.',staleCard:'Vue périmée : le service ne répond pas. Vérification automatique en cours.',bannerCard:'Carte alimentée. Courriel envoyé à {email}.',dismissCard:'Fermer cette notification',doneCard:'Terminé',createdCard:'Carte créée. Payez-la pour que Wire l’envoie au destinataire.'},
@@ -88,7 +97,7 @@ window.PhoenixViewport={center(win){
 
 function paint() {
  document.documentElement.lang = lang;
- $('wire-title').textContent = t('title'); $('wire-sub').textContent = t('sub');
+ $('wire-title').textContent = t('title'); $('wire-sub').textContent = t('sub'); $('wire-gas-text').textContent = t('gasLed');
  $('wire-email-label').textContent = t('email');paintCodeRequest(); $('wire-code-label').textContent = t('code'); $('wire-verify').textContent = t('verify');
  $('wire-as').textContent = t('as'); $('wire-logout').setAttribute('aria-label',t('out'));$('wire-logout').title=t('out');
  $('wire-language').value = preference;
@@ -486,6 +495,11 @@ const savedPalette=read('wire-palette','');
 applyPalette(savedPalette==='live'||palettes.includes(savedPalette)?savedPalette:({orange:'phoenixfire',violet:'aurora',teal:'ocean'}[read('wire-accent','')]||(savedPalette?'phoenixfire':'live')));
 applyTheme(read('wire-theme', 'dark'));
 setLanguage(preference);
+async function refreshGas() {
+ try { const g = await api('/api/gas'); $('wire-gas').hidden = !(g.polygon?.available || g.ethereum?.available); } catch { $('wire-gas').hidden = true; }
+}
+refreshGas();
+setInterval(() => { if (!document.hidden) refreshGas(); }, 60000);
 (async () => {
  try {
   const config = await api('/api/config');
