@@ -273,12 +273,23 @@ The first API request is still POST `payout_status` with `{}`. Existing pending/
 controls and resume the existing three-second tracker without requesting a new code. Unknown status fails closed with Retry.
 On an ordinary browser's first load, after confirming that no payout exists and the card has not expired, the existing
 public request route sends the code. In Nimiq Pay the page does **not** automatically request another code: the recipient
-keeps the code received in Safari, enters it and presses Receive in Nimiq Pay. Resend remains explicit and rate limited.
+normally uses its existing code entry. With the recipient handoff described below, it continues without asking for the
+code again. Resend remains explicit and rate limited.
 
-Outside the app, Receive in Nimiq Pay opens `nimiqpay://miniapp?url=` with the encoded public target
-`https://wire.phoenixmail.ca/?claim=<id>`. This uses the same custom-scheme mini-app opening mechanism as sender funding,
-not its authenticated handoff routes. There is no recipient code, address, session or personal data in that URL. Opening
-it does not consume the code or call payout/release. A visible hint allows another attempt or Nimiq Wallet if opening fails.
+Outside the app, clicking Receive in Nimiq Pay sends the entered code by POST to the public card-scoped `/handoff` route.
+Only then does it open `nimiqpay://miniapp?url=` with the encoded target
+`https://wire.phoenixmail.ca/?claim=<id>&h=<token>`. The opaque 43-character right lasts five minutes and is single-use.
+It is not a sender session handoff. The code itself is never in the URL. The browser retains it only in page memory for
+an explicit retry if app opening fails, and clears the visible code field. Creating the right does not call payout/release.
+
+On arrival, the page removes `h` immediately with `history.replaceState`, before network requests, storage or display.
+It redeems the right exactly once through POST `/api/claims/<id>/handoff/redeem`. A valid six-digit response is kept only
+in page memory, never echoed into the input or UI. After checking the existing payout and card, the app automatically
+calls `listAccounts()` and `payout {code,to}` using the first account. This continues the explicit choice made in Safari;
+it does not request another email or another code entry. An existing payout is simply followed, not submitted again.
+Invalid/expired/used or malformed redemption falls back quietly to normal code entry. A payout rejection with status 403
+clears the transferred code and displays the empty input for re-entry. Reload/foreground cannot redeem the erased token
+again; pending payout state remains recoverable through the existing status route.
 
 With `window.nimiq`, an explicit click calls `listAccounts()` and uses **only the first** address, without an account selector.
 After that it submits `payout {code,to}`. Refusal, empty/invalid first account and legacy error envelopes leave both choices
@@ -291,6 +302,7 @@ A payout already started locks this route. Pending retry uses only the server-re
 response loss, failures, foreground resumption, expiry and terminal success retain the existing handling. The code and
 recipient payout data are never written to browser storage or logs. No Go, CSP or pm/ changes are needed.
 
-Tests simulate both browser contexts, exact button labels and placement, disabled states, public-only app links, absence
-of code consumption during app opening, first-account receipt, release, errors, lost replies, status recovery and 375 px
+Tests simulate both browser contexts, exact button labels and placement, disabled states, token-only app links, creation
+only on click, early URL cleanup, redemption followed by payout, quiet fallback, 403 re-entry, no secret storage/logging,
+first-account receipt, release, errors, lost replies, status recovery and 375 px
 DOM/CSS. These are simulated checks, not a real Nimiq Pay/iPhone execution or real payment.

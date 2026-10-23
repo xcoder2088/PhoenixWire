@@ -1561,10 +1561,11 @@ test('history formats only server timestamps in five languages and never uses th
 // Public NIM recipient page: no sender session, wallet payment, real chain or email.
 const receivingAddress='NQ28 CQ7G QEBT 10UK R9LG 83C7 YAMY JD8Q K8S4';
 const otherReceivingAddress='NQ24 0358 HL85 UQ05 SLSS C72R KEX3 NU2K RN0N';
-async function recipientPage({language='en',accounts=null,accountError=null,payout=null,payoutError='',statusError='',expired=false,holdStatus=null}={}){
- const dom=new JSDOM(read('../internal/web/static/classic.html'),{url:'https://wire.example.test/?claim='+'a'.repeat(48),runScripts:'outside-only',pretendToBeVisual:true});doms.push(dom);
+async function recipientPage({language='en',accounts=null,accountError=null,payout=null,payoutError='',statusError='',expired=false,holdStatus=null,token='',redeemStatus=200,redeemCode='123456',handoffStatus=200,holdRedeem=null}={}){
+ const dom=new JSDOM(read('../internal/web/static/classic.html'),{url:'https://wire.example.test/?claim='+'a'.repeat(48)+(token?'&h='+encodeURIComponent(token):''),runScripts:'outside-only',pretendToBeVisual:true});doms.push(dom);
  const {window}=dom,doc=window.document,ctx=dom.getInternalVMContext();doc.documentElement.lang=language;
- const clock=fakeClock(window),calls=[],opened=[];let accountCalls=0;
+ const clock=fakeClock(window),calls=[],opened=[],logs=[],redeemURLs=[];let accountCalls=0;
+ for(const method of ['log','info','warn','error','debug'])window.console[method]=(...args)=>logs.push(args);
  Object.defineProperty(window,'innerWidth',{value:375});
  if(accounts!==null||accountError)window.nimiq={async listAccounts(){accountCalls++;if(accountError)throw accountError;return accounts;}};
  window.open=url=>opened.push(url);
@@ -1573,6 +1574,12 @@ async function recipientPage({language='en',accounts=null,accountError=null,payo
  let held=holdStatus,remote=payout;
  window.fetch=async(path,options={})=>{
   const body=options.body?JSON.parse(options.body):undefined;calls.push([path,body,options]);
+  if(path.endsWith('/handoff/redeem')){
+   redeemURLs.push(window.location.href);
+   if(holdRedeem)await new Promise(resolve=>{holdRedeem.release=resolve;});
+   return answer(redeemStatus,redeemStatus===200?{code:redeemCode}:{error:'invalid_or_expired'});
+  }
+  if(path.endsWith('/handoff'))return answer(handoffStatus,handoffStatus===200?{token:'R'.repeat(43),expires_in:300}:{code:'unavailable'});
   if(path.endsWith('/payout_status')){
    if(held){const gate=held;held=null;await new Promise(resolve=>{gate.release=resolve;});}
    if(statusError)return answer(503,{code:statusError});
@@ -1593,7 +1600,7 @@ async function recipientPage({language='en',accounts=null,accountError=null,payo
  vm.runInContext(src.replace("if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();","window.testFlow=mountNimFlow();"),ctx);
  await settle();
  const $=id=>doc.getElementById(id);
- return {window,doc,$,calls,opened,clock,accountCalls:()=>accountCalls,setRemote(p){remote=p;},setPayoutError(e){payoutError=e;},setStatusError(e){statusError=e;},
+ return {window,doc,$,calls,opened,clock,logs,redeemURLs,accountCalls:()=>accountCalls,setRemote(p){remote=p;},setPayoutError(e){payoutError=e;},setStatusError(e){statusError=e;},
   async choose(route){$('claim-'+route).click();await settle();},
   enterCode(code='123456'){$('claim-code').value=code;$('claim-code').dispatchEvent(new window.Event('input'));}
  };
@@ -1620,19 +1627,79 @@ test('recipient has exactly two wallet choices after code and resend, disabled u
  assert.ok(!/\bHub\b/.test(app.$('claim-panel').textContent));
 });
 
-test('browser receipt opens only the public card in Nimiq Pay without consuming or leaking the code',async()=>{
- const app=await recipientPage();app.enterCode();await app.choose('pay');
+test('browser receipt transfers the code by POST only on click, with an opaque token in the app link',async()=>{
+ const app=await recipientPage();
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/handoff')).length,0);
+ app.enterCode();await app.choose('pay');
+ assert.deepEqual(app.calls.find(([p])=>p.endsWith('/handoff'))[1],{code:'123456'});
  const uri=app.opened[0];assert.ok(uri.startsWith('nimiqpay://miniapp?url='));
- const target=new URL(uri).searchParams.get('url');
- assert.equal(target,'https://wire.phoenixmail.ca/?claim='+'a'.repeat(48));
+ const target=new URL(new URL(uri).searchParams.get('url'));
+ assert.equal(target.origin,'https://wire.phoenixmail.ca');assert.equal(target.searchParams.get('claim'),'a'.repeat(48));
+ assert.equal(target.searchParams.get('h'),'R'.repeat(43));assert.equal(target.searchParams.size,2);
  assert.ok(!uri.includes('123456'));assert.ok(!uri.includes('%7B'));
- assert.equal(app.$('claim-code').value,'123456');assert.equal(app.$('claim-pay').disabled,false);
+ assert.equal(app.$('claim-code').value,'');assert.equal(app.$('claim-pay').disabled,false);
  assert.equal(app.calls.filter(([p])=>p.endsWith('/payout')||p.endsWith('/release')).length,0);
- assert.equal(app.$('claim-status').textContent,flowText('en','claim_openPay'));
- await app.choose('pay');assert.equal(app.opened.length,2,'a failed app opening remains retryable');
+ await app.choose('pay');assert.equal(app.opened.length,2);
  app.window.open=()=>{throw Error('blocked');};await app.choose('pay');
- assert.equal(app.$('claim-status').textContent,flowText('en','claim_openPay'));assert.equal(app.$('claim-wallet').disabled,false);
+ assert.equal(app.$('claim-wallet').disabled,false);
  await app.choose('wallet');assert.ok(app.calls.some(([p])=>p.endsWith('/release')));
+ assert.deepEqual(app.logs,[]);assert.equal(app.window.localStorage.length,0);assert.equal(app.window.sessionStorage.length,0);
+});
+
+test('recipient handoff redemption removes the token before the response then pays once without code entry or email',async()=>{
+ const gate={},token='T'.repeat(43),app=await recipientPage({token,accounts:[receivingAddress],holdRedeem:gate});
+ assert.equal(app.window.location.search,'?claim='+'a'.repeat(48));
+ assert.ok(app.redeemURLs.every(url=>!url.includes(token)&&!url.includes('h=')));
+ assert.deepEqual(app.calls.find(([p])=>p.endsWith('/handoff/redeem'))[1],{token});
+ assert.equal(app.accountCalls(),0);gate.release();await settle();
+ assert.equal(app.accountCalls(),1);
+ assert.deepEqual(app.calls.find(([p])=>p.endsWith('/payout'))[1],{code:'123456',to:receivingAddress});
+ assert.equal(app.$('claim-code').value,'');assert.ok(!app.$('claim-panel').textContent.includes('123456'));
+ assert.equal(app.$('claim-status').textContent,'Sending…');
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,0);
+ app.window.dispatchEvent(new app.window.Event('pageshow'));app.clock.hidden(false);await settle();
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/handoff/redeem')).length,1);
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/payout')).length,1);
+ assert.deepEqual(app.logs,[]);assert.equal(app.window.localStorage.length,0);assert.equal(app.window.sessionStorage.length,0);
+ app.setRemote({status:'payout_confirmed',hash:'b'.repeat(64),to:receivingAddress,value:250000,confirmations:2});
+ await app.clock.advance(3000);assert.equal(app.$('claim-status').textContent,'Received!');
+});
+
+test('used or expired handoff quietly restores normal code entry; refused transferred code is cleared for re-entry',async()=>{
+ for(const language of ['fr','en','es','de','zh']){
+  const app=await recipientPage({language,token:'U'.repeat(43),accounts:[receivingAddress],redeemStatus:404});
+  assert.equal(app.$('claim-code').closest('label').hidden,false);assert.equal(app.$('claim-code').value,'');
+  assert.equal(app.$('claim-status').textContent,flowText(language,'claim_enterCode'));
+  assert.equal(app.$('claim-status').className,'');assert.equal(app.$('claim-pay').disabled,true);
+  assert.equal(app.calls.filter(([p])=>p.endsWith('/request')||p.endsWith('/payout')).length,0);
+ }
+ const denied=await recipientPage({token:'V'.repeat(43),accounts:[receivingAddress],payoutError:'invalid_or_expired_code'});
+ assert.equal(denied.$('claim-code').closest('label').hidden,false);assert.equal(denied.$('claim-code').value,'');
+ assert.equal(denied.$('claim-status').textContent,flowText('en','invalid'));
+ denied.setPayoutError('');denied.enterCode('654321');await denied.choose('pay');
+ assert.deepEqual(denied.calls.filter(([p])=>p.endsWith('/payout')).at(-1)[1],{code:'654321',to:receivingAddress});
+});
+
+test('a reloaded or already paid handoff follows the payout without another native call or redeem',async()=>{
+ const payout={status:'payout_confirmed',hash:'b'.repeat(64),to:receivingAddress,value:250000,confirmations:2};
+ const app=await recipientPage({token:'W'.repeat(43),accounts:[receivingAddress],payout});
+ assert.equal(app.$('claim-status').textContent,'Received!');assert.equal(app.accountCalls(),0);
+ assert.equal(app.$('claim-code').value,'');assert.equal(app.window.location.search,'?claim='+'a'.repeat(48));
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/payout')).length,0);
+ const reload=await recipientPage({accounts:[receivingAddress],payout});
+ assert.equal(reload.calls.filter(([p])=>p.endsWith('/handoff/redeem')||p.endsWith('/request')||p.endsWith('/payout')).length,0);
+ assert.equal(reload.$('claim-status').textContent,'Received!');
+ const malformed=await recipientPage({token:'Y'.repeat(43),accounts:[receivingAddress],redeemCode:'bad'});
+ assert.equal(malformed.$('claim-code').closest('label').hidden,false);
+ assert.equal(malformed.accountCalls(),0);assert.equal(malformed.$('claim-status').className,'');
+});
+
+test('handoff creation failures keep both wallet choices available and never open an app or consume the code',async()=>{
+ const app=await recipientPage({handoffStatus:503});app.enterCode();await app.choose('pay');
+ assert.equal(app.opened.length,0);assert.equal(app.$('claim-code').value,'123456');
+ assert.equal(app.$('claim-pay').disabled,false);assert.equal(app.$('claim-wallet').disabled,false);
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/payout')||p.endsWith('/release')).length,0);
+ assert.equal(app.$('claim-status').textContent,flowText('en','claim_payoutUnavailable'));
 });
 
 test('Nimiq Pay receipt uses the first account with no selector or automatic replacement code',async()=>{
@@ -1700,9 +1767,9 @@ test('recipient resumes pending, confirmed and failed payouts without code even 
 test('server destination/code/funding errors preserve the code and allow retry with the same automatic account',async()=>{
  for(const error of ['invalid_destination','invalid_or_expired_code','cashlink_not_confirmed_or_invalid']){
   const app=await recipientPage({accounts:[receivingAddress],payoutError:error});app.enterCode();await app.choose('pay');
-  assert.equal(app.$('claim-code').value,'123456');
+  assert.equal(app.$('claim-code').value,error==='invalid_or_expired_code'?'':'123456');
   assert.equal(app.$('claim-status').textContent,error==='invalid_or_expired_code'?flowText('en','invalid'):flowText('en','claim_'+error));
-  assert.equal(app.$('claim-pay').disabled,false);app.setPayoutError('');await app.choose('pay');
+  app.setPayoutError('');app.enterCode();await app.choose('pay');
   assert.equal(app.$('claim-status').textContent,'Sending…');
  }
 });

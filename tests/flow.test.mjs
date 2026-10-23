@@ -90,7 +90,7 @@ test('claim reveals no released wallet link before a correct six-digit code',asy
  for(const value of ['','123','12x456']){s.$('claim-code').value=value;s.$('claim-code').dispatchEvent(new s.window.Event('input'));assert.equal(s.$('claim-wallet').disabled,true);}
  s.$('claim-code').value='123456';s.$('claim-code').dispatchEvent(new s.window.Event('input'));
  s.$('claim-wallet').click();await settle();assert.match(s.$('claim-status').textContent,/Invalid or expired/);
- s.allowOTP();s.$('claim-wallet').click();await settle();
+ s.allowOTP();s.$('claim-code').value='123456';s.$('claim-code').dispatchEvent(new s.window.Event('input'));s.$('claim-wallet').click();await settle();
  assert.equal(s.$('wallet-link').hidden,true,'no duplicate action link');
  assert.equal(s.$('claim-wallet').textContent,'Receive in Nimiq Wallet');assert.equal(s.$('claim-wallet').disabled,false);
  assert.equal(s.$('request-claim-code').hidden,true);s.$('claim-wallet').click();

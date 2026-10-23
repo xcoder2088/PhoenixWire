@@ -1,4 +1,4 @@
-import { flowText } from './flow-text.js?v=0.4.18';
+import { flowText } from './flow-text.js?v=0.4.19';
 import { addressValid,cardPresentation,paintCard } from './model.js?v=0.3.0';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
@@ -151,7 +151,8 @@ $('feedback').after(fallback);
 let configured=false,ready=false,verified=false,busy=false,claimMode=false,active=null;
 let receiveURL='',cooling=0,coolTimer=null;
 // Page-local recipient state: no code or destination is stored in browser storage.
-const reception={route:'',to:'',payout:null,known:false,locked:false,expired:false,message:'',timer:null,read:null,retry:false};
+const reception={route:'',to:'',code:'',payout:null,known:false,locked:false,expired:false,message:'',timer:null,read:null,retry:false};
+const receptionCode=()=>reception.code||$('claim-code').value;
 const ct=key=>t('claim_'+key);
 let paymentList=[];
 let displayed=null;
@@ -680,7 +681,7 @@ function updateClaimControls(){
  if(!claimMode)return;
  const locked=reception.locked||Boolean(reception.payout),available=reception.known&&!reception.expired&&!locked;
  root.querySelectorAll('[data-claim]').forEach(el=>el.textContent=ct(el.dataset.claim));
- const validCode=/^[0-9]{6}$/.test($('claim-code').value);
+ const validCode=/^[0-9]{6}$/.test(receptionCode());
  $('claim-choices').hidden=locked||reception.expired;
  $('claim-choices').disabled=busy||!available||(!validCode&&!receiveURL);
  $('claim-pay').hidden=Boolean(receiveURL);
@@ -689,7 +690,7 @@ function updateClaimControls(){
  $('request-claim-code').hidden=!available||Boolean(receiveURL);
  $('request-claim-code').disabled=busy||cooling>0;
  $('request-claim-code').textContent=cooling?ct('resend')+' · '+cooling+' s':ct('resend');
- $('claim-code').closest('label').hidden=!available||Boolean(receiveURL);
+ $('claim-code').closest('label').hidden=!available||Boolean(receiveURL)||Boolean(reception.code);
  $('claim-code').disabled=busy||!available||Boolean(receiveURL);
  $('claim-code').required=available&&!receiveURL;
  $('claim-retry').hidden=!reception.retry;$('claim-retry').disabled=busy||Boolean(reception.read);
@@ -708,7 +709,7 @@ function schedulePayout(){
 function showPayout(p){
  if(!['payout_pending','payout_confirmed','payout_failed'].includes(p.status)||typeof p.to!=='string'||!Number.isSafeInteger(p.value)||p.value<0)throw Error('invalid_payout_response');
  reception.payout=p;reception.to=p.to;reception.locked=true;reception.known=true;reception.message='';reception.retry=p.status==='payout_pending';
- $('claim-code').value='';clearInterval(coolTimer);cooling=0;
+ reception.code='';$('claim-code').value='';clearInterval(coolTimer);cooling=0;
  updateClaimControls();schedulePayout();
 }
 function refreshPayout(){
@@ -734,14 +735,14 @@ async function claimTask(run,button){
    reception.locked=true;reception.message='claim_payout_already_started';reception.retry=true;await refreshPayout();
   }else if(code==='invalid_destination'||code==='cashlink_not_confirmed_or_invalid'){
    reception.locked=false;reception.message='claim_'+code;
-  }else if(error.status===403){reception.locked=false;reception.message='invalid';}
+  }else if(error.status===403){reception.code='';$('claim-code').value='';reception.locked=false;reception.message='invalid';}
   else if(error.status===410){reception.expired=true;reception.message='expired';}
   else{await refreshPayout();if(!reception.payout){reception.message='claim_payoutUnavailable';reception.retry=true;}}
  }finally{busy=false;button.removeAttribute('aria-busy');updateClaimControls();}
 }
 async function requestClaimCode(){
  if(!reception.known||reception.locked||reception.expired||receiveURL||cooling>0)return;
- try{await api('/api/claims/'+claimID()+'/request',{},{timeout:true});$('claim-code').value='';reception.message='codeSent';cooldown();}
+ try{await api('/api/claims/'+claimID()+'/request',{},{timeout:true});reception.code='';$('claim-code').value='';reception.message='codeSent';cooldown();}
  catch(error){if(error.status===429){cooldown();reception.message='waitCode';return;}throw error;}
 }
 function openReleasedWallet(){
@@ -751,14 +752,20 @@ function openReleasedWallet(){
 function chooseReception(route){
  if(busy||!reception.known||reception.locked||reception.payout||reception.expired)return;
  if(route==='wallet'&&receiveURL){openReleasedWallet();return;}
- if(receiveURL||!/^[0-9]{6}$/.test($('claim-code').value))return;
+ if(receiveURL||!/^[0-9]{6}$/.test(receptionCode()))return;
  if(route==='pay'&&!window.nimiq){
-  // Recipient links carry only the public card id: never a code, session or destination.
-  const target='https://wire.phoenixmail.ca/?claim='+claimID();
-  try{window.open('nimiqpay://miniapp?url='+encodeURIComponent(target),'_self','noopener,noreferrer');}catch{}
-  reception.message='claim_openPay';updateClaimControls();return;
+  return claimTask(async()=>{
+   const code=receptionCode();
+   const result=await api('/api/claims/'+claimID()+'/handoff',{code},{timeout:true});
+   if(typeof result.token!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(result.token))throw Error('invalid_handoff');
+   // Only the opaque, short-lived right crosses browser contexts, never the code itself.
+   const target='https://wire.phoenixmail.ca/?claim='+claimID()+'&h='+encodeURIComponent(result.token);
+   reception.code=code;$('claim-code').value='';
+   try{window.open('nimiqpay://miniapp?url='+encodeURIComponent(target),'_self','noopener,noreferrer');}catch{}
+   reception.message='claim_openPay';
+  },$('claim-pay'));
  }
- void claimTask(async()=>{
+ return claimTask(async()=>{
   reception.route=route;
   if(route==='pay'){
    try{
@@ -779,35 +786,50 @@ $('claim-retry')?.addEventListener('click',()=>claimTask(async()=>{
  await refreshPayout();
  // Resume only the server's locked destination, without consuming another code.
  if(reception.payout?.status==='payout_pending')showPayout(await api('/api/claims/'+claimID()+'/payout',{to:reception.payout.to},{timeout:true}));
- else if(!reception.payout&&reception.known&&!reception.locked&&/^[0-9]{6}$/.test($('claim-code').value))await submitClaim();
+ else if(!reception.payout&&reception.known&&!reception.locked&&/^[0-9]{6}$/.test(receptionCode()))await submitClaim();
 },$('claim-retry')));
 $('claim-code').addEventListener('input',()=>{$('claim-code').value=$('claim-code').value.replace(/\D/g,'').slice(0,6);updateClaimControls();});
 $('request-claim-code').addEventListener('click',()=>claimTask(requestClaimCode,$('request-claim-code')));
 // Enter must not silently choose one of the two wallets.
 $('claim-form').addEventListener('submit',event=>event.preventDefault());
 async function submitClaim(){
- if(!reception.route||!reception.known||reception.locked||reception.expired||!/^[0-9]{6}$/.test($('claim-code').value))return;
+ if(!reception.route||!reception.known||reception.locked||reception.expired||!/^[0-9]{6}$/.test(receptionCode()))return;
  if(reception.route==='pay'){
   if(!softAddress(reception.to)){reception.message='claim_invalid_destination';return;}
   reception.locked=true;updateClaimControls();
-  showPayout(await api('/api/claims/'+claimID()+'/payout',{code:$('claim-code').value,to:reception.to},{timeout:true}));return;
+  showPayout(await api('/api/claims/'+claimID()+'/payout',{code:receptionCode(),to:reception.to},{timeout:true}));return;
  }
- const result=await api('/api/claims/'+claimID()+'/release',{code:$('claim-code').value},{timeout:true});
- receiveURL=validatedCashlink(result.cashlink);$('claim-code').value='';
+ const result=await api('/api/claims/'+claimID()+'/release',{code:receptionCode()},{timeout:true});
+ receiveURL=validatedCashlink(result.cashlink);reception.code='';$('claim-code').value='';
  clearInterval(coolTimer);cooling=0;reception.message='accepted';
 }
 function claimID(){const id=new URLSearchParams(location.search).get('claim');if(!/^[a-f0-9]{48}$/.test(id||''))throw Error('claim_unavailable');return id;}
 async function boot(){
  refreshText();claimMode=!embedded&&new URLSearchParams(location.search).has('claim');
  if(claimMode){
+  const parameters=new URLSearchParams(location.search),hasHandoff=parameters.has('h');
+  let handoffToken=parameters.get('h')||'';
+  if(hasHandoff){
+   // Erase before any network request, including failed/used-token recovery and reloads.
+   parameters.delete('h');
+   history.replaceState(history.state,'',location.pathname+(parameters.size?'?'+parameters.toString():'')+location.hash);
+  }
   root.querySelector('.workspace').hidden=true;$('notice').hidden=true;$('claim-panel').hidden=false;
   reception.message='claim_checkingPayout';updateClaimControls();await refreshPayout();
+  if(hasHandoff){
+   try{
+    const result=await api('/api/claims/'+claimID()+'/handoff/redeem',{token:handoffToken},{timeout:true});
+    if(!reception.payout&&typeof result.code==='string'&&/^[0-9]{6}$/.test(result.code))reception.code=result.code;
+   }catch{/* A used or expired right is a normal code-entry screen, not an alarm. */}
+   finally{handoffToken='';}
+  }
   try{const p=await api('/api/claims/'+claimID());paintCard($('claim-card'),document.documentElement.lang,p.id);$('claim-info').textContent=t('from')+' '+p.sender;$('claim-amount').textContent=p.amount+' NIM';$('claim-message').textContent=p.message;
    window.PhoenixNimiqIdenticons?.paint($('claim-iqon'),p.address);
    if(new Date(p.expires_at).getTime()<=Date.now()&&!reception.payout){reception.expired=true;reception.message='expired';}
    if(reception.known&&!reception.payout&&!reception.expired){
-    // A recipient arriving in the app keeps the code requested in the browser valid.
-    if(window.nimiq)reception.message='claim_enterCode';
+    // Redeeming is a one-shot continuation of the explicit browser choice.
+    if(reception.code&&window.nimiq)await chooseReception('pay');
+    else if(window.nimiq||hasHandoff)reception.message='claim_enterCode';
     else await claimTask(requestClaimCode,$('request-claim-code'));
    }
    updateClaimControls();

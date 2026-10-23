@@ -32,7 +32,7 @@ const payoutWords={
     "wallet": "Recevoir dans Nimiq Wallet",
     "resend": "Renvoyer le code",
     "enterCode": "Entrez le code reçu par courriel, ou demandez-en un nouveau.",
-    "openPay": "Continuez dans Nimiq Pay avec votre code. Si l’application ne s’ouvre pas, réessayez ou utilisez Nimiq Wallet."
+    "openPay": "Continuez dans Nimiq Pay. Si l’application ne s’ouvre pas, réessayez ou utilisez Nimiq Wallet."
   },
   "en": {
     "choose": "Receive your NIM card",
@@ -52,7 +52,7 @@ const payoutWords={
     "wallet": "Receive in Nimiq Wallet",
     "resend": "Resend code",
     "enterCode": "Enter the code received by email, or request a new one.",
-    "openPay": "Continue in Nimiq Pay with your code. If the app does not open, try again or use Nimiq Wallet."
+    "openPay": "Continue in Nimiq Pay. If the app does not open, try again or use Nimiq Wallet."
   },
   "es": {
     "choose": "Recibir tu tarjeta NIM",
@@ -72,7 +72,7 @@ const payoutWords={
     "wallet": "Recibir en Nimiq Wallet",
     "resend": "Reenviar código",
     "enterCode": "Introduce el código recibido por correo o solicita uno nuevo.",
-    "openPay": "Continúa en Nimiq Pay con tu código. Si la aplicación no se abre, reintenta o usa Nimiq Wallet."
+    "openPay": "Continúa en Nimiq Pay. Si la aplicación no se abre, reintenta o usa Nimiq Wallet."
   },
   "de": {
     "choose": "Deine NIM-Karte empfangen",
@@ -92,7 +92,7 @@ const payoutWords={
     "wallet": "In Nimiq Wallet empfangen",
     "resend": "Code erneut senden",
     "enterCode": "Gib den per E-Mail erhaltenen Code ein oder fordere einen neuen an.",
-    "openPay": "Fahre in Nimiq Pay mit deinem Code fort. Öffnet sich die App nicht, versuche es erneut oder nutze Nimiq Wallet."
+    "openPay": "Fahre in Nimiq Pay fort. Öffnet sich die App nicht, versuche es erneut oder nutze Nimiq Wallet."
   },
   "zh": {
     "choose": "领取你的 NIM 卡片",
@@ -112,7 +112,7 @@ const payoutWords={
     "wallet": "接收到 Nimiq Wallet",
     "resend": "重新发送验证码",
     "enterCode": "请输入邮件中的验证码，或请求新的验证码。",
-    "openPay": "请在 Nimiq Pay 中输入你的验证码。如果应用未打开，请重试或使用 Nimiq Wallet。"
+    "openPay": "请在 Nimiq Pay 中继续。如果应用未打开，请重试或使用 Nimiq Wallet。"
   }
 };
 export function flowText(language,key){const row=rows[language]||rows.en;return (key.startsWith('claim_')?(payoutWords[language]||payoutWords.en)[key.slice(6)]:null)||(claimWords[language]||claimWords.en)[key]||row[keys.indexOf(key)]||key;}
