@@ -191,6 +191,29 @@ func TestClaimPageWearsWireBrandAndTheCommonGradient(t *testing.T) {
 	}
 }
 
+// The gas light is shown before anyone signs in: the web server hands /api/gas to the gateway, without a session.
+func TestGasLightRouteIsReachableWithoutASession(t *testing.T) {
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
+	dir := t.TempDir()
+	mail := wire.MailerSend{APIKey: "fixture", From: "no-reply@example.test"}
+	engine, err := service.New(service.Config{Directory: filepath.Join(dir, "engine"), RPCURL: "http://127.0.0.1:1", Master: bytes.Repeat([]byte{7}, 32), Sender: service.MailerSend{APIKey: mail.APIKey, From: mail.From}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer engine.Close()
+	api, err := wire.New(wire.Config{Directory: filepath.Join(dir, "gateway"), Origin: "https://wire.example.test", Master: bytes.Repeat([]byte{9}, 32), Engine: engine, Mail: mail})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer api.Close()
+	r := httptest.NewRecorder()
+	NewHandler(api).ServeHTTP(r, httptest.NewRequest("GET", "/api/gas", nil))
+	if r.Code != 200 || !strings.Contains(r.Body.String(), `"polygon"`) || strings.Contains(r.Body.String(), "sender_verification_required") {
+		t.Fatalf("/api/gas must answer without a session: %d %s", r.Code, r.Body)
+	}
+}
+
 func TestUSDTRoutesArePublicOnlyForTheRecipient(t *testing.T) {
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
 	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
