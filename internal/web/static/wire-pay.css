@@ -1,6 +1,7 @@
 /* Wire's own frame around PhoenixMail's payment window (the window brings its own styles: /pm/*). */
 .wire-nim-progress{position:static;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:16px;margin:0 0 18px;border:1px solid var(--accent);border-radius:12px;background:var(--panel);color:var(--text)}
-.wire-nim-progress p{flex:1 1 240px;margin:0;line-height:1.5;font-weight:650;overflow-wrap:anywhere}
+.wire-nim-progress p{margin:0;line-height:1.5;font-weight:650;overflow-wrap:anywhere}
+.wire-nim-progress>p{flex:1 1 240px}
 .wire-nim-progress button{min-height:48px;padding:12px 22px;border-radius:10px;font-weight:700}
 /* A sent NIM card has one completion screen, without a second form or floating notice. */
 .wire-body .wire-nim-window:has(.wire-nim-complete){width:min(520px,calc(100vw - 24px));min-width:0;box-sizing:border-box}
@@ -11,7 +12,8 @@
 .wire-nim-complete #nim-progress-close{width:100%;max-width:240px}
 /* Completion replaces the entire content, including the prepared-card wrapper. */
 .wire-nim-host.wire-nim-complete>:not(#nim-progress),.wire-nim-complete #nim-progress>:not(#nim-progress-message):not(#nim-progress-close){display:none!important}
-#nim-wallet-failure{display:flex;flex-direction:column;align-items:stretch}
+#nim-wallet-failure{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:10px}
+#nim-wallet-failure>p{flex:none;min-height:0;height:auto}
 #nim-wallet-retry{order:-2}
 #nim-wallet-wait{order:-1}
 /* Recipient choices are Wire-owned; the mirrored payment window is untouched. */
@@ -171,9 +173,9 @@ body.wire-body{background:var(--bg);color:var(--text)}
 #wire-handoff-home{overflow-wrap:anywhere;}
 
 #nim-wallet-failure{flex-basis:100%;width:100%;min-width:0;box-sizing:border-box;}
-#nim-wallet-detail{font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;text-align:left;max-width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;}
+#nim-wallet-detail{font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;text-align:left;max-width:100%;min-width:0;margin:0;padding:10px;box-sizing:border-box;border:1px solid var(--line);border-radius:9px;}
 #nim-wallet-detail-label,#nim-wallet-close-note,#nim-wallet-wait{font-size:14px;line-height:1.5;overflow-wrap:anywhere;}
-#nim-wallet-failure button{max-width:100%;white-space:normal;min-height:44px;margin:6px;}
+#nim-wallet-failure button{width:100%;max-width:100%;white-space:normal;min-height:44px;margin:0;box-sizing:border-box;}
 .wire-nim-progress:has(#nim-wallet-failure:not([hidden])){position:static;align-items:stretch;}
 
 /* Phoenix keeps its orange outline; neutral button surfaces avoid a brown cast. */

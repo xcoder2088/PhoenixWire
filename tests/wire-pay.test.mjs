@@ -1835,3 +1835,19 @@ test('NIM success contains only message and Done, and unpaid actions precede dia
  assert.equal(failed.$('nim-wallet-close-note').textContent.includes('debited'),false);
  assert.equal(failed.window.getComputedStyle(failed.$('nim-wallet-retry')).order,'-2');
 });
+
+test('375px unpaid NIM diagnostics use content-sized rows, never 240px paragraph spacers',async()=>{
+ const app=await failedNative({width:375});
+ const style=app.doc.createElement('style');style.textContent=read('../internal/web/static/wire-pay.css');app.doc.head.append(style);
+ const panel=app.$('nim-wallet-failure'),css=app.window.getComputedStyle(panel);
+ assert.equal(css.display,'grid');assert.equal(css.gridTemplateColumns,'minmax(0,1fr)');assert.equal(css.gap,'10px');
+ for(const p of panel.querySelectorAll('p')){
+  const computed=app.window.getComputedStyle(p);
+  assert.equal(computed.flexGrow,'0');assert.equal(computed.flexShrink,'0');assert.equal(computed.flexBasis,'auto');
+  assert.equal(computed.minHeight,'0');assert.equal(computed.height,'auto');
+ }
+ assert.equal(app.window.getComputedStyle(app.$('nim-wallet-detail')).margin,'0px');
+ assert.equal(app.window.getComputedStyle(app.$('nim-wallet-copy')).margin,'0px');
+ assert.equal(app.window.getComputedStyle(app.$('nim-progress')).position,'static');
+ assert.equal(app.$('nim-wallet-retry').hidden,false);
+});

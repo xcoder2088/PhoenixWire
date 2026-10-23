@@ -262,6 +262,12 @@ This also covers a prepared-card wrapper and New card; Done closes the complete 
 CSS keeps this panel in normal flow and within a 375 px viewport. An unpaid card keeps one detailed status and a short
 closing hint instead of repeating the wallet/expiry warning. Retry and its countdown precede technical details.
 
+The 18:23 iPhone recording exposed a CSS sizing error: the row-oriented progress rule gave every descendant paragraph
+a 240 px flex basis, including paragraphs in the vertical diagnostic panel. That made large empty bands above the card.
+Only the direct progress message now receives that horizontal flex basis. Diagnostics use one content-sized grid column,
+10 px gaps, zero-margin details/buttons and no paragraph flex growth. The 375 px computed-style regression test checks
+these constraints; it is not a substitute for an iPhone rendering check after deployment. No payment logic changes.
+
 ## Receiving NIM: exactly two choices (supersedes 26aa944)
 
 The recipient page (`classic.html`, `/?claim=…`) has one six-digit code field, Resend code immediately below it, then
