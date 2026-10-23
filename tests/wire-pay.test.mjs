@@ -44,7 +44,7 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
   if (mobile || android) Object.defineProperty(window.navigator, 'userAgent', { value: android ? 'Android' : 'iPhone' });
   for (const f of ['../engine/secureclaim/web/cashlink.js', '../internal/web/static/pm/usdt-cashlink.js', '../internal/web/static/pm/usdt-payments.js', '../internal/web/static/pm/nimiq-payments.js']) vm.runInContext(read(f), ctx);
   const C = window.PhoenixCashlink, calls = [], checkouts = [], behaviors = [], nativeCalls = [], confirmations = [];
-  let currentSession=session;
+  let currentSession=session,codeFails=false,heldCode=null,logoutFails=false;
   const owned=JSON.parse(JSON.stringify(serverCards));let failStatus=false;
   window.confirm = message => { confirmations.push(message); return true; };
   let fundingVisible = !nativeMode;
@@ -123,7 +123,11 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
       return answer(200,result);
     }
     if (path === '/api/sender/verify') {currentSession={verified:true,email:'sender@example.test'};return answer(200,currentSession);}
-    if (path === '/api/sender/request' || path === '/api/logout') return answer(200, { email: 'sender@example.test', ok: true });
+    if(path==='/api/sender/request'){
+     if(heldCode){const held=heldCode;heldCode=null;await new Promise((resolve,reject)=>{held.release=resolve;options.signal?.addEventListener('abort',()=>reject(Error('aborted')),{once:true});});}
+     return codeFails?answer(503,{code:'mail_unavailable'}):answer(200,{email:'sender@example.test',ok:true});
+    }
+    if (path === '/api/logout') {if(logoutFails)return answer(503,{code:'unavailable'});currentSession={verified:false};return answer(200, {ok: true});}
     throw Error('unexpected API ' + path);
   };
   const source = read('../internal/web/static/wire-pay.js').replace(/^import[^\n]+\n/gm, '');
@@ -133,12 +137,15 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
   await settle();
   return { window, $: id => window.document.getElementById(id), calls, doc: window.document, checkouts, behaviors, nativeCalls, confirmations,clock,
     fundOnChain(){fundingVisible=true;},setStage(stage){nim.stage=stage;},failMail(value){mailFails=value;},failReads(value){readsFail=value;},holdNextConfirm(){const held={};holdConfirm=held;return held;},maxConfirms:()=>maxConfirms,
+    failCode(value){codeFails=value;},holdCode(){const held={};heldCode=held;return held;},
+    failLogout(value){logoutFails=value;},
     snapshot(){return Object.fromEntries(Object.keys(window.sessionStorage).map(k=>[k,window.sessionStorage.getItem(k)]));},
     snapshotLocal(){return Object.fromEntries(Object.keys(window.localStorage).map(k=>[k,window.localStorage.getItem(k)]));},serverCards:owned,failCardStatus(value){failStatus=value;}};
 }
 
 async function makeCard(t) {
   t.$('pay').click(); await settle();
+  [...t.doc.querySelectorAll('.wire-coin-picker .nimiq-payment-assets button')].find(b=>b.textContent==='USDC · Polygon')?.click();await settle();
   const form = t.doc.querySelector('.nimiq-payment-panel');
   const input = label => [...form.querySelectorAll('input')].find(i => i.closest('label') && i.closest('label').textContent.includes(label));
   const set = (el, v) => { el.value = v; el.dispatchEvent(new t.window.Event('input', { bubbles: true })); el.dispatchEvent(new t.window.Event('change', { bubbles: true })); };
@@ -777,6 +784,90 @@ test('the page scrolls: PhoenixMail’s stylesheet locks html, Wire’s frame fr
   const css = read('../internal/web/static/wire-pay.css'), app = read('../internal/web/static/pm/app.css');
   assert.match(app, /html\{overflow:hidden/, 'the copied stylesheet does lock the page (its mail app scrolls inside itself)');
   assert.match(css, /html\{[^}]*height:auto!important[^}]*overflow-y:auto!important/, 'Wire’s page is a normal page: it must scroll on a phone');
+});
+
+test('code request visibly changes from sending to sent in five languages and blocks duplicate sends',async()=>{
+ const labels={fr:['Envoi du code…','Code envoyé','Renvoyer un code'],en:['Sending code…','Code sent','Send another code'],es:['Enviando código…','Código enviado','Enviar otro código'],de:['Code wird gesendet…','Code gesendet','Weiteren Code senden'],zh:['正在发送验证码…','验证码已发送','重新发送验证码']};
+ for(const[language,text]of Object.entries(labels)){
+  const t=await start({session:{verified:false},clocked:true});
+  t.$('wire-language').value=language;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
+  t.$('wire-email').value='sender@example.test';const held=t.holdCode();
+  const button=t.$('wire-send-code');button.click();button.click();await settle();
+  assert.equal(button.textContent,text[0]);assert.equal(button.disabled,true);assert.equal(button.dataset.state,'sending');
+  assert.equal(t.$('wire-code-box').hidden,true);assert.equal(t.$('wire-email').disabled,true);
+  assert.equal(t.calls.filter(([p])=>p==='/api/sender/request').length,1);
+  held.release();await settle();
+  assert.ok(button.textContent.startsWith(text[1]));assert.equal(button.dataset.state,'sent');assert.equal(button.disabled,true);
+  assert.equal(t.$('wire-code-box').hidden,false);assert.equal(t.$('wire-code-delivery').hidden,false);assert.equal(t.doc.activeElement,t.$('wire-code'));
+  button.click();await settle();assert.equal(t.calls.filter(([p])=>p==='/api/sender/request').length,1);
+  await t.clock.advance(30000);assert.equal(button.textContent,text[2]);assert.equal(button.disabled,false);
+  t.$('wire-email').value='other@example.test';t.$('wire-email').dispatchEvent(new t.window.Event('input'));
+  assert.equal(button.dataset.state,'idle');assert.equal(t.$('wire-code-delivery').hidden,true);assert.equal(t.$('wire-code-box').hidden,true);
+ }
+ assert.match(read('../internal/web/static/wire-pay.css'),/#wire-send-code\[data-state="sent"\]\{[^}]*border-color:#369d70/);
+});
+
+test('a failed or stalled code request never says sent and leaves retry available',async()=>{
+ for(const stalled of [false,true]){
+  const t=await start({session:{verified:false},clocked:true});t.$('wire-email').value='sender@example.test';
+  if(stalled)t.holdCode();else t.failCode(true);
+  t.$('wire-send-code').click();await settle();if(stalled)await t.clock.advance(30000);
+  assert.equal(t.$('wire-send-code').dataset.state,'idle');assert.equal(t.$('wire-send-code').disabled,false);
+  assert.equal(t.$('wire-code-box').hidden,true);assert.equal(t.$('wire-code-delivery').hidden,true);
+  assert.match(t.$('wire-status').textContent,/Something went wrong/);assert.equal(t.$('wire-email').disabled,false);
+ }
+});
+
+test('home has an explicit sign-out action in five languages, ends the session and preserves card recovery data',async()=>{
+ const labels={fr:'Se déconnecter',en:'Sign out',es:'Cerrar sesión',de:'Abmelden',zh:'退出登录'};
+ const t=await start({clocked:true});await makeCard(t);await t.clock.advance(2500);
+ for(const[language,label]of Object.entries(labels)){
+  t.$('wire-language').value=language;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
+  assert.equal(t.$('wire-logout').textContent,label);assert.equal(t.$('wire-logout').closest('[hidden]'),null);
+ }
+ const recovery=t.window.localStorage.getItem('wire-usdt-cards');assert.ok(JSON.parse(recovery)[0].fragment);
+ t.$('wire-logout').click();await settle();
+ assert.equal(t.calls.filter(([p])=>p==='/api/logout').length,1);
+ assert.deepEqual(await(await t.window.fetch('/api/session')).json(),{verified:false});
+ assert.equal(t.$('wire-sender').hidden,false);assert.equal(t.$('wire-ready').hidden,true);assert.equal(t.$('wire-cards').hidden,true);
+ assert.equal(t.doc.querySelector('.nimiq-payment-modal'),null);assert.equal(t.$('wire-email').value,'');assert.equal(t.$('wire-code').value,'');
+ assert.equal(t.window.localStorage.getItem('wire-usdt-cards'),recovery);
+ const count=t.calls.length;await t.clock.advance(120000);assert.equal(t.calls.length,count);
+});
+
+test('failed server sign-out stays visibly signed in and allows another attempt',async()=>{
+ const t=await start({clocked:true});t.failLogout(true);t.$('wire-logout').click();await settle();
+ assert.equal(t.$('wire-ready').hidden,false);assert.equal(t.$('wire-sender').hidden,true);assert.equal(t.$('wire-logout').disabled,false);
+ assert.match(t.$('wire-status').textContent,/Something went wrong/);
+ t.failLogout(false);t.$('wire-logout').click();await settle();assert.equal(t.$('wire-ready').hidden,true);
+});
+
+test('signing out from the completed NIM window closes it and stops its cached flow cleanly',async()=>{
+ const t=await tracked();t.setStage('sent');await t.clock.advance(4000);
+ assert.equal(t.$('nim-progress-close').hidden,false);
+ t.$('wire-logout').click();await settle();
+ assert.equal(t.doc.querySelector('.wire-nim-window'),null);assert.equal(t.$('wire-sender').hidden,false);
+ assert.equal(t.$('wire-ready').hidden,true);assert.equal(t.$('wire-status').textContent,'');
+ const count=t.calls.length;await t.clock.advance(120000);assert.equal(t.calls.length,count);
+});
+
+test('currency choice comes first, then other coins and preview tabs disappear for each selected asset',async()=>{
+ for(const label of ['NIM','USDC · Polygon','USDT · Polygon','USDT · Ethereum']){
+  const t=await start({width:375});t.$('pay').click();await settle();
+  const picker=t.doc.querySelector('.wire-coin-picker');assert.ok(picker);assert.equal(picker.querySelector('h3').textContent,'Choose a currency');
+  assert.equal(picker.querySelector('.nimiq-payment-assets').hidden,false);assert.equal(picker.querySelector('.nimiq-payment-tabs').hidden,true);
+  assert.ok(!t.calls.some(([p,b])=>p==='/api/payments'&&b||p==='/api/usdt/cashlink/create'));
+  [...picker.querySelectorAll('.nimiq-payment-assets button')].find(b=>b.textContent===label).click();await settle();
+  const win=t.doc.querySelector('.nimiq-payment-window');assert.ok(win);assert.equal(win.classList.contains('wire-coin-picker'),false);
+  assert.equal(win.querySelector('.nimiq-payment-assets').hidden,true);
+  if(label==='NIM'){assert.ok(t.$('card-form'));assert.equal(win.querySelector('.nimiq-payment-tabs'),null);}
+  else assert.equal(win.querySelector('.nimiq-payment-tabs').hidden,true);
+  assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);
+ }
+ const t=await start({clocked:true});await makeCard(t);
+ const win=t.doc.querySelector('.nimiq-payment-window');
+ assert.equal(win.dataset.view,'preview');assert.equal(win.querySelector('.nimiq-payment-tabs').hidden,true);
+ assert.ok(win.querySelector('.nimiq-payment-preview .nimiq-payment-card'),'the actual funding card remains available without a preview tab');
 });
 
 test('Nimiq Pay receives the draft across isolated storage, restores after email confirmation and only pays on explicit approval',async()=>{

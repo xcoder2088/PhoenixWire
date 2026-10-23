@@ -1,7 +1,7 @@
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.3.0';
-import { mountNimFlow } from './flow.js?v=0.4.8';
+import { mountNimFlow } from './flow.js?v=0.4.9';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -29,11 +29,20 @@ const cardWords={
  zh:{myCards:'我的卡片',emptyCards:'暂无卡片。',waitingCard:'等待你付款',confirmingCard:'已收到付款，正在等待确认',fundedCard:'卡片已充值。Wire 正在向 {email} 发送卡片。',sentCard:'卡片已发送至 {email}',claimedCard:'已领取',refundedCard:'已退款',expiredCard:'已过期',cancelledCard:'已取消',otherCard:'已在其他地方支出',checkingCard:'正在检查卡片…',mailFailedCard:'卡片已充值，但邮件未能发送。Wire 将重试。',missingLinkCard:'卡片已充值。需要邀请链接：请使用创建此卡片的浏览器。',staleCard:'视图已过时：服务暂未响应，正在自动重试检查。',bannerCard:'卡片已充值。邮件已发送至 {email}。',dismissCard:'关闭此通知',doneCard:'完成',createdCard:'卡片已创建。付款后 Wire 会将其发送给收件人。'}
 };
 for(const language of Object.keys(cardWords))Object.assign(words[language],cardWords[language]);
+const checkoutWords={
+ fr:{chooseCoin:'Choisissez la monnaie',sendingCode:'Envoi du code…',codeSentButton:'Code envoyé',resendCode:'Renvoyer un code',out:'Se déconnecter'},
+ en:{chooseCoin:'Choose a currency',sendingCode:'Sending code…',codeSentButton:'Code sent',resendCode:'Send another code',out:'Sign out'},
+ es:{chooseCoin:'Elige una moneda',sendingCode:'Enviando código…',codeSentButton:'Código enviado',resendCode:'Enviar otro código',out:'Cerrar sesión'},
+ de:{chooseCoin:'Währung wählen',sendingCode:'Code wird gesendet…',codeSentButton:'Code gesendet',resendCode:'Weiteren Code senden',out:'Abmelden'},
+ zh:{chooseCoin:'选择币种',sendingCode:'正在发送验证码…',codeSentButton:'验证码已发送',resendCode:'重新发送验证码',out:'退出登录'}
+};
+for(const language of Object.keys(checkoutWords))Object.assign(words[language],checkoutWords[language]);
 window.PhoenixWordOverrides=Object.fromEntries(Object.entries(cardWords).map(([language,w])=>[language,{fundedMsg:w.fundedCard,confirmingMsg:w.confirmingCard,close:w.doneCard,added:w.createdCard,created:w.createdCard}]));
 function read(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem(key, value); } catch { /* storage may be unavailable */ } }
 let preference = read('wire-language', 'auto'), lang = 'en', email = '', payments = null, usdtOn = false, nimOn = false, enabled = false, nimView = null, resumed = false;
 let nimCache=null;
+let choosingCoin=false,codeSending=false,codeSentTo='',codeUntil=0,codeTimer=null;
 const t = key => (words[lang] || words.en)[key];
 // Only a payment draft crosses contexts. Never export cookies, grants, link keys or recovery URLs.
 function validNimDraft(d){
@@ -78,7 +87,7 @@ window.PhoenixViewport={center(win){
 function paint() {
  document.documentElement.lang = lang;
  $('wire-title').textContent = t('title'); $('wire-sub').textContent = t('sub');
- $('wire-email-label').textContent = t('email'); $('wire-send-code').textContent = t('send'); $('wire-code-label').textContent = t('code'); $('wire-verify').textContent = t('verify');
+ $('wire-email-label').textContent = t('email');paintCodeRequest(); $('wire-code-label').textContent = t('code'); $('wire-verify').textContent = t('verify');
  $('wire-as').textContent = t('as'); $('wire-logout').textContent = t('out');
  $('wire-language').value = preference;
  $('wire-pay-label').textContent = t('pay');
@@ -87,6 +96,7 @@ function paint() {
  window.dispatchEvent(new Event('wire-language'));
  $('wire-session-help').textContent = t('sessionHelp'); $('wire-session-confirmed').textContent = t('sessionConfirmed');
  document.querySelectorAll('.wire-window-back').forEach(button => { button.textContent = t('back'); });
+ document.querySelectorAll('.wire-coin-picker .nimiq-payment-head h3').forEach(title=>{title.textContent=t('chooseCoin');});
  document.querySelectorAll('[data-wallet-text]').forEach(el=>{el.textContent=t(el.dataset.walletText);});
  renderCards();
 }
@@ -144,6 +154,7 @@ function closePaymentWindow() {
 }
 function openNimWindow() {
  if (!email || !nimOn) return;
+ choosingCoin=false;
  if(nimView)return;
  closePaymentWindow();
  if(nimCache){
@@ -153,6 +164,7 @@ function openNimWindow() {
  const modal = $('wire-nim-template').content.firstElementChild.cloneNode(true);
  const root = modal.querySelector('.wire-nim-host'), win = modal.querySelector('.nimiq-payment-window');
  const row = modal.querySelector('.wire-nim-assets');
+ row.hidden=true;
  for (const [asset, label] of [['nim','NIM · Nimiq'],['usdc_polygon','USDC · Polygon'],['usdt_polygon','USDT · Polygon'],['usdt_ethereum','USDT · Ethereum']]) {
   const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary-btn'; button.textContent = label;
   button.setAttribute('aria-pressed', String(asset === 'nim')); button.disabled = asset !== 'nim' && !usdtOn;
@@ -365,7 +377,11 @@ function mountPayments() {
  const addBack = win => {
   const head = win.querySelector('.nimiq-payment-head');
   if (!head || head.querySelector('.wire-window-back')) return;
-  const title=head.querySelector('h3');if(title)title.textContent=title.textContent.replace(/^⤢\s*/, '');
+  win.classList.toggle('wire-coin-picker',choosingCoin);
+  const title=head.querySelector('h3');if(title)title.textContent=choosingCoin?t('chooseCoin'):title.textContent.replace(/^⤢\s*/, '');
+  const assets=win.querySelector('.nimiq-payment-assets');if(assets)assets.hidden=!choosingCoin;
+  win.querySelector('.nimiq-payment-tabs')?.setAttribute('hidden','');
+  assets?.querySelectorAll('button').forEach(button=>{const select=button.onclick;button.onclick=()=>{choosingCoin=false;select?.();};});
   if(innerWidth<=640){head.onpointerdown=null;head.removeAttribute('title');}
   const nim = win.querySelector('.nimiq-payment-assets button:first-child');
   if (nim) { nim.disabled = !nimOn; nim.onclick = openNimWindow; }
@@ -376,7 +392,7 @@ function mountPayments() {
   back.addEventListener('click', () => { close.click(); $('pay').focus(); });
   head.prepend(back);
  };
- $('pay').addEventListener('click', () => { if (!email) return; closePaymentWindow(); if (!usdtOn) openNimWindow(); else addBack(payments.open('send', 'usdc_polygon')); });
+ $('pay').addEventListener('click', () => { if (!email) return; closePaymentWindow(); if (!usdtOn) openNimWindow(); else{choosingCoin=true;addBack(payments.open('send', 'usdc_polygon'));} });
  // The copied window replaces itself when switching coins; enhance each replacement without editing pm/.
  const windows = new MutationObserver(changes => {
   for (const change of changes) for (const node of change.addedNodes) {
@@ -389,8 +405,9 @@ function mountPayments() {
 }
 
 function showSender(verified, who) {
+ if(verified){codeSentTo='';codeUntil=0;paintCodeRequest();}
  if(!verified||email&&email!==who)stopCards();
- if(!verified&&nimCache){nimView?.dismiss();nimCache.flow.destroy();nimCache.modal.remove();nimCache=null;resumed=false;}
+ if(!verified&&nimCache){const cached=nimCache;nimView?.dismiss();cached.flow.destroy();cached.modal.remove();nimCache=null;resumed=false;}
  email = verified ? who : '';
  $('wire-sender').hidden = verified || !enabled; $('wire-ready').hidden = !verified || !enabled;
  $('wire-who').textContent = email;
@@ -403,15 +420,40 @@ function showSender(verified, who) {
 
 $('wire-language').addEventListener('change', e => setLanguage(e.target.value));
 $('wire-theme').addEventListener('click', () => { const v = document.documentElement.dataset.theme === 'light-paper' ? 'dark' : 'light'; applyTheme(v); save('wire-theme', v); });
+function paintCodeRequest(){
+ const button=$('wire-send-code'),remaining=Math.max(0,Math.ceil((codeUntil-Date.now())/1000));
+ button.disabled=codeSending||remaining>0;
+ button.textContent=codeSending?t('sendingCode'):codeSentTo?(remaining?t('codeSentButton')+' ('+remaining+' s)':t('resendCode')):t('send');
+ button.dataset.state=codeSending?'sending':codeSentTo?'sent':'idle';
+ $('wire-code-delivery').textContent=codeSending?t('sendingCode'):codeSentTo?t('codeSent'):'';
+ $('wire-code-delivery').hidden=!codeSending&&!codeSentTo;
+ clearTimeout(codeTimer);if(remaining&&!codeSending)codeTimer=setTimeout(paintCodeRequest,1000);
+}
+$('wire-email').addEventListener('input',()=>{
+ if(codeSentTo&&$('wire-email').value.trim()!==codeSentTo){codeSentTo='';codeUntil=0;$('wire-code-box').hidden=true;$('wire-code').value='';paintCodeRequest();}
+});
 $('wire-send-code').addEventListener('click', async () => {
+ if(codeSending||Date.now()<codeUntil)return;
  if (!$('wire-email').reportValidity() || !$('wire-email').value) return;
- try { await api('/api/sender/request', { email: $('wire-email').value.trim(), language: lang }); $('wire-code-box').hidden = false; say(t('codeSent')); } catch { say(t('fail')); }
+ codeSending=true;$('wire-email').disabled=true;$('wire-verify').disabled=true;paintCodeRequest();
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
+ try {const to=$('wire-email').value.trim();await api('/api/sender/request', { email: to, language: lang },controller.signal);codeSentTo=to;codeUntil=Date.now()+30000;$('wire-code-box').hidden = false;say(t('codeSent'));$('wire-code').focus();}
+ catch {codeSentTo='';codeUntil=0;say(t('fail'));}
+ finally{clearTimeout(timeout);codeSending=false;$('wire-email').disabled=false;$('wire-verify').disabled=false;paintCodeRequest();}
 });
 $('wire-verify').addEventListener('click', async () => {
  try { const r = await api('/api/sender/verify', { code: $('wire-code').value.trim() }); $('wire-code').value = ''; $('wire-code-box').hidden = true; say(''); showSender(true, r.email); }
  catch { say(t('wrong')); }
 });
-$('wire-logout').addEventListener('click', async () => { try { await api('/api/logout', {}); } catch { /* the session is gone anyway */ } closePaymentWindow(); showSender(false); say(''); });
+$('wire-logout').addEventListener('click', async () => {
+ const button=$('wire-logout');if(button.disabled)return;button.disabled=true;
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
+ try{
+  await api('/api/logout', {},controller.signal);closeWalletChoice();closePaymentWindow();showSender(false);
+  handoff=null;try{sessionStorage.removeItem('wire-nim-handoff');}catch{}
+  codeSentTo='';codeUntil=0;$('wire-email').value='';$('wire-code').value='';$('wire-code-box').hidden=true;paintCodeRequest();say('');$('wire-email').focus();
+ }catch{say(t('fail'));}finally{clearTimeout(timeout);button.disabled=false;}
+});
 
 applyTheme(read('wire-theme', 'dark'));
 setLanguage(preference);

@@ -99,3 +99,19 @@ Wire's host also removes the copied title's decorative arrow, styles the close c
 existing `PhoenixViewport.center` hook for keyboard/viewport resizing. CSS keeps narrow forms within the viewport and
 uses at least 16 px text in editable controls to avoid Safari focus zoom, without disabling manual pinch zoom. No `pm/`
 file, Go code or CSP is changed for these adaptations.
+
+## Focused checkout and sender session feedback
+
+The host initially shows a currency picker inside the copied window. Selecting a currency opens that checkout and hides
+the asset controls; the embedded NIM flow also keeps its asset row hidden. To choose another currency, close the window
+and open Payments again. The host hides the copied Form/Card preview tabs. The module still changes its view when a card
+is created, so the funding address, QR code and payment status remain available without a preview-tab action.
+
+The sender-code button displays sending while its request is pending, then a translated sent label with a green outline
+only after the server acknowledges the request. Feedback is beside the button as well as in the page status. The button
+blocks duplicate requests and permits resending after 30 seconds; this is UI feedback, not a replacement for server quotas.
+Failed or timed-out requests remain retryable and never show a successful-send state. Editing the email clears old feedback.
+
+The home page has an explicit Sign out button, translated in all five languages. It uses the existing logout route, closes
+the payment window, stops tracking and hides private history after server success. A failed logout remains visibly signed
+in. Card recovery data stays in local storage; signing out never cancels a card or discards its recovery keys.

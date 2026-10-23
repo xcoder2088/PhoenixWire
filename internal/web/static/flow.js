@@ -144,7 +144,8 @@ function renderProgress(){
  if(embedded)root.classList.toggle('wire-nim-complete',complete);
  if(embedded){
   root.querySelector('.workspace').hidden=complete;$('notice').hidden=complete;$('my-payments').hidden=complete;
-  root.closest('.wire-nim-window')?.querySelectorAll(':scope>.nimiq-payment-head,:scope>.wire-nim-assets').forEach(el=>el.hidden=complete);
+  root.closest('.wire-nim-window')?.querySelectorAll(':scope>.nimiq-payment-head').forEach(el=>el.hidden=complete);
+  root.closest('.wire-nim-window')?.querySelectorAll(':scope>.wire-nim-assets').forEach(el=>el.hidden=true);
  }
  progress.hidden=!show;if(!claimMode)$('preview-submit').hidden=Boolean(show);if(!show)return;
  const text=progressText(p);$('nim-progress-message').textContent=text;

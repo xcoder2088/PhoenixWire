@@ -56,6 +56,15 @@ body.wire-body{background:var(--bg);color:var(--text)}
 .wire-body button:hover:not(:disabled),.wire-body .nimiq-payment-window button:hover:not(:disabled){background:var(--panel2);border-color:var(--accent);color:var(--text)}
 .wire-body button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .wire-body button:disabled{opacity:.5;cursor:not-allowed}
+#wire-send-code[data-state="sent"]{border-color:#369d70;opacity:1}
+.wire-code-delivery{margin:10px 0 14px;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.wire-session-actions{display:flex;justify-content:flex-end;margin:0 0 16px}
+.wire-session-actions button{min-height:44px;padding:10px 16px;border-radius:10px;font:inherit;font-weight:650}
+.wire-body .nimiq-payment-tabs{display:none!important}
+.wire-body .wire-coin-picker .nimiq-payment-body{display:block}
+.wire-body .wire-coin-picker .nimiq-payment-preview,.wire-body .wire-coin-picker .nimiq-payment-panel>:not(.nimiq-payment-assets){display:none!important}
+.wire-body .wire-coin-picker .nimiq-payment-assets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0}
+.wire-body .wire-coin-picker .nimiq-payment-assets button{min-height:64px;white-space:normal}
 /* Keep Safari from zooming into small form controls; retain the user's pinch zoom. */
 .wire-body input:not([type="radio"]):not([type="checkbox"]),.wire-body select,.wire-body textarea{font-size:16px}
 .wire-body .nimiq-payment-head>button:last-child{flex:0 0 48px;display:grid;place-items:center;width:48px;height:48px;min-width:48px;min-height:48px;padding:0;border-radius:50%;font-size:32px;line-height:1}
