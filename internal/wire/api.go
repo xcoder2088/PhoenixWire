@@ -56,6 +56,9 @@ type API struct {
 	// the hand-over to the Nimiq Pay app (handoff.go), under mu
 	handoffs    map[string]handoff
 	handoffAsks map[string][]time.Time
+	// the same for a recipient's code (claimhandoff.go), under mu
+	claimHandoffs map[string]claimHandoff
+	claimAsks     map[string][]time.Time
 }
 
 var idRE = regexp.MustCompile(`^[a-f0-9]{48}$`)
@@ -630,7 +633,7 @@ func (a *API) confirm(w http.ResponseWriter, r *http.Request, p payment, resend 
 }
 func (a *API) claim(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/claims/"), "/")
-	if len(parts) < 1 || len(parts) > 2 || !idRE.MatchString(parts[0]) {
+	if len(parts) < 1 || len(parts) > 3 || !idRE.MatchString(parts[0]) || len(parts) == 3 && (parts[1] != "handoff" || parts[2] != "redeem") {
 		failure(w, 404, "claim_unavailable")
 		return
 	}
@@ -642,6 +645,14 @@ func (a *API) claim(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == "GET" && len(parts) == 1 {
 		respond(w, 200, map[string]any{"id": p.ID, "amount": p.Amount, "sender": p.Sender, "message": p.Message, "address": p.Address, "expires_at": p.Created.Add(24 * time.Hour)})
+		return
+	}
+	if r.Method == "POST" && len(parts) >= 2 && parts[1] == "handoff" {
+		if len(parts) == 3 {
+			a.claimHandoffRedeem(w, r, p.ID)
+		} else {
+			a.claimHandoffCreate(w, r, p.ID)
+		}
 		return
 	}
 	if r.Method != "POST" || len(parts) != 2 || (parts[1] != "request" && parts[1] != "release" && parts[1] != "payout" && parts[1] != "payout_status") {

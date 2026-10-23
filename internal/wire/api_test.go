@@ -486,3 +486,56 @@ func TestRecipientCanHaveTheCardPaidToAnAddress(t *testing.T) {
 		t.Fatal("a second destination was accepted", w.Code)
 	}
 }
+
+func TestRecipientCodeCrossesToTheAppOnceAndOnlyForItsCard(t *testing.T) {
+	f := newFixture(t)
+	f.verifySender("sender@example.test")
+	p := f.create()
+	good(f.call("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t)
+	f.rpcMu.Lock()
+	f.funded = true
+	f.rpcMu.Unlock()
+	good(f.call("POST", "/api/payments/"+p.ID+"/confirm", map[string]string{}), t)
+	other := payment{ID: strings.Repeat("a", 48)} // a card that was never sent
+	f.cookie = nil
+	base := "/api/claims/" + p.ID + "/handoff"
+	if w := f.call("POST", base, map[string]string{"code": "12ab56"}); w.Code != 400 {
+		t.Fatal("a malformed code was taken", w.Code)
+	}
+	if w := f.call("POST", "/api/claims/"+other.ID+"/handoff", map[string]string{"code": "123456"}); w.Code != 404 {
+		t.Fatal("a card that was never sent offered a hand-over", w.Code)
+	}
+	w := f.call("POST", base, map[string]string{"code": "123456"})
+	good(w, t)
+	var made struct {
+		Token string `json:"token"`
+	}
+	json.Unmarshal(w.Body.Bytes(), &made)
+	if len(made.Token) != 43 || strings.Contains(w.Body.String(), "123456") {
+		t.Fatal("the answer must carry the token and never the code")
+	}
+	if w := f.call("POST", "/api/claims/"+other.ID+"/handoff/redeem", map[string]string{"token": made.Token}); w.Code != 404 {
+		t.Fatal("a token opened another card", w.Code)
+	}
+	w = f.call("POST", base, map[string]string{"code": "654321"})
+	json.Unmarshal(w.Body.Bytes(), &made)
+	w = f.call("POST", base+"/redeem", map[string]string{"token": made.Token})
+	good(w, t)
+	if !strings.Contains(w.Body.String(), "654321") || w.Header().Get("Cache-Control") != "no-store" {
+		t.Fatal("the app did not get the code", w.Body.String())
+	}
+	if w := f.call("POST", base+"/redeem", map[string]string{"token": made.Token}); w.Code != 404 {
+		t.Fatal("token reused", w.Code)
+	}
+	// Five minutes, then nothing.
+	json.Unmarshal(f.call("POST", base, map[string]string{"code": "111111"}).Body.Bytes(), &made)
+	f.api.now = func() time.Time { return time.Now().Add(6 * time.Minute) }
+	if w := f.call("POST", base+"/redeem", map[string]string{"token": made.Token}); w.Code != 404 {
+		t.Fatal("an expired token worked", w.Code)
+	}
+	// Nothing about it is ever written to disk.
+	raw, _ := os.ReadFile(filepath.Join(f.root, "gateway", "wire-state.sealed"))
+	if bytes.Contains(raw, []byte(made.Token)) {
+		t.Fatal("token on disk")
+	}
+}
