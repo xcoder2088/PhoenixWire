@@ -1,7 +1,8 @@
+import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.20';
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
-import { resolveLanguage } from './model.js?v=0.3.0';
-import { mountNimFlow } from './flow.js?v=0.4.19';
+import { resolveLanguage } from './model.js?v=0.4.20';
+import { mountNimFlow } from './flow.js?v=0.4.20';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -301,7 +302,9 @@ function paintNim(root) {
 function closePaymentWindow() {
  document.querySelector('.nimiq-payment-head button:last-child')?.click();
 }
-function openNimWindow() {
+function openNimWindow(payment=null) {
+ if(payment instanceof Event)payment=null;
+ if(payment){nimView?.dismiss();nimCache?.flow.destroy();nimCache=null;handoffPayment=payment;}
  if ((!email&&!scopedID) || !nimOn) return;
  choosingCoin=false;
  if(nimView)return;
@@ -357,10 +360,13 @@ const cardStates=new Set(['awaiting_funds','ready','verifying','paid','withdrawn
 const terminalCards=new Set(['paid','withdrawn','cancelled','expired','settled_elsewhere']);
 const assetNames={usdc_polygon:'USDC · Polygon',usdt_polygon:'USDT · Polygon',usdt_ethereum:'USDT · Ethereum'};
 let cardEpoch=0,ownedPromise=null,nimPromise=null,nimTimer=null;
+const ht=key=>senderHistoryText(lang,key);
+const nimActions=new Map();
 const fill=(key,entry)=>t(key).replace('{email}',entry.recipient||'');
 const nimPendingWords={fr:'En attente de confirmation du paiement',en:'Awaiting payment confirmation',es:'Esperando confirmación del pago',de:'Zahlungsbestätigung ausstehend',zh:'等待付款确认'};
 function cardLabel(c){
- if(c.nim&&c.state==='funding_started')return nimPendingWords[lang]||nimPendingWords.en;
+ if(c.nim)return nimHistoryLabel(c,lang);
+ if(c.claimedAt)return ht('received');
  if(c.nim)return fill(({preparing:'checkingCard',ready:'waitingCard',funding_started:'confirmingCard',funded:'fundedCard',delivery_pending:'fundedCard',delivery_failed:'mailFailedCard',sent:'sentCard',claimed:'claimedCard',expired:'expiredCard'})[c.state]||'checkingCard',c);
  const key=({paid:'claimedCard',withdrawn:'refundedCard',expired:'expiredCard',cancelled:'cancelledCard',settled_elsewhere:'otherCard'})[c.state];
  if(key)return t(key);
@@ -386,9 +392,9 @@ function appendDates(row,card){
 function renderCards(){
  const panel=$('wire-cards');if(!panel)return;
  panel.hidden=!email; $('wire-cards-title').textContent=t('myCards');
- const all=cards().filter(c=>c.sender===email).map(c=>({...c,nim:false}));
- for(const p of nimCards.values())if(p.sender===email)all.push({id:p.id,nim:true,amount:p.amount,asset:'NIM',recipient:p.recipient,state:dateValue(p.claimed_at)?'claimed':p.stage!=='sent'&&!nimPending(p)?'expired':p.stage,created:Date.parse(p.created)||0,...serverDates(p),invited:p.stage==='sent',noticePending:nimNotices().some(n=>n.id===p.id&&n.sender===email&&n.noticePending)});
- all.sort((a,b)=>(Number(b.created)||0)-(Number(a.created)||0));
+ let all=cards().filter(c=>c.sender===email).map(c=>({...c,nim:false}));
+ for(const p of nimCards.values())if(p.sender===email)all.push({...p,nim:true,asset:'NIM',state:p.stage,...serverDates(p),invited:p.stage==='sent',noticePending:nimNotices().some(n=>n.id===p.id&&n.sender===email&&n.noticePending)});
+ all=historyEntries(all);
  const list=$('wire-cards-list');list.replaceChildren();
  $('wire-cards-empty').textContent=t('emptyCards');$('wire-cards-empty').hidden=all.length>0;
  for(const c of all){
@@ -397,6 +403,7 @@ function renderCards(){
   const heading=document.createElement('div');heading.className='wire-card-heading';heading.append(coinIcon(c.nim?'nim':c.asset),amount);
   const recipient=document.createElement('p');recipient.className='wire-card-recipient';recipient.textContent=c.recipient||'—';
   const state=document.createElement('p');state.className='wire-card-state';state.textContent=cardLabel(c);row.append(heading,recipient,state);appendDates(row,c);
+  if(c.nim)appendNimActions(row,c);
   if(c.stale){const stale=document.createElement('p');stale.className='wire-card-stale';stale.textContent=t('staleCard');row.append(stale);}
   list.append(row);
  }
@@ -409,6 +416,42 @@ function renderCards(){
   banner.append(message,close);notices.append(banner);
  }
  notices.hidden=!email||!notices.childElementCount;
+}
+function appendNimActions(row,p){
+ const state=nimActions.get(p.id)||{},actions=document.createElement('div');actions.className='nim-row-actions';
+ const button=(label,run)=>{const b=document.createElement('button');b.type='button';b.className='secondary-btn';b.textContent=label;b.disabled=Boolean(state.loading);b.onclick=run;actions.append(b);return b;};
+ if(unpaidCard(p)){
+  button(ht('retry'),()=>openNimWindow(p));
+  button(ht('cancel'),()=>void dashboardCancel(p));
+ }
+ if(recoverableCard(p)){
+  if(state.href){const link=document.createElement('a');link.href=state.href;link.target='_blank';link.rel='noopener noreferrer';link.textContent=ht('open');actions.append(link);}
+  else button(ht('recover'),()=>void dashboardRecover(p));
+ }
+ row.append(actions);
+ if(state.notice){const note=document.createElement('p');note.className='nim-row-notice';note.setAttribute('role','status');note.textContent=state.notice;row.append(note);}
+}
+async function dashboardCancel(p){
+ if(nimActions.get(p.id)?.loading||!unpaidCard(p)||!window.confirm(ht('confirm')))return;
+ const epoch=cardEpoch;nimActions.set(p.id,{loading:true});renderCards();
+ try{
+  const result=await cancelUnpaidCard(p,cardCall);if(epoch!==cardEpoch)return;
+  nimCards.set(p.id,result.payment);nimActions.set(p.id,{notice:result.received?ht('arrived'):''});
+  // A cached editor must not offer payment on the cancelled card.
+  nimView?.dismiss();nimCache?.flow.destroy();nimCache=null;
+  await syncNimCards();
+ }catch(error){if(epoch!==cardEpoch)return;nimActions.set(p.id,{notice:ht(error.message==='cannot_cancel'?'cannot':'failed')});await syncNimCards();}
+ finally{if(epoch===cardEpoch){const state=nimActions.get(p.id);if(state)state.loading=false;renderCards();}}
+}
+async function dashboardRecover(p){
+ if(nimActions.get(p.id)?.loading||!recoverableCard(p))return;
+ const epoch=cardEpoch;nimActions.set(p.id,{loading:true});renderCards();
+ try{
+  const result=await cardCall('/api/payments/'+p.id+'/recovery',{});if(epoch!==cardEpoch)return;
+  const url=new URL(result.cashlink);if(url.origin!=='https://hub.nimiq.com'||url.pathname!=='/cashlink/'||!/^#[A-Za-z0-9_=-]+$/.test(url.hash))throw Error('invalid_link');
+  nimActions.set(p.id,{href:url.href});
+ }catch{if(epoch===cardEpoch)nimActions.set(p.id,{notice:ht('failed')});}
+ finally{if(epoch===cardEpoch)renderCards();}
 }
 async function cardCall(path,data){
  const controller=new AbortController();cardControllers.add(controller);
@@ -479,10 +522,10 @@ function watch(id,immediate=false){
  if(!watching.has(id))watching.set(id,{id,epoch:cardEpoch,timer:null,running:null});
  const current=watching.get(id);if(immediate)void tickCard(current);else if(current.timer===null&&!current.running)scheduleWatch(current,2500);
 }
-function nimPending(p){const created=Date.parse(p.created||'');return p.stage!=='sent'&&(!Number.isFinite(created)||Date.now()<created+86400000);}
+function nimPending(p){return historyPending(p)||recoverableCard(p);}
 function scheduleNimCards(){
  clearTimeout(nimTimer);nimTimer=null;
- if(email&&nimOn&&!document.hidden&&[...nimCards.values()].some(nimPending))nimTimer=setTimeout(()=>{void syncNimCards();},30000);
+ if(email&&nimOn&&!document.hidden&&[...nimCards.values()].some(nimPending))nimTimer=setTimeout(()=>{void syncNimCards();},6000);
 }
 function syncNimCards(){
  if(nimPromise)return nimPromise;if(!email||!nimOn)return Promise.resolve();const epoch=cardEpoch,owner=email;
@@ -491,7 +534,7 @@ function syncNimCards(){
 }
 function stopCards(){
  cardEpoch++;for(const w of watching.values())clearTimeout(w.timer);watching.clear();clearTimeout(nimTimer);nimTimer=null;
- for(const c of cardControllers)c.abort();cardControllers.clear();ownedPromise=null;nimPromise=null;nimCards.clear();
+ for(const c of cardControllers)c.abort();cardControllers.clear();ownedPromise=null;nimPromise=null;nimCards.clear();nimActions.clear();
 }
 async function startCards(){
  const epoch=cardEpoch;renderCards();
@@ -676,3 +719,4 @@ setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
   if(handoffError){say(t(handoffError));if(scopedID)$('wire-handoff-state').textContent=t(handoffError);}
  } catch { say(t('off'));if(scopedID){$('wire-entry').hidden=false;$('wire-sender').hidden=false;} }
 })();
+

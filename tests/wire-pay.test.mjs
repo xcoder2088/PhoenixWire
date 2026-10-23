@@ -1,3 +1,4 @@
+import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from '../internal/web/static/model.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -32,7 +33,7 @@ function fakeClock(window){
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
 const handoffToken='Q'.repeat(43);
 const handoffDraft={recipient:'friend@example.test',amount:'2.5',message:'Bonjour 🐦',language:'fr'};
-async function start({classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
+async function start({cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
   const dom = new JSDOM(read(classic?'../internal/web/static/classic.html':'../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
@@ -49,8 +50,8 @@ async function start({classic=false,extraNim=[],recoveryStatus=200,holdRecovery=
   for (const f of ['../engine/secureclaim/web/cashlink.js', '../internal/web/static/pm/usdt-cashlink.js', '../internal/web/static/pm/usdt-payments.js', '../internal/web/static/pm/nimiq-payments.js']) vm.runInContext(read(f), ctx);
   const C = window.PhoenixCashlink, calls = [], checkouts = [], behaviors = [], nativeCalls = [], confirmations = [];
   let currentSession=session,codeFails=false,heldCode=null,logoutFails=false;
-  const owned=JSON.parse(JSON.stringify(serverCards));let failStatus=false;
-  window.confirm = message => { confirmations.push(message); return true; };
+  const owned=JSON.parse(JSON.stringify(serverCards)).map(c=>({created:new window.Date().toISOString(),...c}));let failStatus=false;
+  window.confirm = message => { confirmations.push(message); return cancelConfirm; };
   let nativeActive=0,maxNativeActive=0;
   let fundingVisible = !nativeMode && Boolean(nimPending || returning || nimStage && nimStage!=='ready');
   if(nativeMode){
@@ -74,6 +75,7 @@ async function start({classic=false,extraNim=[],recoveryStatus=200,holdRecovery=
     }};
   }
   const nim = { id: 'a'.repeat(48), sender: 'sender@example.test', recipient: 'friend@example.test', amount: '2.5', luna: 250000, message: 'Hi', address: 'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY', started_at:new window.Date(window.Date.now()-startedAgo).toISOString(),stage: nimStage || (nimPending || returning ? 'funding_started' : 'ready'),created:new window.Date(window.Date.now()-createdAgo).toISOString() };
+  if(['funded','delivery_pending','delivery_failed','sent'].includes(nim.stage))nim.claim_state='unclaimed';
   let nimPayments = [...(nimPending || returning || nimStage || session.handoff ? [nim] : []),...extraNim],holdConfirm=null,activeConfirms=0,maxConfirms=0,mailFails=false,readsFail=false;
   if (returning) window.sessionStorage.setItem('wire-pending-payment', nim.id);
   window.PhoenixNimiqIdenticons = { async png() { return 'fixture-artwork'; }, paint() {} };
@@ -122,6 +124,7 @@ async function start({classic=false,extraNim=[],recoveryStatus=200,holdRecovery=
       Object.assign(nim,{recipient:body.recipient,amount:body.amount,luna:Math.round(Number(body.amount)*100000),message:body.message,language:body.language,stage:'ready',created:new window.Date().toISOString()});
       nimPayments=[nim,...nimPayments.filter(p=>p.id!==nim.id)];createRequests.set(body.request_id,nim);return answer(201,{payment:nim});
     }
+    if(path.endsWith('/cancel')){if(cancelCode){if(cancelCode==='already_funded'){fundingVisible=true;nim.stage='funded';nim.claim_state='unclaimed';}return answer(cancelCode==='chain_unavailable'?503:409,{code:cancelCode});}nim.stage='cancelled';return answer(200,{payment:nim});}
     if (path.endsWith('/art')) return answer(200, { saved: true });
     if (path.endsWith('/start')) {if(startRace){nim.stage='funding_started';fundingVisible=true;return answer(409,{code:'funding_already_started'});}if(nim.stage!=='ready')return answer(409,{code:'funding_already_started'});nim.stage = 'funding_started';nim.started_at=new window.Date().toISOString(); return answer(200, { payment: nim, checkout: { appName: 'Phoenix Wire', recipient: nim.address, value: nim.luna, recipientData: rawMarker } }); }
     if(path.endsWith('/checkout')){
@@ -143,7 +146,7 @@ async function start({classic=false,extraNim=[],recoveryStatus=200,holdRecovery=
       }
       if(nativeMode==='success-no-confirm')return answer(503,{code:'chain_unavailable'});
       if(!fundingVisible)return answer(409,{code:'funding_pending'});
-      nim.stage = 'sent'; return answer(200, { payment: nim });
+      nim.stage = 'sent'; nim.claim_state='unclaimed'; return answer(200, { payment: nim });
       }finally{activeConfirms--;}
     }
     if(path.endsWith('/resend')){nim.stage=mailFails?'delivery_failed':'sent';return mailFails?answer(502,{code:'email_delivery_unavailable'}):answer(200,{payment:nim});}
@@ -178,12 +181,12 @@ async function start({classic=false,extraNim=[],recoveryStatus=200,holdRecovery=
     throw Error('unexpected API ' + path);
   };
   const source = read('../internal/web/static/wire-pay.js').replace(/^import[^\n]+\n/gm, '');
-  Object.assign(ctx, { resolveLanguage, flowText, addressValid, cardPresentation, paintCard });
+  Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,  resolveLanguage, flowText, addressValid, cardPresentation, paintCard });
   vm.runInContext(read('../internal/web/static/flow.js').replace(/^import[^\n]+\n/gm, '').replace(/^export /gm, ''), ctx);
   if(!classic)vm.runInContext('{' + source + '\n}', ctx);
   await settle();
   return { window, $: id => window.document.getElementById(id), calls, doc: window.document, checkouts, behaviors, nativeCalls, confirmations,clock,
-    fundOnChain(){fundingVisible=true;},setStage(stage){nim.stage=stage;},failMail(value){mailFails=value;},failReads(value){readsFail=value;},holdNextConfirm(){const held={};holdConfirm=held;return held;},maxConfirms:()=>maxConfirms,
+    fundOnChain(){fundingVisible=true;},setClaimState(value){if(value===undefined)delete nim.claim_state;else nim.claim_state=value;},setStage(stage){nim.stage=stage;if(['funded','delivery_pending','delivery_failed','sent'].includes(stage))nim.claim_state='unclaimed';},failMail(value){mailFails=value;},failReads(value){readsFail=value;},holdNextConfirm(){const held={};holdConfirm=held;return held;},maxConfirms:()=>maxConfirms,
     failCode(value){codeFails=value;},holdCode(){const held={};heldCode=held;return held;},
     failLogout(value){logoutFails=value;},
     opened,consoleMessages,redeemHashes,maxNativeActive:()=>maxNativeActive,setRecoveryStatus(value){recoveryStatus=value;},
@@ -567,10 +570,10 @@ test('NIM tracking continues beyond ten minutes, then stops at sent with an expl
   assert.equal(t.$('nim-progress-message').textContent,'Card sent to friend@example.test. It stays yours until it is claimed.');
   assert.equal(t.$('nim-progress-close').hidden,false);assert.equal(t.$('nim-progress-close').textContent,'Done');
   assert.equal(t.$('nim-progress-resend').hidden,true);assert.ok(!t.$('payment-list').textContent.includes('Resend'));
-  const count=t.calls.length;await t.clock.advance(10*60000);
-  t.window.dispatchEvent(new t.window.Event('pageshow'));await settle();assert.equal(t.calls.length,count,'sent cards are not polled again');
+  const count=t.calls.length,confirmed=checks(t);await t.clock.advance(10*60000);
+  t.window.dispatchEvent(new t.window.Event('pageshow'));await settle();assert.equal(checks(t),confirmed,'sent cards do not request funding confirmation again');assert.ok(t.calls.length>count,'sent cards continue checking claim state');
   t.$('nim-progress-close').click();assert.equal(t.doc.querySelector('.wire-nim-window'),null);
-  assert.match(t.$('wire-cards-list').textContent,/Card sent to friend@example.test/);
+  assert.match(t.$('wire-cards-list').textContent,/Sent, not yet received/);
 });
 
 test('a funded card shows email delivery progress, then a clear failure and a resend that never funds again',async()=>{
@@ -639,7 +642,7 @@ test('reload restores a native payment and its original expiry without another p
 test('closing or changing the NIM window keeps its tracker alive and reopening reuses it',async()=>{
   const t=await tracked();t.doc.querySelector('.wire-nim-close').click();
   await t.clock.advance(3*60000);assert.ok(checks(t)>20);
-  t.setStage('sent');await t.clock.advance(10000);assert.match(t.$('wire-cards-list').textContent,/Card sent to/);
+  t.setStage('sent');await t.clock.advance(10000);assert.match(t.$('wire-cards-list').textContent,/Sent, not yet received/);
   t.$('pay').click();await settle();assert.equal(t.$('nim-progress-close').hidden,false);
   assert.equal(t.doc.querySelectorAll('.wire-nim-window').length,1);
   assert.equal(t.maxConfirms(),1);assert.equal(t.checkouts.length,0);
@@ -691,7 +694,7 @@ test('switching to a stablecoin leaves NIM tracking active and returning to NIM 
   original.querySelectorAll('.wire-nim-assets button')[1].click();await settle();
   assert.equal(t.doc.querySelector('.wire-nim-window'),null);assert.ok(t.doc.querySelector('.nimiq-payment-window'));
   await t.clock.advance(2*60000);assert.ok(checks(t)>20);
-  t.setStage('sent');await t.clock.advance(10000);assert.match(t.$('wire-cards-list').textContent,/Card sent to/);
+  t.setStage('sent');await t.clock.advance(10000);assert.match(t.$('wire-cards-list').textContent,/Sent, not yet received/);
   t.doc.querySelector('.nimiq-payment-assets button').click();await settle();
   assert.equal(t.doc.querySelector('.wire-nim-window'),original);assert.equal(t.$('nim-progress-close').hidden,false);
   assert.equal(t.nativeCalls.length,0);assert.equal(t.checkouts.length,0);
@@ -769,7 +772,7 @@ test('reload restores the dashboard and its notification; manual dismissal survi
   assert.equal(first.doc.querySelector('.nimiq-payment-window'),null,'automatic window close does not erase the result');
   const local=first.snapshotLocal(),serverCards=first.serverCards;first.window.close();
   const second=await start({clocked:true,local,serverCards,state:()=>({state:'ready',balanceUnits:2650000})});await second.clock.advance(2500);
-  assert.match(second.$('wire-cards-list').textContent,/Card sent to friend@example.test/);assert.equal(second.$('wire-card-notices').hidden,false);
+  assert.match(second.$('wire-cards-list').textContent,/Card sent to/);assert.equal(second.$('wire-card-notices').hidden,false);
   second.doc.querySelector('.wire-card-banner button').click();assert.equal(second.$('wire-card-notices').hidden,true);
   const dismissed=second.snapshotLocal();second.window.close();
   const third=await start({clocked:true,local:dismissed,serverCards,state:()=>({state:'ready',balanceUnits:2650000})});await third.clock.advance(6000);
@@ -790,7 +793,7 @@ test('an invite failure or unconfirmed reply never becomes a sent banner or a ne
 test('a lost invitation reply is reconciled with the persisted server flag instead of sending a second email',async()=>{
   const t=await start({clocked:true,inviteMode:'lost',state:()=>({state:'ready',balanceUnits:2650000})});await makeCard(t);await t.clock.advance(130000);
   assert.equal(t.calls.filter(([p])=>p.endsWith('/invite')).length,1);assert.equal(t.$('wire-card-notices').hidden,false);
-  assert.match(t.$('wire-cards-list').textContent,/Card sent to friend@example.test/);
+  assert.match(t.$('wire-cards-list').textContent,/Card sent to/);
 });
 
 test('legacy records regain amount and recipient from owned metadata, with no claim fragment in dashboard or status calls',async()=>{
@@ -1215,7 +1218,7 @@ test('native diagnostic exposes type/code/message as copyable text and logs only
 
 test('native retry waits from server started_at, counts down, and only pays on an explicit click after three minutes',async()=>{
  const app=await failedNative({nativeResults:['error','success'],createdAgo:7200000});
- assert.match(app.$('nim-progress-message').textContent,/22 h/);
+ assert.match(app.$('nim-progress-message').textContent,/Paiement non reçu/);assert.ok(app.$('nim-progress-message').textContent.split('\n').length<=2);
  await app.clock.advance(30000);const before=app.calls.length;
  app.$('nim-wallet-retry').click();await settle();
  assert.equal(app.nativeCalls.length,1);assert.match(app.$('nim-wallet-wait').textContent,/2:30/);assert.equal(app.$('nim-wallet-retry').disabled,true);
@@ -1263,16 +1266,16 @@ test('retry handles never-started and expired checkouts, and fails closed when t
  assert.equal(expired.nativeCalls.length,1);assert.equal(expired.$('nim-wallet-retry').hidden,true);assert.match(expired.$('nim-progress-message').textContent,/Carte expirée/);
  const offline=await failedNative();offline.failReads(true);offline.$('nim-wallet-retry').click();await settle();
  assert.equal(offline.nativeCalls.length,1);assert.equal(offline.calls.filter(([p])=>p.endsWith('/checkout')).length,0);
- assert.match(offline.$('nim-progress-message').textContent,/Impossible de confirmer/);
+ assert.match(offline.$('nim-progress-message').textContent,/Impossible de vérifier/);
 });
 
 test('native failure state, retry, copy and close explanation are translated in all five languages',async()=>{
- const expected={fr:['Pas encore payée','Réessayer le paiement','Tu peux fermer'],en:['Not yet paid','Retry payment','You can close'],es:['Aún no pagada','Reintentar el pago','Puedes cerrar'],de:['noch nicht bezahlt','Zahlung erneut versuchen','Du kannst schließen'],zh:['尚未付款','重试付款','你可以关闭']};
+ const expected={fr:['Paiement non reçu','Réessayer le paiement','Tu peux fermer'],en:['Not yet paid','Retry payment','You can close'],es:['Aún no pagada','Reintentar el pago','Puedes cerrar'],de:['noch nicht bezahlt','Zahlung erneut versuchen','Du kannst schließen'],zh:['尚未付款','重试付款','你可以关闭']};
  for(const [language,labels]of Object.entries(expected)){
   const app=await failedNative({redeemDraft:{...handoffDraft,language}});
   assert.ok(app.$('nim-progress-message').textContent.includes(labels[0]));assert.equal(app.$('nim-wallet-retry').textContent,labels[1]);
-  assert.ok(app.$('nim-wallet-close-note').textContent.includes(labels[2]));assert.ok(app.$('nim-wallet-copy').textContent);
-  assert.ok(!/Annuler|Cancel|Cancelar|Abbrechen|取消/.test(app.$('nim-wallet-failure').textContent));
+  assert.equal(app.$('nim-wallet-close-note').hidden,true);assert.ok(app.$('nim-wallet-copy').textContent);
+  assert.equal(app.$('nim-wallet-cancel').hidden,true,'limited app sessions cannot cancel');
   app.$('nim-wallet-retry').click();await settle();assert.match(app.$('nim-wallet-wait').textContent,/3:00/);
   assert.ok(app.$('nim-wallet-wait').textContent.length>15);
  }
@@ -1288,10 +1291,10 @@ test('scoped reload after an interrupted native request restores retry without p
 
 test('Safari keeps the prepared NIM card and truthful ready, confirmation-pending and sent history states',async()=>{
  const app=await start({nimOnly:true,nimStage:'ready',clocked:true});
- assert.equal(app.$('wire-cards').hidden,false);assert.match(app.$('wire-cards-list').textContent,/Waiting for your payment/);
+ assert.equal(app.$('wire-cards').hidden,false);assert.match(app.$('wire-cards-list').textContent,/Payment not received/);
  app.setStage('funding_started');await app.clock.advance(30000);
- assert.match(app.$('wire-cards-list').textContent,/Awaiting payment confirmation/);assert.ok(!/Payment received/.test(app.$('wire-cards-list').textContent));
- app.setStage('sent');await app.clock.advance(30000);assert.match(app.$('wire-cards-list').textContent,/Card sent to/);
+ assert.match(app.$('wire-cards-list').textContent,/Payment not received/);assert.ok(!/Payment received/.test(app.$('wire-cards-list').textContent));
+ app.setStage('sent');await app.clock.advance(30000);assert.match(app.$('wire-cards-list').textContent,/Sent, not yet received/);
  assert.equal(app.$('wire-cards-list').children.length,1);assert.equal(app.nativeCalls.length,0);
 });
 
@@ -1357,7 +1360,7 @@ test('late funding of a folded card updates My cards without replacing or cleari
  app.setStage('sent');await app.clock.advance(30000);
  assert.equal(app.$('recipient').value,'next@example.test');assert.equal(app.$('amount').value,'3.75');assert.equal(app.$('message').value,'Next card');
  assert.equal(app.window.sessionStorage.getItem('wire-request-id'),requestID);assert.equal(app.$('nim-progress').hidden,true);
- assert.equal(app.doc.querySelector('.workspace').hidden,false);assert.match(app.$('wire-cards-list').textContent,/Card sent to/);
+ assert.equal(app.doc.querySelector('.workspace').hidden,false);assert.match(app.$('wire-cards-list').textContent,/Sent, not yet received/);
  assert.equal(app.nativeCalls.length,0);assert.equal(app.checkouts.length,0);
 });
 
@@ -1375,7 +1378,7 @@ test('funded recovery errors and the ready link live on the same history row and
 });
 
 test('recovery never silently drops behind the wallet busy lock; folding while the wallet is open preserves the new form',async()=>{
- const gate={},paid={id:'b'.repeat(48),sender:'sender@example.test',recipient:'paid@example.test',amount:'1',luna:100000,message:'',address:'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY',stage:'sent',created:'2026-10-23T13:00:00Z'};
+ const gate={},paid={id:'b'.repeat(48),sender:'sender@example.test',recipient:'paid@example.test',amount:'1',luna:100000,message:'',address:'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY',stage:'sent',claim_state:'unclaimed',created:'2026-10-23T13:00:00Z'};
  const app=await start({nimOnly:true,nativeMode:'success',nimStage:'ready',clocked:true,extraNim:[paid],holdNative:gate,holdNativeAt:1});
  await submitNim(app);assert.equal(app.nativeCalls.length,1);
  const row=app.doc.querySelector('[data-payment-id="'+paid.id+'"]'),recover=row.querySelector('.nim-row-recover');
@@ -1403,7 +1406,7 @@ test('limited app sessions can retry their card but never create a new one or re
  app.$('new-card').click();assert.equal(app.$('nim-handoff-summary').hidden,false);
  assert.equal(app.$('nim-wallet-retry').disabled,true);await app.clock.advance(180000);assert.equal(app.$('nim-wallet-retry').disabled,false);
  assert.ok(!app.calls.some(([p,b])=>p.endsWith('/recovery')||p==='/api/payments'&&b));
- assert.ok(app.$('nim-wallet-close-note').textContent.length>20);
+ assert.equal(app.$('nim-wallet-close-note').hidden,true);
 });
 
 test('pending state and New card remain translated in five languages',async()=>{
@@ -1458,7 +1461,7 @@ test('sent NIM replaces the form with one completion screen, clears its draft an
  t.$('nim-progress-close').click();await settle();
  assert.equal(t.doc.querySelector('.wire-nim-window'),null);assert.equal(t.doc.querySelector('#nim-progress'),null);
  assert.equal(t.doc.activeElement,t.$('pay'));
- assert.match(t.$('wire-cards-list').textContent,/2.5 NIM.*friend@example.test.*Card sent to friend@example.test/s);
+ assert.match(t.$('wire-cards-list').textContent,/2.5 NIM.*friend@example.test.*Sent, not yet received/s);
  assert.equal(t.$('wire-card-notices').hidden,false);assert.match(t.$('wire-card-notices').textContent,/Email sent to friend@example.test/);
  const local=t.snapshotLocal();
  t.doc.querySelector('.wire-card-banner button').click();assert.equal(t.$('wire-card-notices').hidden,true);
@@ -1544,7 +1547,7 @@ test('claimed status stays inside My cards, with official currency icons in hist
 });
 
 test('history formats only server timestamps in five languages and never uses the observation time as a claim date',async()=>{
- const id='2'.repeat(32),created='2026-10-20T10:00:00Z',sent='2026-10-20T10:05:00Z',claimed='2026-10-20T11:00:00Z';
+ const id='2'.repeat(32),created='2026-10-23T10:00:00Z',sent='2026-10-23T10:05:00Z',claimed='2026-10-23T11:00:00Z';
  const t=await start({clocked:true,serverCards:[{id,asset:'usdt_ethereum',amount:'5',recipient:'friend@example.test',invited:true,created,sent_at:sent}],state:()=>({state:'paid',claimed_at:claimed})});await t.clock.advance(2500);
  assert.deepEqual([...t.$('wire-cards-list').querySelectorAll('time')].map(el=>el.dateTime),[created,sent,claimed].map(d=>new Date(d).toISOString()));
  const labels={fr:['Créée le','Envoyée le','Réclamée le'],en:['Created','Sent','Claimed'],es:['Creada','Enviada','Reclamada'],de:['Erstellt','Gesendet','Eingelöst'],zh:['创建时间','发送时间','领取时间']};
@@ -1553,9 +1556,9 @@ test('history formats only server timestamps in five languages and never uses th
   assert.deepEqual([...t.$('wire-cards-list').querySelectorAll('dt')].map(el=>el.textContent),text);
   assert.equal(t.$('wire-cards-list').querySelector('time').textContent,new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'short'}).format(new Date(created)));
  }
- const old=await start({clocked:true,serverCards:[{id,asset:'usdc_polygon',amount:'2',recipient:'friend@example.test',invited:true}],state:()=>({state:'paid',claimed_at:'0001-01-01T00:00:00Z'})});await old.clock.advance(2500);
+ const old=await start({clocked:true,serverCards:[{id,asset:'usdc_polygon',amount:'2',recipient:'friend@example.test',invited:true,created:"invalid"}],state:()=>({state:'paid',claimed_at:'0001-01-01T00:00:00Z'})});await old.clock.advance(2500);
  assert.equal(old.$('wire-cards-list').querySelector('time'),null,'missing or zero dates are not invented');
- assert.match(old.$('wire-cards-list').textContent,/Claimed/);assert.equal(old.$('wire-status').textContent,'');
+ assert.equal(old.$('wire-cards-list').children.length,0,'undated records cannot enter the recent window');assert.equal(old.$('wire-status').textContent,'');
 });
 
 // Public NIM recipient page: no sender session, wallet payment, real chain or email.
@@ -1594,7 +1597,7 @@ async function recipientPage({language='en',accounts=null,accountError=null,payo
   if(path.endsWith('/release'))return answer(200,{cashlink:'https://hub.nimiq.com/cashlink/#'+Buffer.alloc(40,5).toString('base64url')});
   throw Error('Unexpected recipient request '+path);
  };
- Object.assign(ctx,{flowText,addressValid,cardPresentation,paintCard});
+ Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard, flowText,addressValid,cardPresentation,paintCard});
  const src=read('../internal/web/static/flow.js').replace(/^import[^\n]+\n/gm,'').replace(/^export /gm,'');
  // Keep the lifecycle handle so tests can assert timer cleanup too.
  vm.runInContext(src.replace("if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();","window.testFlow=mountNimFlow();"),ctx);
@@ -1831,7 +1834,7 @@ test('NIM success contains only message and Done, and unpaid actions precede dia
  assert.deepEqual([...app.$('nim-progress').children].filter(visible).map(x=>x.id),['nim-progress-message','nim-progress-close']);
  const failed=await failedNative({local:{'wire-language':'en'}});const style=failed.doc.createElement('style');style.textContent=css.textContent;failed.doc.head.append(style);
  failed.$('wire-language').value='en';failed.$('wire-language').dispatchEvent(new failed.window.Event('change'));await settle();
- assert.equal(failed.$('nim-wallet-close-note').textContent,'You can close this window.');
+ assert.equal(failed.$('nim-wallet-close-note').hidden,true);
  assert.equal(failed.$('nim-wallet-close-note').textContent.includes('debited'),false);
  assert.equal(failed.window.getComputedStyle(failed.$('nim-wallet-retry')).order,'-2');
 });
@@ -1850,4 +1853,73 @@ test('375px unpaid NIM diagnostics use content-sized rows, never 240px paragraph
  assert.equal(app.window.getComputedStyle(app.$('nim-wallet-copy')).margin,'0px');
  assert.equal(app.window.getComputedStyle(app.$('nim-progress')).position,'static');
  assert.equal(app.$('nim-wallet-retry').hidden,false);
+});
+
+
+test('dashboard polls missing, unclaimed and claiming state every six seconds and removes terminal actions',async()=>{
+ const app=await start({nimStage:'sent',clocked:true,nimOnly:true});app.setClaimState(undefined);
+ await app.clock.advance(6000);let count=app.calls.filter(([p])=>p==='/api/payments').length;
+ assert.match(app.$('wire-cards-list').textContent,/Checking/);
+ app.setClaimState('unclaimed');await app.clock.advance(6000);
+ assert.ok(app.calls.filter(([p])=>p==='/api/payments').length>count);assert.match(app.$('wire-cards-list').textContent,/Recover funds/);
+ app.setClaimState('claiming');await app.clock.advance(6000);
+ assert.match(app.$('wire-cards-list').textContent,/Sending/);assert.equal(app.$('wire-cards-list').querySelectorAll('button,a').length,0);
+ app.setClaimState('claimed');await app.clock.advance(6000);
+ assert.match(app.$('wire-cards-list').textContent,/Received/);assert.equal(app.$('wire-cards-list').querySelectorAll('button,a').length,0);
+ count=app.calls.filter(([p])=>p==='/api/payments').length;await app.clock.advance(18000);assert.equal(app.calls.filter(([p])=>p==='/api/payments').length,count);
+});
+test('dashboard cancellation uses one confirmation, hides the card, and never pays',async()=>{
+ const app=await start({nimStage:'ready',clocked:true,nimOnly:true});
+ const button=[...app.$('wire-cards-list').querySelectorAll('button')].find(b=>b.textContent==='Cancel card');assert.ok(button);button.click();await settle();
+ assert.deepEqual(app.confirmations,['Cancel this unpaid card?']);assert.equal(app.$('wire-cards-list').children.length,0);
+ assert.deepEqual(app.calls.find(([p])=>p.endsWith('/cancel'))[1],{});assert.equal(app.checkouts.length,0);assert.equal(app.nativeCalls.length,0);
+});
+test('cancellation refused by the sender makes no request',async()=>{
+ const app=await start({nimStage:'ready',cancelConfirm:false,nimOnly:true});[...app.$('wire-cards-list').querySelectorAll('button')].find(b=>b.textContent==='Cancel card').click();await settle();
+ assert.ok(!app.calls.some(([p])=>p.endsWith('/cancel')));assert.equal(app.$('wire-cards-list').children.length,1);
+});
+test('already funded cancellation is successful feedback and confirms the same card',async()=>{
+ const app=await start({nimStage:'ready',cancelCode:'already_funded',nimOnly:true,clocked:true});[...app.$('wire-cards-list').querySelectorAll('button')].find(b=>b.textContent==='Cancel card').click();await settle();
+ assert.match(app.$('wire-cards-list').textContent,/The payment has arrived/);assert.match(app.$('wire-cards-list').textContent,/Recover funds/);
+ assert.ok(app.calls.some(([p])=>p.endsWith('/confirm')));assert.ok(!app.$('wire-cards-list').textContent.includes('Cancel card'));assert.equal(app.checkouts.length,0);
+});
+test('unpaid error panel and embedded history both cancel the same card',async()=>{
+ for(const fromHistory of [false,true]){
+  const app=await tracked();assert.equal(app.$('nim-wallet-cancel').hidden,false);
+  const cancel=fromHistory?app.doc.querySelector('.nim-row-cancel'):app.$('nim-wallet-cancel');assert.equal(cancel.hidden,false);cancel.click();await settle();
+  assert.equal(app.$('payment-list').children.length,0);assert.equal(app.$('nim-progress').hidden,true);assert.equal(app.$('wire-cards-list').children.length,0);
+  assert.equal(app.calls.filter(([p])=>p.endsWith('/cancel')).length,1);assert.equal(app.nativeCalls.length,0);
+ }
+});
+test('chain unavailability keeps cancellation retryable and cannot_cancel refreshes normal tracking',async()=>{
+ for(const cancelCode of ['chain_unavailable','cannot_cancel']){
+  const app=await start({nimStage:'ready',cancelCode,nimOnly:true});[...app.$('wire-cards-list').querySelectorAll('button')].find(b=>b.textContent==='Cancel card').click();await settle();
+  assert.match(app.$('wire-cards-list').textContent,cancelCode==='cannot_cancel'?/no longer be cancelled/:/please try again/);
+  assert.equal([...app.$('wire-cards-list').querySelectorAll('button')].find(b=>b.textContent==='Cancel card').disabled,false);
+ }
+});
+test('combined dashboard has three recent rows plus only the funded unclaimed older exception',async()=>{
+ const mk=(id,age,stage='sent',claim_state='unclaimed')=>({id:id.repeat(48),sender:'sender@example.test',recipient:id+'@example.test',amount:'1',address:'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY',created:new Date(Date.parse('2026-10-23T14:00:00Z')-age).toISOString(),stage,claim_state});
+ const app=await start({clocked:true,extraNim:[mk('b',1000),mk('c',3000),mk('d',4000),mk('e',90000000),mk('f',90000000,'ready',undefined)],serverCards:[{id:'1'.repeat(32),asset:'usdc_polygon',amount:'1',created:'2026-10-23T13:59:58Z',claimed_at:'2026-10-23T14:00:00Z'}]});
+ assert.deepEqual([...app.$('wire-cards-list').children].map(r=>r.dataset.cardId),['b'.repeat(48),'1'.repeat(32),'c'.repeat(48),'e'.repeat(48)]);
+ assert.match(app.$('wire-cards-list').children[1].textContent,/Received/);
+});
+test('cancelled late-funded cards remain recoverable while other cancellations are hidden',async()=>{
+ const p={id:'b'.repeat(48),sender:'sender@example.test',recipient:'late@example.test',amount:'1',address:'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY',created:'2026-10-21T14:00:00Z',stage:'cancelled',claim_state:'unclaimed'};
+ const app=await start({clocked:true,nimStage:'cancelled',extraNim:[p]});
+ assert.equal(app.$('wire-cards-list').children.length,1);assert.match(app.$('wire-cards-list').textContent,/Recover funds/);assert.ok(!app.$('wire-cards-list').textContent.includes('Retry payment'));
+});
+test('NIM history revokes an already prepared recovery link as claiming and claimed arrive',async()=>{
+ const app=await tracked({nimStage:'sent'});
+ let row=app.doc.querySelector('.history-row');row.querySelector('.nim-row-recover').click();await settle();assert.equal(row.querySelector('.nim-row-recovery-link').hidden,false);
+ for(const state of ['claiming','claimed']){
+  app.setClaimState(state);await app.clock.advance(6000);row=app.doc.querySelector('.history-row');
+  for(const selector of ['.nim-row-recover','.nim-row-recovery-link','.nim-row-retry','.nim-row-cancel'])assert.equal(row.querySelector(selector).hidden,true);
+ }
+ assert.equal(row.querySelector('.nim-row-state').textContent,'Received');
+});
+test('cancelled recent cards keep checking for late funds without showing payment controls',async()=>{
+ const app=await start({nimStage:'cancelled',clocked:true,nimOnly:true});assert.equal(app.$('wire-cards-list').children.length,0);
+ app.setClaimState('unclaimed');await app.clock.advance(6000);
+ assert.match(app.$('wire-cards-list').textContent,/Recover funds/);assert.ok(!app.$('wire-cards-list').textContent.includes('Retry payment'));
 });

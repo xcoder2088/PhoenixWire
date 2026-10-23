@@ -189,3 +189,12 @@ html[data-palette="phoenixfire"] .wire-body button:hover:not(:disabled),html[dat
 .nim-row-actions button,.nim-row-actions a{min-height:44px;max-width:100%;white-space:normal;}
 .nim-row-notice{font-size:14px;line-height:1.5;overflow-wrap:anywhere;}
 .wire-nim-host>#new-card{margin:0 0 16px;min-height:44px;}
+
+
+/* Compact unpaid-card controls; technical data expands only on request. */
+#nim-progress-message { white-space: pre-line; }
+#nim-wallet-details { min-width:0; margin:0; }
+#nim-wallet-details summary { cursor:pointer; color:var(--accent); }
+#nim-wallet-details p { margin:0; flex:none; min-height:0; height:auto; }
+#nim-wallet-details pre { max-width:100%; overflow-wrap:anywhere; white-space:pre-wrap; }
+.nim-row-actions { display:flex; flex-wrap:wrap; gap:8px; }

@@ -1,3 +1,4 @@
+import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from '../internal/web/static/model.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -57,7 +58,7 @@ async function start({ answer = x => x, status = () => ({ state: 'awaiting_funds
     throw Error('unexpected API ' + path);
   };
   window.confirm = () => true;
-  Object.assign(ctx, { flowText, addressValid, cardPresentation, paintCard, usdtText });
+  Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,  flowText, addressValid, cardPresentation, paintCard, usdtText });
   const strip = s => '{' + s.replace(/^import[^\n]+\n/gm, '').replace(/^export /gm, '') + '\n}';
   vm.runInContext(strip(read('../internal/web/static/flow.js')), ctx);
   vm.runInContext(strip(read('../internal/web/static/usdt-flow.js')), ctx);
@@ -191,3 +192,4 @@ test('the five languages all have every word', () => {
     for (const k of ['payTitle', 'payHelp', 'invited', 'refundConfirm']) assert.deepEqual((usdtText[lang][k].match(/\{\w+\}/g) || []).sort(), (usdtText.en[k].match(/\{\w+\}/g) || []).sort(), lang + ' ' + k + ' keeps its placeholders');
   }
 });
+

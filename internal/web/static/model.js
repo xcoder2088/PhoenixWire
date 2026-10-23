@@ -54,3 +54,49 @@ export function previewAmount(value, asset) {
   }
   return amount.replace(/^0+(?=\d)/, '');
 }
+
+
+// Shared sender-history policy. Creation dates come from the server, never polling time.
+export function nimFunded(p) {
+ return ['funded','delivery_pending','delivery_failed','sent'].includes(p.stage) ||
+  ['cancelled','expired'].includes(p.stage) && p.claim_state==='unclaimed';
+}
+export function unpaidCard(p,now=Date.now()) {
+ const created=Date.parse(p.created||'');
+ return ['ready','funding_started','preparing'].includes(p.stage) && !p.claim_state &&
+  Number.isFinite(created) && created<=now && now<created+86400000;
+}
+export function recoverableCard(p) { return Boolean(p.address)&&nimFunded(p)&&p.claim_state==='unclaimed'; }
+export function historyEntries(entries,now=Date.now()) {
+ const created=p=>Number(p.createdAt)|| (typeof p.created==='number'?p.created:Date.parse(p.created||'')) || 0;
+ const alive=entries.filter(p=>!(p.stage==='cancelled'||p.state==='cancelled') || p.nim!==false&&recoverableCard(p));
+ const recent=alive.filter(p=>created(p)>0&&created(p)<=now&&now<created(p)+86400000).sort((a,b)=>created(b)-created(a)).slice(0,3);
+ const older=alive.filter(p=>created(p)>0&&now>=created(p)+86400000&&p.nim!==false&&recoverableCard(p));
+ return [...recent,...older].sort((a,b)=>created(b)-created(a));
+}
+export function historyPending(p,now=Date.now()) {
+ const created=Date.parse(p.created||'');
+ return Number.isFinite(created) && now<created+86400000 && p.claim_state!=='claimed';
+}
+export const senderHistoryWords={
+ fr:{received:'Reçu',claiming:'Envoi en cours…',unclaimed:'Envoyée, pas encore reçue',unpaid:'Paiement non reçu',checking:'Vérification en cours…',cancel:'Annuler la carte',confirm:'Annuler cette carte non payée ?',arrived:'Le paiement est bien arrivé',retry:'Réessayer le paiement',recover:'Récupérer les fonds',open:'Ouvrir la récupération',failed:'Impossible pour le moment, réessayez.',cannot:'Cette carte ne peut plus être annulée.',details:'Détails techniques'},
+ en:{received:'Received',claiming:'Sending…',unclaimed:'Sent, not yet received',unpaid:'Payment not received',checking:'Checking…',cancel:'Cancel card',confirm:'Cancel this unpaid card?',arrived:'The payment has arrived',retry:'Retry payment',recover:'Recover funds',open:'Open recovery',failed:'Unavailable right now, please try again.',cannot:'This card can no longer be cancelled.',details:'Technical details'},
+ es:{received:'Recibida',claiming:'Enviando…',unclaimed:'Enviada, aún no recibida',unpaid:'Pago no recibido',checking:'Comprobando…',cancel:'Cancelar la tarjeta',confirm:'¿Cancelar esta tarjeta sin pagar?',arrived:'El pago ha llegado',retry:'Reintentar el pago',recover:'Recuperar fondos',open:'Abrir recuperación',failed:'No disponible ahora, inténtalo de nuevo.',cannot:'Esta tarjeta ya no se puede cancelar.',details:'Detalles técnicos'},
+ de:{received:'Empfangen',claiming:'Wird gesendet…',unclaimed:'Gesendet, noch nicht empfangen',unpaid:'Zahlung nicht eingegangen',checking:'Wird geprüft…',cancel:'Karte stornieren',confirm:'Diese unbezahlte Karte stornieren?',arrived:'Die Zahlung ist eingegangen',retry:'Zahlung erneut versuchen',recover:'Guthaben zurückholen',open:'Rückholung öffnen',failed:'Derzeit nicht verfügbar, bitte erneut versuchen.',cannot:'Diese Karte kann nicht mehr storniert werden.',details:'Technische Details'},
+ zh:{received:'已收到',claiming:'正在发送…',unclaimed:'已发送，尚未收到',unpaid:'尚未收到付款',checking:'正在检查…',cancel:'取消卡片',confirm:'取消这张尚未付款的卡片？',arrived:'付款已到账',retry:'重试付款',recover:'取回资金',open:'打开资金恢复',failed:'暂时无法使用，请重试。',cannot:'此卡片已无法取消。',details:'技术详情'}
+};
+export function senderHistoryText(language,key) {return (senderHistoryWords[language]||senderHistoryWords.en)[key];}
+export function nimHistoryLabel(p,language,now=Date.now()) {
+ const key=p.claim_state==='claimed'?'received':p.claim_state==='claiming'?'claiming':nimFunded(p)&&p.claim_state==='unclaimed'?'unclaimed':unpaidCard(p,now)?'unpaid':'checking';
+ return senderHistoryText(language,key);
+}
+export async function cancelUnpaidCard(p,request) {
+ try{return {...await request('/api/payments/'+p.id+'/cancel',{}),received:false};}
+ catch(error){
+  if(error.message!=='already_funded')throw error;
+  let result;
+  try{result=await request('/api/payments/'+p.id+'/confirm',{});}
+  catch{result={payment:{...p,stage:'funded'}};}
+  return {...result,received:true};
+ }
+}

@@ -1,5 +1,6 @@
+import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.20';
 import { flowText } from './flow-text.js?v=0.4.19';
-import { addressValid,cardPresentation,paintCard } from './model.js?v=0.3.0';
+import { addressValid,cardPresentation,paintCard } from './model.js?v=0.4.20';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
 export function mountNimFlow(root=document,{embedded=false,chooseWallet=null,onClose=null,onStatus=()=>{},initialDraft=null,onDraftUsed=()=>{},initialPayment=null,scopedPaymentID=''}={}){
@@ -28,11 +29,11 @@ const pt=key=>embedded&&key==='close'?(doneWords[document.documentElement.lang]|
 
 const retryWords={
   "fr": {
-    "unpaid": "Pas encore payée selon la dernière vérification. Aucun paiement confirmé à ce stade ; vérifie ton portefeuille, un paiement peut encore être en route. La carte expire dans {hours} h.",
-    "unknown": "Impossible de confirmer le paiement pour le moment. Vérifie ton portefeuille et ne repaie pas sans nouvelle vérification.",
+    "unpaid": "Paiement non reçu selon la dernière vérification.",
+    "unknown": "Impossible de vérifier le paiement pour le moment.",
     "received": "Paiement reçu. Vérification et envoi de la carte en cours…",
     "retry": "Réessayer le paiement",
-    "wait": "Patiente encore quelques minutes, un premier paiement peut être en route.",
+    "wait": "Un paiement peut encore arriver.",
     "remaining": "Réessai possible dans {time}.",
     "close": "Tu peux fermer cette fenêtre.",
     "copy": "Copier le détail",
@@ -42,11 +43,11 @@ const retryWords={
     "expired": "Carte expirée. Ne repaie pas. Les fonds arrivés tardivement restent récupérables par l’expéditeur dans Safari."
   },
   "en": {
-    "unpaid": "Not yet paid according to the last check. No confirmed payment at this stage; check your wallet, as a payment may still be on its way. The card expires in {hours} h.",
-    "unknown": "The payment cannot be confirmed right now. Check your wallet and do not pay again without another check.",
+    "unpaid": "Not yet paid according to the last check.",
+    "unknown": "Unable to check the payment right now.",
     "received": "Payment received. Checking and sending the card…",
     "retry": "Retry payment",
-    "wait": "Wait a few more minutes; a first payment may be on its way.",
+    "wait": "A payment may still arrive.",
     "remaining": "Retry available in {time}.",
     "close": "You can close this window.",
     "copy": "Copy details",
@@ -56,11 +57,11 @@ const retryWords={
     "expired": "Card expired. Do not pay again. The sender can recover late-arriving funds in Safari."
   },
   "es": {
-    "unpaid": "Aún no pagada según la última comprobación. No hay un pago confirmado por ahora; revisa tu cartera, puede haber un pago en camino. La tarjeta caduca en {hours} h.",
-    "unknown": "No se puede confirmar el pago ahora. Revisa tu cartera y no vuelvas a pagar sin otra comprobación.",
+    "unpaid": "Aún no pagada según la última comprobación.",
+    "unknown": "No se puede comprobar el pago ahora.",
     "received": "Pago recibido. Comprobando y enviando la tarjeta…",
     "retry": "Reintentar el pago",
-    "wait": "Espera unos minutos más; puede haber un primer pago en camino.",
+    "wait": "Todavía puede llegar un pago.",
     "remaining": "Podrás reintentar en {time}.",
     "close": "Puedes cerrar esta ventana.",
     "copy": "Copiar detalles",
@@ -70,11 +71,11 @@ const retryWords={
     "expired": "Tarjeta caducada. No vuelvas a pagar. El remitente puede recuperar en Safari los fondos que lleguen tarde."
   },
   "de": {
-    "unpaid": "Laut letzter Prüfung noch nicht bezahlt. Bisher keine bestätigte Zahlung; prüfe deine Wallet, eine Zahlung könnte noch unterwegs sein. Die Karte läuft in {hours} Std. ab.",
-    "unknown": "Die Zahlung kann derzeit nicht bestätigt werden. Prüfe deine Wallet und bezahle nicht erneut ohne weitere Prüfung.",
+    "unpaid": "Laut letzter Prüfung noch nicht bezahlt.",
+    "unknown": "Die Zahlung kann gerade nicht geprüft werden.",
     "received": "Zahlung eingegangen. Die Karte wird geprüft und gesendet…",
     "retry": "Zahlung erneut versuchen",
-    "wait": "Warte noch einige Minuten; eine erste Zahlung könnte unterwegs sein.",
+    "wait": "Eine Zahlung könnte noch eingehen.",
     "remaining": "Neuer Versuch in {time} möglich.",
     "close": "Du kannst schließen.",
     "copy": "Details kopieren",
@@ -84,11 +85,11 @@ const retryWords={
     "expired": "Karte abgelaufen. Bezahle nicht erneut. Der Absender kann verspätete Zahlungen in Safari zurückholen."
   },
   "zh": {
-    "unpaid": "根据上次检查，尚未付款。目前没有已确认的付款；请检查钱包，付款可能仍在途中。卡片将在 {hours} 小时后过期。",
-    "unknown": "暂时无法确认付款。请检查钱包，重新核实前不要再次付款。",
+    "unpaid": "根据上次检查，尚未付款。",
+    "unknown": "暂时无法检查付款。",
     "received": "已收到付款。正在检查并发送卡片…",
     "retry": "重试付款",
-    "wait": "请再等待几分钟，第一笔付款可能仍在途中。",
+    "wait": "付款仍可能到账。",
     "remaining": "{time} 后可重试。",
     "close": "你可以关闭此窗口。",
     "copy": "复制详情",
@@ -142,6 +143,9 @@ const rowWords={
 };
 for(const language of Object.keys(rowWords))Object.assign(retryWords[language],rowWords[language]);
 const rt=key=>(retryWords[document.documentElement.lang]||retryWords.en)[key];
+const ht=key=>senderHistoryText(document.documentElement.lang,key);
+const cancelling=new Set();
+let historyTimer=null,historyLoading=false;
 const walletFailures=new Map();
 let walletTimer=null,nativeRequestInFlight=false;
 
@@ -176,7 +180,10 @@ const walletDetail=document.createElement('pre');walletDetail.id='nim-wallet-det
 const copyDetail=document.createElement('button');copyDetail.id='nim-wallet-copy';copyDetail.type='button';copyDetail.className='secondary-btn';
 const retryButton=document.createElement('button');retryButton.id='nim-wallet-retry';retryButton.type='button';retryButton.className='secondary-btn';
 const retryWait=document.createElement('p');retryWait.id='nim-wallet-wait';retryWait.setAttribute('role','status');
-walletPanel.append(walletNote,detailLabel,walletDetail,copyDetail,retryButton,retryWait);progress.append(walletPanel);
+const cancelButton=document.createElement('button');cancelButton.id='nim-wallet-cancel';cancelButton.type='button';cancelButton.className='secondary-btn';
+const details=document.createElement('details');details.id='nim-wallet-details';const summary=document.createElement('summary');details.append(summary,detailLabel,walletDetail,copyDetail);
+walletNote.setAttribute('role','status');walletPanel.append(retryButton,cancelButton,walletNote,retryWait,details);progress.append(walletPanel);
+cancelButton.addEventListener('click',()=>{if(displayed)void cancelCard(displayed.id);});
 copyDetail.addEventListener('click',async()=>{
  try{if(!navigator.clipboard?.writeText)throw Error('clipboard_unavailable');await navigator.clipboard.writeText(walletDetail.textContent);copyDetail.textContent=rt('copied');}
  catch{walletDetail.focus();const range=document.createRange();range.selectNodeContents(walletDetail);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);copyDetail.textContent=rt('select');}
@@ -208,7 +215,8 @@ function renderWallet(p){
   return;
  }
  // The payment status already explains approval, delay and expiry; do not repeat it below.
- walletNote.textContent=rt('close');detailLabel.textContent=rt('detail');
+ walletNote.textContent=recoveryStates.get(p.id)?.notice||'';walletNote.hidden=!walletNote.textContent;summary.textContent=ht('details');detailLabel.textContent=rt('detail');details.hidden=!failure.detail;
+ cancelButton.textContent=ht('cancel');cancelButton.hidden=Boolean(scopedPaymentID)||!unpaidCard(p);cancelButton.disabled=cancelling.has(p.id)||busy||nativeRequestInFlight;
  if(walletDetail.textContent!==(failure.detail||''))walletDetail.textContent=failure.detail||'';
  walletDetail.hidden=!failure.detail;detailLabel.hidden=!failure.detail;copyDetail.hidden=!failure.detail;
  copyDetail.textContent=rt('copy');retryButton.textContent=rt('retry');
@@ -233,11 +241,11 @@ function pendingFailure(p){
  const at=Date.parse(p.started_at||'');
  walletFailures.set(p.id,{state:'checking',detail:'',waitUntil:Number.isFinite(at)?at+180000:0,tooSoon:Number.isFinite(at)});
 }
-function recoveryAllowed(p){return !scopedPaymentID&&p.address&&(['funded','delivery_pending','delivery_failed','sent','expired'].includes(p.stage)||Date.now()>=deadline(p));}
+function recoveryAllowed(p){return !scopedPaymentID&&recoverableCard(p);}
 function renderHistory(){
  if(destroyed)return;
  const list=$('payment-list'),seen=new Set();
- for(const p of preparedContext?[]:paymentList){
+ for(const p of preparedContext?[]:historyEntries(paymentList)){
   seen.add(p.id);let view=rowViews.get(p.id);
   if(!view){
    const row=document.createElement('div');row.className='history-row';row.dataset.paymentId=p.id;
@@ -249,21 +257,47 @@ function renderHistory(){
    const link=document.createElement('a');link.className='nim-row-recovery-link';link.target='_blank';link.rel='noopener noreferrer';
    const resend=document.createElement('button');resend.type='button';resend.className='secondary-btn';resend.onclick=()=>resendCard(p.id);
    const notice=document.createElement('p');notice.className='nim-row-notice';notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');
-   actions.append(retry,create,recover,link,resend);row.append(label,state,actions,notice);
-   view={row,label,state,retry,create,recover,link,resend,notice};rowViews.set(p.id,view);list.append(row);
+   const cancel=document.createElement('button');cancel.type='button';cancel.className='secondary-btn nim-row-cancel';cancel.onclick=()=>void cancelCard(p.id);
+   actions.append(retry,cancel,recover,link,resend);row.append(label,state,actions,notice);
+   view={row,label,state,retry,cancel,create,recover,link,resend,notice};rowViews.set(p.id,view);list.append(row);
   }
   const failure=walletFailures.get(p.id),recovery=recoveryStates.get(p.id)||{},wait=Math.max(0,Math.ceil(((failure?.waitUntil||0)-Date.now())/1000));
   view.label.textContent=p.amount+' NIM · '+p.recipient;
-  view.state.textContent=p.stage==='funding_started'?progressText(p):t(p.stage);
+  view.state.textContent=nimHistoryLabel(p,document.documentElement.lang);
   if(wait>0)view.state.textContent+=' '+rt('remaining').replace('{time}',Math.floor(wait/60)+':'+String(wait%60).padStart(2,'0'));
-  view.retry.textContent=rt('retry');view.retry.hidden=p.stage!=='funding_started'||Date.now()>=deadline(p)||failure?.funded;view.retry.disabled=busy||nativeRequestInFlight||wait>0;
-  view.create.textContent=t('newCard');view.create.hidden=Boolean(scopedPaymentID);
+  view.retry.textContent=rt('retry');view.retry.hidden=!unpaidCard(p)||failure?.funded;view.retry.disabled=busy||nativeRequestInFlight||wait>0;
+  view.cancel.textContent=ht('cancel');view.cancel.hidden=Boolean(scopedPaymentID)||!unpaidCard(p);view.cancel.disabled=cancelling.has(p.id)||busy||nativeRequestInFlight;
   view.recover.textContent=recoveryAllowed(p)?t('recover'):'';view.recover.hidden=!recoveryAllowed(p)||Boolean(recovery.href);view.recover.disabled=Boolean(recovery.loading);
   view.link.hidden=!recoveryAllowed(p)||!recovery.href;if(recovery.href)view.link.href=recovery.href;else view.link.removeAttribute('href');view.link.textContent=rt('openRecovery');
   view.resend.textContent=p.stage==='delivery_failed'?pt('resend'):'';view.resend.hidden=p.stage!=='delivery_failed';view.resend.disabled=busy||checks.has(p.id);
+  list.append(view.row);
   view.notice.textContent=recovery.loading?t('working'):recovery.error?rt('recoveryFailed'):recovery.href?rt('recoveryReady'):recovery.notice||'';
  }
  for(const[id,view]of rowViews)if(!seen.has(id)){view.row.remove();rowViews.delete(id);}
+}
+async function cancelCard(id){
+ const p=paymentList.find(p=>p.id===id);
+ if(!p||scopedPaymentID||!unpaidCard(p)||cancelling.has(id)||busy||nativeRequestInFlight||!window.confirm(ht('confirm')))return;
+ cancelling.add(id);renderProgress();
+ try{
+  const result=await cancelUnpaidCard(p,(path,data)=>api(path,data,{timeout:true}));
+  rememberRecord(result.payment);walletFailures.delete(id);stopMonitor(monitor(result.payment));
+  if(result.received){recoveryStates.set(id,{notice:ht('arrived')});observe(result.payment);}
+  else if(displayed?.id===id)newCard(id);
+  onStatus(result.payment,result.received?ht('arrived'):'');
+  await loadHistory();
+ }catch(error){
+  recoveryStates.set(id,{notice:ht(error.message==='cannot_cancel'?'cannot':'failed')});
+  $('nim-progress-message').textContent=ht(error.message==='cannot_cancel'?'cannot':'failed');
+  try{await loadHistory();}catch{}
+ }finally{cancelling.delete(id);renderProgress();}
+}
+function scheduleHistory(){
+ clearTimeout(historyTimer);historyTimer=null;
+ if(!destroyed&&verified&&!document.hidden&&paymentList.some(p=>historyPending(p)||recoverableCard(p)))historyTimer=setTimeout(async()=>{
+  if(historyLoading)return;historyLoading=true;
+  try{await loadHistory();}catch{}finally{historyLoading=false;scheduleHistory();}
+ },6000);
 }
 async function recoverCard(id){
  const p=paymentList.find(p=>p.id===id);if(!p||!recoveryAllowed(p)||recoveryStates.get(id)?.loading)return;
@@ -345,14 +379,16 @@ function showPayment(p){
 async function loadHistory(){
  const data=await api('/api/payments',undefined,{timeout:true});$('my-payments').hidden=Boolean(scopedPaymentID);
  paymentList=scopedPaymentID?data.payments.filter(p=>p.id===scopedPaymentID):data.payments;
+ const current=paymentList.find(p=>p.id===displayed?.id);
+ if(current?.stage==='cancelled'&&!scopedPaymentID)newCard(current.id);
  for(const p of paymentList)pendingFailure(p);
- const visible=paymentList.filter(p=>!isFolded(p));
+ const visible=paymentList.filter(p=>!isFolded(p)&&p.stage!=='cancelled');
  active=preparedContext?visible.find(p=>p.id===(initialPayment?.id||scopedPaymentID))||null:freshForm||editingTransferredDraft?null:visible.find(p=>p.id===displayed?.id)||visible.find(p=>p.stage!=='sent')||null;
  const pending=read('wire-pending-payment');
  const shown=preparedContext?active:freshForm||editingTransferredDraft?null:visible.find(p=>p.id===pending)||visible.find(p=>p.id===displayed?.id)||active||(!embedded?visible[0]:null);
- for(const p of paymentList){const watch=monitors.get(p.id);if(watch){watch.payment=p;if(p.stage==='sent')stopMonitor(watch);}}
+ for(const p of paymentList){const watch=monitors.get(p.id);if(watch){watch.payment=p;if(p.stage==='sent'||p.stage==='cancelled')stopMonitor(watch);}}
  if(shown)showPayment(shown);
- renderHistory();refreshText();
+ renderHistory();refreshText();scheduleHistory();
 }
 function validatedCashlink(value){const url=new URL(value);if(url.origin!=='https://hub.nimiq.com'||url.pathname!=='/cashlink/'||!/^#[A-Za-z0-9_=-]+$/.test(url.hash))throw Error('invalid_cashlink');return url.href;}
 const artSaved=new Set();
@@ -373,10 +409,9 @@ function progressText(p){
   if(failure.expired||Date.now()>=deadline(p))return rt('expired');
   if(failure.funded)return rt('received');
   if(failure.state==='unfunded'){
-   const hours=new Intl.NumberFormat(document.documentElement.lang,{maximumFractionDigits:1}).format(Math.max(0,Math.ceil((deadline(p)-Date.now())/360000)/10));
    const at=Date.parse(p.started_at||'');
    const started=Number.isFinite(at)?rt('started').replace('{time}',new Intl.DateTimeFormat(document.documentElement.lang,{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(at)):'';
-   return rt('unpaid').replace('{hours}',hours)+' '+started;
+   return rt('unpaid')+(started?'\n'+started:'');
   }
   return rt('unknown');
  }
@@ -435,7 +470,7 @@ function confirm(id,resend=false){
   await loadHistory();
   const p=paymentList.find(p=>p.id===id);if(!p)throw Error('payment_unavailable');
   observe(p);
-  if(p.stage==='sent'||!resend&&['delivery_pending','delivery_failed'].includes(p.stage))return {payment:p};
+  if(p.stage==='cancelled'||p.claim_state==='claimed'||p.claim_state==='claiming'||p.stage==='sent'||!resend&&['delivery_pending','delivery_failed'].includes(p.stage))return {payment:p};
   if(Date.now()>=deadline(p))throw Object.assign(Error('claim_expired'),{status:410});
   if(resend&&p.stage!=='delivery_failed')return {payment:p};
   await ensureArtwork(p);
@@ -479,10 +514,10 @@ function approve(p){save('wire-nim-approved:'+p.id,'yes');observe(p);if(displaye
 function resume(){
  if(claimMode){if(!document.hidden)void refreshPayout();return;}
  if(destroyed||claimMode||document.hidden||!verified||editingTransferredDraft)return;
- renderProgress();
+ renderProgress();scheduleHistory();
  for(const p of paymentList){if(['funding_started','funded','delivery_pending','delivery_failed'].includes(p.stage))void runMonitor(monitor(p));}
 }
-function visibility(){if(document.hidden){clearTimeout(walletTimer);clearTimeout(reception.timer);for(const watch of monitors.values()){clearTimeout(watch.timer);watch.timer=null;}}else resume();}
+function visibility(){if(document.hidden){clearTimeout(historyTimer);clearTimeout(walletTimer);clearTimeout(reception.timer);for(const watch of monitors.values()){clearTimeout(watch.timer);watch.timer=null;}}else resume();}
 document.addEventListener('visibilitychange',visibility);window.addEventListener('pageshow',resume);window.addEventListener('online',resume);
 $('nim-progress-close').addEventListener('click',()=>{if(onClose)onClose(displayed);else location.assign('/');});
 function resendCard(id){
@@ -594,7 +629,9 @@ async function requestWallet(p,started,forceHub=false){
 }
 async function retryPayment(forceHub=false,paymentID=displayed?.id){
  const id=typeof paymentID==='string'?paymentID:displayed?.id;
- if(!id||scopedPaymentID&&id!==scopedPaymentID||!walletFailures.has(id))return;
+ const retryCard=paymentList.find(p=>p.id===id);
+ if(!id||scopedPaymentID&&id!==scopedPaymentID||!retryCard||!unpaidCard(retryCard))return;
+ if(!walletFailures.has(id))walletFailures.set(id,{state:'checking',detail:''});
  if(busy||nativeRequestInFlight){const state=recoveryStates.get(id)||{};state.notice=rt('busy');recoveryStates.set(id,state);renderHistory();return;}
  void task(async()=>{
   let failure=walletFailures.get(id);
@@ -879,7 +916,8 @@ async function boot(){
 }
 const started=boot();
 
-return {ready:started,resume,destroy(){destroyed=true;window.removeEventListener('wire-language',refreshText);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pageshow',resume);window.removeEventListener('online',resume);clearInterval(coolTimer);clearTimeout(reception.timer);clearTimeout(walletTimer);for(const watch of monitors.values())stopMonitor(watch);for(const controller of controllers)controller.abort();controllers.clear();}};
+return {ready:started,resume,destroy(){destroyed=true;window.removeEventListener('wire-language',refreshText);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pageshow',resume);window.removeEventListener('online',resume);clearInterval(coolTimer);clearTimeout(reception.timer);clearTimeout(walletTimer);clearTimeout(historyTimer);for(const watch of monitors.values())stopMonitor(watch);for(const controller of controllers)controller.abort();controllers.clear();}};
 }
 
 if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();
+

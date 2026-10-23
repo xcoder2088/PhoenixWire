@@ -75,8 +75,8 @@ is reconciled with that flag before retrying; failed attempts are spaced by at l
 device until explicitly dismissed, independently of the copied window's automatic close. This confirms acceptance by the mail
 service, not delivery to an inbox. History is hidden on logout and polling stops. Records belonging to another sender are not shown.
 
-NIM rows use the existing `/api/payments` states and the NIM window's status callback. They do not infer that a NIM card was claimed:
-that information is not provided by this list. No new server route, CSP rule or payment operation is added by the dashboard.
+NIM rows use `/api/payments` and its `claim_state`; mail delivery alone never establishes receipt.
+The sender history and cancellation contract is documented below.
 
 ## Nimiq Pay per-card handoff (client)
 
@@ -165,8 +165,8 @@ History shows server-provided `created` dates. It is also ready to show optional
 in the selected language and the browser's local time zone. USDC/USDT dates are accepted from `/api/usdt/cards` and its
 cashlink status response; NIM dates come from `/api/payments`. A NIM `claimed_at` must mean an actual confirmed claim,
 not release of the claim link. Missing, invalid and zero dates are omitted. Polling time and local creation estimates are
-never substituted for these dates. The current Go responses do not yet expose sent/claimed dates: see
-`HANDOFF-DATES-CARTES-2026-10-23.md` for the server work left to implement.
+never substituted for these dates. The current server exposes stablecoin `claimed_at` and NIM `claim_state`; receipt labels use those fields as described below.
+`HANDOFF-DATES-CARTES-2026-10-23.md` records the earlier date handoff.
 
 ## Hand-over of one payment to the Nimiq Pay app (server)
 
@@ -194,14 +194,13 @@ The app is another browser (its own cookies). What crosses over is not the sende
 For a payment whose funding started (`start`) but never showed up on the chain (the wallet refused, failed, or the app was closed). It answers the same
 `{payment, checkout}` as `start`, without starting anything again, and only when: the funding was started at least **3 minutes** ago (a first payment would have
 shown by then; `409 retry_too_soon` before), the chain does not already hold the amount (`409 already_funded`: follow the card with `confirm`) and the card is within
-its day (`410`). A payment that was never started answers `409 funding_not_started` (use `start`). A scoped session may call it for its own payment. There is
-no cancel: an unfunded card expires on its own, and a late payment to its address stays recoverable by the sender.
+its day (`410`). A payment that was never started answers `409 funding_not_started` (use `start`). A scoped session may call it for its own payment. Unfunded cards can now be cancelled through the server cancellation route described below; late funds remain recoverable.
 
 
 ### Native request failure and explicit retry (client)
 
 `flow.js` displays a top-of-card failure state, card expiry from `created + 24h`, an explicit Close action, and a five-language
-explanation that closing is not cancellation. No cancellation endpoint or cancel-card button is added. “Not yet paid” means
+Close action and a separate explicit Cancel card action for verified senders with an unpaid card. “Not yet paid” means
 the last server check has not confirmed funding, not a guarantee that the wallet has debited nothing: a pending transaction
 may still arrive. A failed chain read displays uncertainty, not an unpaid claim.
 
@@ -246,9 +245,7 @@ Recovery previously shared the payment-wide `task()` busy guard (which could sil
 to `#feedback`, hidden in some layouts. It now has independent per-row loading/error/ready state, a 30-second request
 timeout, and an adjacent live status. Rows are stable across background refreshes so an in-flight result remains visible.
 A successful response shows a validated Hub recovery link with an explicit “Open recovery” action; a failure leaves a
-retryable button on that row. Recovery is offered only when the card has an address AND funding is confirmed
-(funded/delivery_pending/delivery_failed), it is sent, or its day has expired (including possible late funds), never for
-an unexpired ready/funding_started card. Its link is not put in localStorage or logs. These changes are client-only.
+retryable button on that row. Recovery now requires an address, confirmed funding and `claim_state: unclaimed`, as detailed below; expiry alone never enables recovery. Its link is not put in localStorage or logs. These changes are client-only.
 
 The shared flow remains usable in classic NIM mode; its script/style version references are refreshed without changing
 claim routes, the native funding marker, server authorization, CSP or mirrored payment files. Tests cover 375 px CSS/DOM,
@@ -312,3 +309,43 @@ Tests simulate both browser contexts, exact button labels and placement, disable
 only on click, early URL cleanup, redemption followed by payout, quiet fallback, 403 re-entry, no secret storage/logging,
 first-account receipt, release, errors, lost replies, status recovery and 375 px
 DOM/CSS. These are simulated checks, not a real Nimiq Pay/iPhone execution or real payment.
+
+
+## Sender history and unpaid-card cancellation (23 October 2026)
+
+This section supersedes earlier history/recovery and no-cancellation descriptions. All changes are in the Wire host;
+no Go, CSP, workflows or mirrored `pm/` files change.
+
+`model.js` shares the selection and action rules between the home dashboard and the classic/embedded NIM history.
+The home dashboard merges NIM and USDC/USDT before selecting the three newest transactions created within the last
+24 hours (creation descending, exact 24-hour boundary excluded). Older NIM cards are additionally retained only with
+confirmed funds and `claim_state: unclaimed`. Expired unpaid cards and ordinary cancelled cards are hidden. Filtering
+never deletes browser-held claim fragments or recovery records. Missing/invalid creation dates are not replaced by
+observation timestamps. Classic/embedded NIM history applies the same selection to its NIM records.
+
+NIM `claim_state` takes priority over mail delivery: `claimed` means Received, `claiming` means Sending, and funded
+`unclaimed` means Sent, not yet received. Only the last case has Recover funds/Open recovery. Unknown chain state has
+no recovery action. Unfunded recent cards have Payment not received, Retry payment and Cancel card. For stablecoins,
+a valid `claimed_at` means Received even if an earlier local state still says ready.
+
+Both host views poll `/api/payments` every six seconds while a recent card lacks a final claimed state, including
+cards already sent by email. Older recoverable balances are also rechecked. Polling pauses in hidden tabs, resumes on
+foreground, retries failed reads and is cleaned up on close/logout. It never opens a wallet. Funding confirmation and
+mail tracking retain their existing separate guards; a history refresh is not a new payment request.
+
+Cancel card appears beside Retry payment in the home/NIM history and in the compact payment failure panel for full
+verified senders. Scoped app sessions keep their existing funding-only permissions and do not get cancellation or
+recovery. A single translated confirmation precedes `POST /api/payments/<id>/cancel` with `{}`. Success removes the
+row, clears its current editor/payment controls and keeps its record available for later balance checks. A card whose
+stage is cancelled but whose `claim_state` is unclaimed is treated as late-funded: it remains visible with recovery.
+
+`409 already_funded` is positive feedback (The payment has arrived), followed by `POST .../confirm {}` on the same
+card and normal tracking. A temporarily unavailable confirmation preserves that positive result and permits later
+read/confirm tracking; it never cancels or requests wallet payment again. `409 cannot_cancel` refreshes the record and
+shows a short adjacent message. `503 chain_unavailable` keeps cancellation retryable. Loading guards prevent duplicate
+cancel requests. Recovery links are validated and kept only in page memory, never logged or stored.
+
+The unpaid panel has short status lines, Close, Retry, Cancel card and collapsed Technical details. Buttons inherit
+the theme accent. All new labels and prompts exist in FR/EN/ES/DE/ZH. Tests cover selection, boundaries, old balances,
+state changes, polling, receipt dates, successful/refused/racing cancellation, scoped permissions and 375 px DOM/CSS.
+These are automated simulations, not a physical iPhone/Safari/Nimiq Pay validation or real payments. No deployment.
