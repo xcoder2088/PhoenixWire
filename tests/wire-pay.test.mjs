@@ -155,8 +155,8 @@ test('return controls work on direct entry and after replacing the payment windo
 test('both sender pages declare the approved shortcut icons and PhoenixWire tab name', () => {
   for (const file of ['index.html', 'classic.html']) {
     const doc = new JSDOM(read('../internal/web/static/' + file)).window.document;
-    assert.equal(doc.title, 'PhoenixWire');
-    assert.equal(doc.querySelector('meta[name="apple-mobile-web-app-title"]').content, 'PhoenixWire');
+    assert.equal(doc.title, 'Phoenix Wire');
+    assert.equal(doc.querySelector('meta[name="apple-mobile-web-app-title"]').content, 'Phoenix Wire');
     assert.equal(doc.querySelector('link[rel="apple-touch-icon"]').getAttribute('href'), '/brand/wire-icon-180.png?v=0.4.1');
     assert.ok(doc.querySelector('link[rel="icon"]'));
     assert.equal(doc.querySelector('link[rel="manifest"]').getAttribute('href'), '/site.webmanifest?v=0.4.1');
@@ -164,6 +164,6 @@ test('both sender pages declare the approved shortcut icons and PhoenixWire tab 
     doc.defaultView.close();
   }
   const manifest = JSON.parse(read('../internal/web/static/site.webmanifest'));
-  assert.equal(manifest.name, 'PhoenixWire'); assert.equal(manifest.start_url, '/');
+  assert.equal(manifest.name, 'Phoenix Wire'); assert.equal(manifest.start_url, '/');
   for (const size of [192, 512]) assert.ok(manifest.icons.some(icon => icon.sizes === size + 'x' + size));
 });

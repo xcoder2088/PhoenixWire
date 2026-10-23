@@ -79,10 +79,10 @@ func TestShortcutAssetsKeepThePagePolicy(t *testing.T) {
 					t.Fatal("incorrect manifest content type")
 				}
 				var manifest struct {
-					Name string `json:"name"`
+					Name  string `json:"name"`
 					Start string `json:"start_url"`
 				}
-				if err := json.Unmarshal(r.Body.Bytes(), &manifest); err != nil || manifest.Name != "PhoenixWire" || manifest.Start != "/" {
+				if err := json.Unmarshal(r.Body.Bytes(), &manifest); err != nil || manifest.Name != "Phoenix Wire" || manifest.Start != "/" {
 					t.Fatal("invalid shortcut manifest")
 				}
 			}
@@ -91,7 +91,7 @@ func TestShortcutAssetsKeepThePagePolicy(t *testing.T) {
 	for _, path := range []string{"/", "/classic.html", "/?claim=fixture"} {
 		r := httptest.NewRecorder()
 		h.ServeHTTP(r, httptest.NewRequest("GET", path, nil))
-		for _, text := range []string{"<title>PhoenixWire</title>", "rel=\"apple-touch-icon\"", "rel=\"manifest\"", "/favicon.ico?v=0.4.1"} {
+		for _, text := range []string{"<title>Phoenix Wire</title>", "rel=\"apple-touch-icon\"", "rel=\"manifest\"", "/favicon.ico?v=0.4.1"} {
 			if !strings.Contains(r.Body.String(), text) {
 				t.Fatalf("%s missing %s", path, text)
 			}
