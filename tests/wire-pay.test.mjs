@@ -769,3 +769,9 @@ test('recipient and notification values are literal text, and NIM history appear
   assert.match(t.$('wire-cards-list').textContent,/2.5 NIM · Nimiq/);
   assert.ok(!t.calls.some(([p,b])=>p==='/api/payments'&&b));assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);
 });
+
+test('the page scrolls: PhoenixMail’s stylesheet locks html, Wire’s frame frees it again', () => {
+  const css = read('../internal/web/static/wire-pay.css'), app = read('../internal/web/static/pm/app.css');
+  assert.match(app, /html\{overflow:hidden/, 'the copied stylesheet does lock the page (its mail app scrolls inside itself)');
+  assert.match(css, /html\{[^}]*height:auto!important[^}]*overflow-y:auto!important/, 'Wire’s page is a normal page: it must scroll on a phone');
+});
