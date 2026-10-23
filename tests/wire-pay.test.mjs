@@ -333,7 +333,7 @@ test('the theme button selects a supported light palette, keeps its preference a
   assert.equal(restored.doc.documentElement.dataset.theme, 'light-paper');
   restored.$('wire-theme').click(); assert.equal(restored.doc.documentElement.dataset.theme, 'dark');
   const style = t.doc.createElement('style'); style.textContent = read('../internal/web/static/wire-pay.css'); t.doc.head.append(style);
-  assert.equal(t.window.getComputedStyle(t.doc.documentElement).getPropertyValue('--panel').trim(), '#fff');
+  assert.equal(t.window.getComputedStyle(t.doc.documentElement).getPropertyValue('--panel').trim(), '#fff9f3');
   t.$('wire-theme').click();
   assert.equal(t.window.getComputedStyle(t.doc.documentElement).getPropertyValue('--panel').trim(), '#1d1a24');
 });
@@ -520,7 +520,7 @@ test('NIM tracking continues beyond ten minutes, then stops at sent with an expl
   const count=t.calls.length;await t.clock.advance(10*60000);
   t.window.dispatchEvent(new t.window.Event('pageshow'));await settle();assert.equal(t.calls.length,count,'sent cards are not polled again');
   t.$('nim-progress-close').click();assert.equal(t.doc.querySelector('.wire-nim-window'),null);
-  assert.match(t.$('wire-status').textContent,/Card sent to friend@example.test/);
+  assert.match(t.$('wire-cards-list').textContent,/Card sent to friend@example.test/);
 });
 
 test('a funded card shows email delivery progress, then a clear failure and a resend that never funds again',async()=>{
@@ -589,7 +589,7 @@ test('reload restores a native payment and its original expiry without another p
 test('closing or changing the NIM window keeps its tracker alive and reopening reuses it',async()=>{
   const t=await tracked();t.doc.querySelector('.wire-nim-close').click();
   await t.clock.advance(3*60000);assert.ok(checks(t)>20);
-  t.setStage('sent');await t.clock.advance(10000);assert.match(t.$('wire-status').textContent,/Card sent to/);
+  t.setStage('sent');await t.clock.advance(10000);assert.match(t.$('wire-cards-list').textContent,/Card sent to/);
   t.$('pay').click();await settle();assert.equal(t.$('nim-progress-close').hidden,false);
   assert.equal(t.doc.querySelectorAll('.wire-nim-window').length,1);
   assert.equal(t.maxConfirms(),1);assert.equal(t.checkouts.length,0);
@@ -641,7 +641,7 @@ test('switching to a stablecoin leaves NIM tracking active and returning to NIM 
   original.querySelectorAll('.wire-nim-assets button')[1].click();await settle();
   assert.equal(t.doc.querySelector('.wire-nim-window'),null);assert.ok(t.doc.querySelector('.nimiq-payment-window'));
   await t.clock.advance(2*60000);assert.ok(checks(t)>20);
-  t.setStage('sent');await t.clock.advance(10000);assert.match(t.$('wire-status').textContent,/Card sent to/);
+  t.setStage('sent');await t.clock.advance(10000);assert.match(t.$('wire-cards-list').textContent,/Card sent to/);
   t.doc.querySelector('.nimiq-payment-assets button').click();await settle();
   assert.equal(t.doc.querySelector('.wire-nim-window'),original);assert.equal(t.$('nim-progress-close').hidden,false);
   assert.equal(t.nativeCalls.length,0);assert.equal(t.checkouts.length,0);
@@ -776,7 +776,7 @@ test('recipient and notification values are literal text, and NIM history appear
   const id='f'.repeat(32),recipient='<img src=x onerror=alert(1)>',local={'wire-usdt-cards':JSON.stringify([{id,sender:'sender@example.test',recipient,amount:'2',asset:'usdt_polygon',invited:true,noticePending:true}])};
   const t=await start({clocked:true,local,serverCards:[{id,asset:'usdt_polygon',recipient,amount:'2',invited:true}],nimStage:'sent',state:()=>({state:'ready',balanceUnits:2100000})});await t.clock.advance(2500);
   assert.ok(t.$('wire-cards-list').textContent.includes(recipient));assert.ok(t.$('wire-card-notices').textContent.includes(recipient));
-  assert.equal(t.$('wire-cards-list').querySelector('img'),null);assert.equal(t.$('wire-card-notices').querySelector('img'),null);
+  assert.ok([...t.$('wire-cards-list').querySelectorAll('img')].every(img=>img.className==='wire-coin-icon'&&img.getAttribute('src').startsWith('/brand/')));assert.equal(t.$('wire-card-notices').querySelector('img'),null);
   assert.match(t.$('wire-cards-list').textContent,/2.5 NIM · Nimiq/);
   assert.ok(!t.calls.some(([p,b])=>p==='/api/payments'&&b));assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);
 });
@@ -857,7 +857,7 @@ test('PhoenixFire, Aurora and Ocean are available, persist across visits and rem
  const invalid=await start({local:{'wire-palette':'unknown'}});assert.equal(invalid.$('wire-palette').value,'phoenixfire');
 });
 
-test('the restored palette selector is localized and all six surfaces retain the original palette colours',async()=>{
+test('the restored palette selector is localized and dark palettes retain original colours, while light palettes have stronger contrast',async()=>{
  const t=await start();
  for(const[language,label,ocean]of [['fr','Thème','Océan'],['en','Theme','Ocean'],['es','Tema','Océano'],['de','Design','Ozean'],['zh','主题','海洋']]){
   t.$('wire-language').value=language;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
@@ -865,7 +865,7 @@ test('the restored palette selector is localized and all six surfaces retain the
  }
  const style=t.doc.createElement('style');style.textContent=read('../internal/web/static/wire-pay.css');t.doc.head.append(style);
  const original=t.doc.createElement('style');original.textContent=read('../internal/web/static/design.css');t.doc.head.append(original);
- for(const theme of ['dark','light-paper'])for(const palette of ['phoenixfire','aurora','ocean']){
+ for(const theme of ['dark'])for(const palette of ['phoenixfire','aurora','ocean']){
   const restored=[...style.sheet.cssRules].find(r=>r.selectorText===`html.wire-app[data-theme="${theme}"][data-palette="${palette}"]`);
   const old=[...original.sheet.cssRules].find(r=>r.selectorText===(theme==='dark'?`:root[data-palette=${palette}]`:`:root[data-theme=light][data-palette=${palette}]`));
   for(const token of ['--bg','--panel','--line','--accent'])assert.equal(restored.style.getPropertyValue(token),old.style.getPropertyValue(token));
@@ -1084,4 +1084,49 @@ test('the gas light is a quiet line on the sign-in screen, in five languages, sh
   // signed in, it stays; not available (or off): nothing is shown
   assert.equal((await start({ gas: on })).$('wire-gas').hidden, false);
   assert.equal((await start({ session: { verified: false } })).$('wire-gas').hidden, true);
+});
+
+test('light palettes visibly separate backgrounds and keep text and field boundaries legible',async()=>{
+ const t=await start({theme:'light'}),style=t.doc.createElement('style');style.textContent=read('../internal/web/static/wire-pay.css');t.doc.head.append(style);
+ const luminance=hex=>{const c=hex.replace('#','');const v=[0,2,4].map(i=>parseInt(c.slice(i,i+2),16)/255).map(n=>n<=.04045?n/12.92:((n+.055)/1.055)**2.4);return .2126*v[0]+.7152*v[1]+.0722*v[2];};
+ const contrast=(a,b)=>{const x=luminance(a),y=luminance(b);return(Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+ const rules=[...style.sheet.cssRules],base=rules.find(r=>r.selectorText==='html.wire-app[data-theme="light-paper"]');
+ for(const palette of ['phoenixfire','aurora','ocean']){
+  const p=rules.find(r=>r.selectorText===`html.wire-app[data-theme="light-paper"][data-palette="${palette}"]`).style;
+  for(const surface of ['--bg','--panel','--panel2']){
+   assert.ok(contrast(base.style.getPropertyValue('--text'),p.getPropertyValue(surface))>=4.5,palette+' text');
+   assert.ok(contrast(base.style.getPropertyValue('--muted'),p.getPropertyValue(surface))>=4.5,palette+' secondary text');
+  }
+  assert.ok(contrast(p.getPropertyValue('--line'),p.getPropertyValue('--panel2'))>=3,palette+' field boundary');
+  assert.ok(contrast(p.getPropertyValue('--accent'),p.getPropertyValue('--panel'))>=3,palette+' accent border');
+  const c=p.getPropertyValue('--bg').slice(1);const channels=[0,2,4].map(i=>parseInt(c.slice(i,i+2),16));assert.ok(Math.max(...channels)-Math.min(...channels)>=30,palette+' visible tint');
+ }
+});
+
+test('claimed status stays inside My cards, with official currency icons in history and the currency picker',async()=>{
+ const id='1'.repeat(32),t=await start({clocked:true,serverCards:[{id,asset:'usdc_polygon',amount:'2',recipient:'friend@example.test',invited:true}],state:()=>({state:'paid'})});
+ await t.clock.advance(2500);assert.equal(t.$('wire-status').textContent,'');
+ assert.match(t.$('wire-cards-list').textContent,/Claimed/);assert.ok(t.$('wire-cards').compareDocumentPosition(t.$('pay'))&t.window.Node.DOCUMENT_POSITION_PRECEDING);
+ assert.equal(t.$('wire-cards-list').querySelector('.wire-coin-icon').getAttribute('src'),'/brand/usdc-coin.png?v=0.3.0');
+ t.$('pay').click();await settle();
+ const buttons=[...t.doc.querySelectorAll('.wire-coin-picker .nimiq-payment-assets button')];
+ assert.equal(buttons.length,4);for(const button of buttons){const img=button.querySelector('.wire-coin-icon');assert.ok(img);assert.equal(img.width,24);assert.equal(img.height,24);assert.equal(img.alt,'');}
+ buttons.find(b=>b.textContent==='USDT · Ethereum').click();await settle();
+ assert.equal(t.doc.querySelector('.nimiq-payment-head h3 img').getAttribute('src'),'/brand/usdt-coin.png?v=0.4.0');
+ assert.equal(t.doc.querySelector('.nimiq-payment-head h3').textContent,'USDT · Ethereum');
+});
+
+test('history formats only server timestamps in five languages and never uses the observation time as a claim date',async()=>{
+ const id='2'.repeat(32),created='2026-10-20T10:00:00Z',sent='2026-10-20T10:05:00Z',claimed='2026-10-20T11:00:00Z';
+ const t=await start({clocked:true,serverCards:[{id,asset:'usdt_ethereum',amount:'5',recipient:'friend@example.test',invited:true,created,sent_at:sent}],state:()=>({state:'paid',claimed_at:claimed})});await t.clock.advance(2500);
+ assert.deepEqual([...t.$('wire-cards-list').querySelectorAll('time')].map(el=>el.dateTime),[created,sent,claimed].map(d=>new Date(d).toISOString()));
+ const labels={fr:['Créée le','Envoyée le','Réclamée le'],en:['Created','Sent','Claimed'],es:['Creada','Enviada','Reclamada'],de:['Erstellt','Gesendet','Eingelöst'],zh:['创建时间','发送时间','领取时间']};
+ for(const[language,text]of Object.entries(labels)){
+  t.$('wire-language').value=language;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
+  assert.deepEqual([...t.$('wire-cards-list').querySelectorAll('dt')].map(el=>el.textContent),text);
+  assert.equal(t.$('wire-cards-list').querySelector('time').textContent,new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'short'}).format(new Date(created)));
+ }
+ const old=await start({clocked:true,serverCards:[{id,asset:'usdc_polygon',amount:'2',recipient:'friend@example.test',invited:true}],state:()=>({state:'paid',claimed_at:'0001-01-01T00:00:00Z'})});await old.clock.advance(2500);
+ assert.equal(old.$('wire-cards-list').querySelector('time'),null,'missing or zero dates are not invented');
+ assert.match(old.$('wire-cards-list').textContent,/Claimed/);assert.equal(old.$('wire-status').textContent,'');
 });

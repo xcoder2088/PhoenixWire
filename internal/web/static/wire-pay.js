@@ -48,6 +48,8 @@ const checkoutWords={
 for(const language of Object.keys(checkoutWords))Object.assign(words[language],checkoutWords[language]);
 const paletteWords={fr:{palette:'Thème',ocean:'Océan',livePalette:'Aléatoire en direct'},en:{palette:'Theme',ocean:'Ocean',livePalette:'Live shuffle'},es:{palette:'Tema',ocean:'Océano',livePalette:'Aleatorio en directo'},de:{palette:'Design',ocean:'Ozean',livePalette:'Zufälliger Wechsel'},zh:{palette:'主题',ocean:'海洋',livePalette:'实时随机'}};
 for(const language of Object.keys(paletteWords))Object.assign(words[language],paletteWords[language]);
+const dateWords={fr:{createdAt:'Créée le',sentAt:'Envoyée le',claimedAt:'Réclamée le'},en:{createdAt:'Created',sentAt:'Sent',claimedAt:'Claimed'},es:{createdAt:'Creada',sentAt:'Enviada',claimedAt:'Reclamada'},de:{createdAt:'Erstellt',sentAt:'Gesendet',claimedAt:'Eingelöst'},zh:{createdAt:'创建时间',sentAt:'发送时间',claimedAt:'领取时间'}};
+for(const language of Object.keys(dateWords))Object.assign(words[language],dateWords[language]);
 window.PhoenixWordOverrides=Object.fromEntries(Object.entries(cardWords).map(([language,w])=>[language,{fundedMsg:w.fundedCard,confirmingMsg:w.confirmingCard,close:w.doneCard,added:w.createdCard,created:w.createdCard}]));
 function read(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem(key, value); } catch { /* storage may be unavailable */ } }
@@ -178,10 +180,16 @@ function applyPalette(value){
 }
 document.addEventListener('visibilitychange',schedulePalette);window.addEventListener('pageshow',schedulePalette);
 function styleClose(button){button.replaceChildren($('wire-close-icon').content.cloneNode(true));}
+function coinIcon(asset){
+ const image=document.createElement('img');image.className='wire-coin-icon';image.width=24;image.height=24;image.alt='';image.setAttribute('aria-hidden','true');
+ image.src=asset==='nim'||asset==='NIM'?'/brand/nimiq-logo.svg?v=0.3.0':asset==='usdc_polygon'?'/brand/usdc-coin.png?v=0.3.0':'/brand/usdt-coin.png?v=0.4.0';return image;
+}
+function buttonAsset(button){const label=button.textContent;return label.startsWith('NIM')?'nim':label.includes('USDC')?'usdc_polygon':label.includes('Ethereum')?'usdt_ethereum':'usdt_polygon';}
 function paintNim(root) {
  root.querySelectorAll('[data-nim-text]').forEach(el => { el.textContent = t(el.dataset.nimText); });
  root.querySelector('.wire-nim-close').setAttribute('aria-label', t('back'));
  styleClose(root.querySelector('.wire-nim-close'));
+ const title=root.querySelector('.nimiq-payment-head h3');if(!title.querySelector('img'))title.prepend(coinIcon('nim'));
 }
 function closePaymentWindow() {
  document.querySelector('.nimiq-payment-head button:last-child')?.click();
@@ -226,8 +234,8 @@ function openNimWindow() {
    const notices=nimNotices();
    if(!notices.some(n=>n.id===p.id&&n.sender===email)){notices.push({id:p.id,sender:email,noticePending:true});save('wire-nim-notices',JSON.stringify(notices));}
   }
-  renderCards();scheduleNimCards();say(message);
- },onClose:()=>{const message=root.querySelector('#nim-progress-message').textContent;dismiss();renderCards();say(message);}});
+  renderCards();scheduleNimCards();
+ },onClose:()=>{dismiss();renderCards();}});
  nimCache={modal,flow,escape,view:nimView};
  back.focus();
 }
@@ -250,7 +258,7 @@ const assetNames={usdc_polygon:'USDC · Polygon',usdt_polygon:'USDT · Polygon',
 let cardEpoch=0,ownedPromise=null,nimPromise=null,nimTimer=null;
 const fill=(key,entry)=>t(key).replace('{email}',entry.recipient||'');
 function cardLabel(c){
- if(c.nim)return fill(({preparing:'checkingCard',ready:'waitingCard',funding_started:'confirmingCard',funded:'fundedCard',delivery_pending:'fundedCard',delivery_failed:'mailFailedCard',sent:'sentCard',expired:'expiredCard'})[c.state]||'checkingCard',c);
+ if(c.nim)return fill(({preparing:'checkingCard',ready:'waitingCard',funding_started:'confirmingCard',funded:'fundedCard',delivery_pending:'fundedCard',delivery_failed:'mailFailedCard',sent:'sentCard',claimed:'claimedCard',expired:'expiredCard'})[c.state]||'checkingCard',c);
  const key=({paid:'claimedCard',withdrawn:'refundedCard',expired:'expiredCard',cancelled:'cancelledCard',settled_elsewhere:'otherCard'})[c.state];
  if(key)return t(key);
  if(c.state==='verifying')return t('confirmingCard');
@@ -259,20 +267,33 @@ function cardLabel(c){
  return t('checkingCard');
 }
 function nimNotices(){try{const value=JSON.parse(read('wire-nim-notices','[]'));return Array.isArray(value)?value:[];}catch{return [];}}
+function dateValue(value){const ms=typeof value==='number'?value:Date.parse(value||'');return Number.isFinite(ms)&&ms>0?ms:null;}
+function serverDates(data){
+ const dates={};for(const[key,source]of [['createdAt','created'],['sentAt','sent_at'],['claimedAt','claimed_at']]){const value=dateValue(data[source]);if(value)dates[key]=value;}return dates;
+}
+function appendDates(row,card){
+ const list=document.createElement('dl');list.className='wire-card-dates';
+ for(const key of ['createdAt','sentAt','claimedAt']){
+  const ms=dateValue(card[key]);if(!ms||key==='claimedAt'&&!['paid','claimed'].includes(card.state))continue;
+  const item=document.createElement('div'),label=document.createElement('dt'),value=document.createElement('dd'),time=document.createElement('time');
+  label.textContent=t(key);time.dateTime=new Date(ms).toISOString();time.textContent=new Intl.DateTimeFormat(lang,{dateStyle:'medium',timeStyle:'short'}).format(ms);value.append(time);item.append(label,value);list.append(item);
+ }
+ if(list.childElementCount)row.append(list);
+}
 function renderCards(){
  const panel=$('wire-cards');if(!panel)return;
  panel.hidden=!email; $('wire-cards-title').textContent=t('myCards');
  const all=cards().filter(c=>c.sender===email).map(c=>({...c,nim:false}));
- for(const p of nimCards.values())if(p.sender===email)all.push({id:p.id,nim:true,amount:p.amount,asset:'NIM',recipient:p.recipient,state:p.stage!=='sent'&&!nimPending(p)?'expired':p.stage,created:Date.parse(p.created)||0,invited:p.stage==='sent',noticePending:nimNotices().some(n=>n.id===p.id&&n.sender===email&&n.noticePending)});
+ for(const p of nimCards.values())if(p.sender===email)all.push({id:p.id,nim:true,amount:p.amount,asset:'NIM',recipient:p.recipient,state:dateValue(p.claimed_at)?'claimed':p.stage!=='sent'&&!nimPending(p)?'expired':p.stage,created:Date.parse(p.created)||0,...serverDates(p),invited:p.stage==='sent',noticePending:nimNotices().some(n=>n.id===p.id&&n.sender===email&&n.noticePending)});
  all.sort((a,b)=>(Number(b.created)||0)-(Number(a.created)||0));
- if(!nimView&&all.length)say(cardLabel(all[0]));
  const list=$('wire-cards-list');list.replaceChildren();
  $('wire-cards-empty').textContent=t('emptyCards');$('wire-cards-empty').hidden=all.length>0;
  for(const c of all){
   const row=document.createElement('article');row.className='wire-card-row';row.dataset.cardId=c.id;
   const amount=document.createElement('strong');amount.textContent=(c.amount||'—')+' '+(c.nim?'NIM · Nimiq':assetNames[c.asset]||'USDC/USDT');
+  const heading=document.createElement('div');heading.className='wire-card-heading';heading.append(coinIcon(c.nim?'nim':c.asset),amount);
   const recipient=document.createElement('p');recipient.className='wire-card-recipient';recipient.textContent=c.recipient||'—';
-  const state=document.createElement('p');state.className='wire-card-state';state.textContent=cardLabel(c);row.append(amount,recipient,state);
+  const state=document.createElement('p');state.className='wire-card-state';state.textContent=cardLabel(c);row.append(heading,recipient,state);appendDates(row,c);
   if(c.stale){const stale=document.createElement('p');stale.className='wire-card-stale';stale.textContent=t('staleCard');row.append(stale);}
   list.append(row);
  }
@@ -304,7 +325,7 @@ function syncOwnedCards(){
    let c=all.find(c=>c.id===server.id);const known=Boolean(c);
    if(!c){c={id:server.id,invited:false};all.push(c);}
    const newlySent=known&&!c.invited&&server.invited===true;
-   Object.assign(c,{sender:owner,amount:String(server.amount||''),asset:server.asset,recipient:String(server.recipient||''),created:Date.parse(server.created)||c.created||0,invited:c.invited===true||server.invited===true});
+   Object.assign(c,{sender:owner,amount:String(server.amount||''),asset:server.asset,recipient:String(server.recipient||''),created:Date.parse(server.created)||c.created||0,invited:c.invited===true||server.invited===true},serverDates(server));
    if(newlySent)c.noticePending=true;
   }
   keep(all);renderCards();
@@ -324,7 +345,7 @@ function tickCard(watch){
   try{
    const st=await cardCall('/api/usdt/cashlink/status',{id});if(epoch!==cardEpoch||owner!==email)return;
    if(!cardStates.has(st.state))throw Error('invalid_card_state');
-   update(id,{sender:owner,state:st.state,balanceUnits:Number(st.balanceUnits??st.balance_units)||0,stale:st.stale===true,checkedAt:Date.now()});renderCards();
+   update(id,{sender:owner,state:st.state,balanceUnits:Number(st.balanceUnits??st.balance_units)||0,stale:st.stale===true,checkedAt:Date.now(),...serverDates(st)});renderCards();
    let entry=cards().find(c=>c.id===id);
    if(st.state==='ready'&&!st.stale&&!entry.invited&&Date.now()>=(entry.nextInviteAt||0)){
     // Read the persisted invitation flag before retrying a request whose reply might have been lost.
@@ -414,6 +435,8 @@ function mountPayments() {
   win.classList.toggle('wire-coin-picker',choosingCoin);
   const title=head.querySelector('h3');if(title)title.textContent=choosingCoin?t('chooseCoin'):title.textContent.replace(/^⤢\s*/, '');
   const assets=win.querySelector('.nimiq-payment-assets');if(assets)assets.hidden=!choosingCoin;
+  assets?.querySelectorAll('button').forEach(button=>{button.prepend(coinIcon(buttonAsset(button)));});
+  if(!choosingCoin&&title){const selected=assets?.querySelector('[aria-pressed="true"]');if(selected){title.textContent=selected.textContent;title.prepend(coinIcon(buttonAsset(selected)));}}
   win.querySelector('.nimiq-payment-tabs')?.setAttribute('hidden','');
   assets?.querySelectorAll('button').forEach(button=>{const select=button.onclick;button.onclick=()=>{choosingCoin=false;select?.();};});
   if(innerWidth<=640){head.onpointerdown=null;head.removeAttribute('title');}
@@ -435,7 +458,7 @@ function mountPayments() {
   }
  });
  windows.observe(document.body, { childList: true });
- payments = window.PhoenixNimiqPayments.create({ language: () => lang, account: () => 'wire', senderEmail: () => email, attach, status: say,
+ payments = window.PhoenixNimiqPayments.create({ language: () => lang, account: () => 'wire', senderEmail: () => email, attach, status: ()=>{renderCards();},
   brand: { icon: '/brand/phoenix-emblem.webp', alt: 'Phoenix Wire', first: 'Phoenix', second: 'Wire' }, snapshot: () => null, recipient: () => '', bindOTPRecipient: () => true, openRecoveredClaim: () => false });
 }
 

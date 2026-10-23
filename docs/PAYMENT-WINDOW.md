@@ -130,3 +130,19 @@ Live updates change CSS palette variables only. They never recreate the window, 
 payment, or change a payment card's own pastel colours. Background, border and foreground colour transitions last two
 seconds. Transitions are disabled for reduced-motion preferences. The timer pauses in a hidden tab and resumes with a
 fresh interval on return; missed intervals are not replayed. The selector and live-mode label are translated in five languages.
+
+The light variants now use visibly tinted backgrounds and stronger field borders, accents and secondary text. Dark colours
+retain the original palettes. Official bundled currency logos appear in the currency picker, selected checkout heading and
+history rows, at 24 px, with text labels retained and decorative icons hidden from screen readers.
+
+## Card history and dates
+
+Payment statuses belong to My cards and the existing delivery banners, not the sender session panel. History refreshes no
+longer copy the latest card state into `wire-status`; that area remains available for sender verification and service errors.
+
+History shows server-provided `created` dates. It is also ready to show optional `sent_at` and `claimed_at` fields, formatted
+in the selected language and the browser's local time zone. USDC/USDT dates are accepted from `/api/usdt/cards` and its
+cashlink status response; NIM dates come from `/api/payments`. A NIM `claimed_at` must mean an actual confirmed claim,
+not release of the claim link. Missing, invalid and zero dates are omitted. Polling time and local creation estimates are
+never substituted for these dates. The current Go responses do not yet expose sent/claimed dates: see
+`HANDOFF-DATES-CARTES-2026-10-23.md` for the server work left to implement.
