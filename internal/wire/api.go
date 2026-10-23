@@ -209,12 +209,16 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	case "/api/session":
 		if r.Method == "GET" {
 			_, s, ok := a.current(r)
-			respond(w, 200, map[string]any{"verified": ok && s.Verified, "email": func() string {
+			out := map[string]any{"verified": ok && s.Verified, "email": func() string {
 				if ok && s.Verified {
 					return s.Email
 				}
 				return ""
-			}()})
+			}()}
+			if ok && s.Scope != "" { // a hand-over: not signed in as a sender, but allowed to fund and follow this one payment
+				out["handoff"] = map[string]string{"payment_id": s.Scope}
+			}
+			respond(w, 200, out)
 			return
 		}
 	case "/api/logout":
@@ -231,6 +235,10 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sessKey, s, ok := a.current(r)
+	if ok && s.Scope != "" { // the other browser of a hand-over: one payment, nothing else
+		a.scoped(w, r, s)
+		return
+	}
 	if !ok || !s.Verified {
 		failure(w, 401, "sender_verification_required")
 		return
@@ -264,6 +272,12 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	a.paymentAction(w, r, s, path)
+}
+
+// paymentAction is what a sender does with one payment: POST /api/payments/<id>/<action>. The hand-over session reaches it only for its own
+// payment and only for the actions of funding it (scoped).
+func (a *API) paymentAction(w http.ResponseWriter, r *http.Request, s session, path string) {
 	parts := strings.Split(strings.TrimPrefix(path, "/api/payments/"), "/")
 	if len(parts) != 2 || !idRE.MatchString(parts[0]) || r.Method != "POST" {
 		failure(w, 404, "not_found")

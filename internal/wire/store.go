@@ -19,6 +19,9 @@ type session struct {
 	Email    string
 	Verified bool
 	Expires  time.Time
+	// Scope, when set, is the id of the ONE payment this session may fund and follow (the hand-over to the Nimiq Pay app). Such a session is never
+	// Verified: it cannot list other payments, create any, reach USDC / USDT cards, ask for a recovery key or hand anything over.
+	Scope string `json:",omitempty"`
 }
 type payment struct {
 	ID        string    `json:"id"`

@@ -147,10 +147,23 @@ not release of the claim link. Missing, invalid and zero dates are omitted. Poll
 never substituted for these dates. The current Go responses do not yet expose sent/claimed dates: see
 `HANDOFF-DATES-CARTES-2026-10-23.md` for the server work left to implement.
 
-## Hand-over to the Nimiq Pay app (server)
+## Hand-over of one payment to the Nimiq Pay app (server)
 
-The app is another browser (its own cookies), so the sender and the draft cross over with an opaque token, not through the address:
-`POST /api/handoff` (verified sender; body: recipient, amount, message, language) answers `{token, expires_in: 120}`; `POST /api/handoff/redeem`
-(no session) answers `{email, draft}` and sets the cookie of the sender in the new browser. The token is 43 random characters, used once, valid two
-minutes, tied to the session it came from (signing out cancels it), never longer than that session, only its hash is kept in memory, never logged.
-Every failure of redeem is the same `404 invalid_or_expired`. Code: `internal/wire/handoff.go`.
+The app is another browser (its own cookies). What crosses over is not the sender's session but a **right to fund and follow ONE payment**
+(`internal/wire/handoff.go`):
+
+1. In Safari the verified sender prepares the NIM payment as usual (`POST /api/payments`: amount, recipient and funding address are fixed by the
+   server) and asks `POST /api/handoff {"payment_id"}`. Only a payment of that sender that is prepared and not started (`stage: ready`, within its
+   day) can be handed over. Answer: `{token, expires_in: 300}`.
+2. The token: 43 random characters, only its hash kept (memory, never logged), **one use**, five minutes, tied to that payment and to the Safari session
+   it came from (signing out there cancels it). A lost answer loses the right: the sender asks for another.
+3. In the app, `POST /api/handoff/redeem {"token"}` (no session) answers `{payment, scoped: true, expires_at}` and sets a **scoped** session cookie.
+   It is not a signed-in sender (`/api/session` says `verified:false` and `handoff:{payment_id}`). It can only: `GET /api/payments` (that payment),
+   `POST /api/payments/<id>/{art,start,confirm,resend}` for that id, and sign out. Everything else answers `403 handoff_scope`: no other payment,
+   no creation, no recovery key, no USDC / USDT card, no hand-over of its own. It lasts two hours at most, never beyond the payment's own day or the
+   Safari session. It survives a restart of the service.
+4. A browser already signed in as someone else is never replaced (`409 session_conflict`, the right is not used up); the same sender already
+   signed in is left as it is (`200 {already_signed_in: true}`, no cookie change). A payment whose funding has started meanwhile: `409 payment_not_fundable`.
+   Every other failure of the token: the same `404 invalid_or_expired`.
+5. No double payment: `start` can be called once for a payment from either browser (`409 funding_already_started` after); the client checks
+   `confirm` before any new request to the wallet.
