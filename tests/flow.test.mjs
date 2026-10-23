@@ -84,24 +84,17 @@ test('restoring pending checkout only checks funding without opening a second wa
  assert.ok(s.calls.some(([path])=>path.endsWith('/confirm')));
  s.dom.window.close();
 });
-test('claim DOM reveals no wallet link before a correct six-digit OTP',async()=>{
- const s=await start({claim:true});
- assert.equal(s.$('claim-panel').hidden,false);
- assert.equal(s.$('wallet-link').hidden,true);
- assert.equal(s.$('release-claim').disabled,true);
- for(const value of ['','123','12x456']){s.$('claim-code').value=value;s.$('claim-code').dispatchEvent(new s.window.Event('input'));assert.equal(s.$('release-claim').disabled,true);}
- s.$('claim-hub').click();await settle();
- s.$('claim-code').value='123456';s.$('claim-form').dispatchEvent(new s.window.Event('submit',{cancelable:true}));await settle();
- assert.equal(s.$('wallet-link').hidden,true);
- assert.match(s.$('claim-status').textContent,/Invalid or expired/);
- s.allowOTP();s.$('claim-form').dispatchEvent(new s.window.Event('submit',{cancelable:true}));await settle();
+test('claim reveals no released wallet link before a correct six-digit code',async()=>{
+ const s=await start({claim:true});assert.equal(s.$('claim-panel').hidden,false);
+ assert.equal(s.$('wallet-link').hidden,true);assert.equal(s.$('claim-wallet').disabled,true);
+ for(const value of ['','123','12x456']){s.$('claim-code').value=value;s.$('claim-code').dispatchEvent(new s.window.Event('input'));assert.equal(s.$('claim-wallet').disabled,true);}
+ s.$('claim-code').value='123456';s.$('claim-code').dispatchEvent(new s.window.Event('input'));
+ s.$('claim-wallet').click();await settle();assert.match(s.$('claim-status').textContent,/Invalid or expired/);
+ s.allowOTP();s.$('claim-wallet').click();await settle();
  assert.equal(s.$('wallet-link').hidden,true,'no duplicate action link');
- assert.match(s.$('release-claim').textContent,/Receive my NIM in Nimiq/);
- assert.equal(s.$('release-claim').disabled,false);
- assert.equal(s.$('request-claim-code').hidden,true);
- s.$('release-claim').click();
- assert.match(s.opened.at(-1),/^https:\/\/hub\.nimiq\.com\/cashlink\/#/);
- s.dom.window.close();
+ assert.equal(s.$('claim-wallet').textContent,'Receive in Nimiq Wallet');assert.equal(s.$('claim-wallet').disabled,false);
+ assert.equal(s.$('request-claim-code').hidden,true);s.$('claim-wallet').click();
+ assert.match(s.opened.at(-1),/^https:\/\/hub.nimiq.com\/cashlink\/#/);s.dom.window.close();
 });
 test('mobile checkout records its existing payment before redirecting to Hub',async()=>{
  const s=await start({mobile:true});s.$('recipient').value='recipient@example.test';await s.submit();
@@ -121,11 +114,11 @@ test('flow labels and safety feedback exist in every supported language',()=>{
 });
 
 test('claim code request gives immediate feedback and a 20-second resend countdown',async()=>{
- const s=await start({claim:true});s.$('claim-hub').click();await settle();
+ const s=await start({claim:true});
  assert.match(s.$('claim-status').textContent,/Code sent/);
  assert.match(s.$('request-claim-code').textContent,/20 s/);
  assert.equal(s.$('request-claim-code').disabled,true);
- assert.equal(s.$('request-claim-code').nextElementSibling,s.$('claim-status'));
+ assert.equal(s.$('request-claim-code').nextElementSibling,s.$('claim-choices'));
  s.dom.window.close();
 });
 test('iPhone return restores the original form and confirms without a second checkout',async()=>{
@@ -141,5 +134,5 @@ test('expired claim keeps its explanation visible while disabling code actions',
  assert.match(s.$('claim-status').textContent,/period has ended/);
  assert.equal(s.$('claim-form').hidden,false);
  assert.equal(s.$('request-claim-code').hidden,true);
- assert.equal(s.$('release-claim').hidden,true);s.dom.window.close();
+ assert.equal(s.$('claim-choices').hidden,true);s.dom.window.close();
 });

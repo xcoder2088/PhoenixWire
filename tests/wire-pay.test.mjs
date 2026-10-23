@@ -1595,71 +1595,101 @@ async function recipientPage({language='en',accounts=null,accountError=null,payo
  const $=id=>doc.getElementById(id);
  return {window,doc,$,calls,opened,clock,accountCalls:()=>accountCalls,setRemote(p){remote=p;},setPayoutError(e){payoutError=e;},setStatusError(e){statusError=e;},
   async choose(route){$('claim-'+route).click();await settle();},
-  async submit(code='123456',to=receivingAddress){if(to){$('claim-address').value=to;$('claim-address').dispatchEvent(new window.Event('input'));}$('claim-code').value=code;$('claim-code').dispatchEvent(new window.Event('input'));$('claim-form').dispatchEvent(new window.Event('submit',{cancelable:true}));await settle();}
+  enterCode(code='123456'){$('claim-code').value=code;$('claim-code').dispatchEvent(new window.Event('input'));}
  };
 }
 
-test('recipient checks existing payout before offering choices; opening never sends a code',async()=>{
+test('recipient has exactly two wallet choices after code and resend, disabled until six digits',async()=>{
  const gate={},app=await recipientPage({holdStatus:gate});
  assert.equal(app.calls.length,1);assert.ok(app.calls[0][0].endsWith('/payout_status'));
- assert.equal(app.$('claim-choices').disabled,true);assert.equal(app.$('request-claim-code').hidden,true);
- gate.release();await settle();
- assert.equal(app.$('claim-choices').disabled,false);assert.equal(app.$('claim-pay').hidden,true);
- assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,0);
- await app.choose('other');
+ assert.equal(app.$('claim-choices').disabled,true);gate.release();await settle();
  assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,1);
- assert.equal(app.$('claim-address-label').hidden,false);assert.match(app.$('claim-status').textContent,/Code sent/);
- await app.submit();
- const post=app.calls.find(([p])=>p.endsWith('/payout'));assert.deepEqual(post[1],{code:'123456',to:receivingAddress});
+ assert.match(app.$('claim-status').textContent,/Code sent/);
+ const choices=[...app.$('claim-choices').querySelectorAll('button')];
+ assert.deepEqual(choices.map(b=>b.textContent),['Receive in Nimiq Pay','Receive in Nimiq Wallet']);
+ assert.equal(app.$('claim-code').closest('label').nextElementSibling,app.$('request-claim-code'));
+ assert.equal(app.$('request-claim-code').nextElementSibling,app.$('claim-choices'));
+ assert.equal(app.$('claim-form').querySelector('select'),null);
+ assert.equal(app.$('claim-form').querySelectorAll('input').length,1);
+ assert.equal(app.doc.querySelector('#release-claim'),null);
+ for(const value of ['','123','12x456']){
+  app.$('claim-code').value=value;app.$('claim-code').dispatchEvent(new app.window.Event('input'));
+  for(const button of choices)assert.equal(button.disabled,true);
+ }
+ app.enterCode();for(const button of choices)assert.equal(button.disabled,false);
+ assert.ok(!/\bHub\b/.test(app.$('claim-panel').textContent));
+});
+
+test('browser receipt opens only the public card in Nimiq Pay without consuming or leaking the code',async()=>{
+ const app=await recipientPage();app.enterCode();await app.choose('pay');
+ const uri=app.opened[0];assert.ok(uri.startsWith('nimiqpay://miniapp?url='));
+ const target=new URL(uri).searchParams.get('url');
+ assert.equal(target,'https://wire.phoenixmail.ca/?claim='+'a'.repeat(48));
+ assert.ok(!uri.includes('123456'));assert.ok(!uri.includes('%7B'));
+ assert.equal(app.$('claim-code').value,'123456');assert.equal(app.$('claim-pay').disabled,false);
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/payout')||p.endsWith('/release')).length,0);
+ assert.equal(app.$('claim-status').textContent,flowText('en','claim_openPay'));
+ await app.choose('pay');assert.equal(app.opened.length,2,'a failed app opening remains retryable');
+ app.window.open=()=>{throw Error('blocked');};await app.choose('pay');
+ assert.equal(app.$('claim-status').textContent,flowText('en','claim_openPay'));assert.equal(app.$('claim-wallet').disabled,false);
+ await app.choose('wallet');assert.ok(app.calls.some(([p])=>p.endsWith('/release')));
+});
+
+test('Nimiq Pay receipt uses the first account with no selector or automatic replacement code',async()=>{
+ const app=await recipientPage({accounts:[receivingAddress,otherReceivingAddress]});
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,0);
+ assert.equal(app.accountCalls(),0);app.enterCode();await app.choose('pay');
+ assert.equal(app.accountCalls(),1);
+ const post=app.calls.find(([p])=>p.endsWith('/payout'));
+ assert.deepEqual(post[1],{code:'123456',to:receivingAddress});
  assert.equal(post[2].method,'POST');assert.equal(post[2].headers['Content-Type'],'application/json');
- assert.match(app.$('claim-status').textContent,/Sending/);assert.equal(app.$('claim-choices').hidden,true);
- assert.match(app.$('claim-payout-details').textContent,/2.5 NIM/);
+ assert.equal(app.$('claim-form').querySelector('select'),null);
+ assert.equal(app.$('claim-choices').hidden,true);assert.equal(app.$('claim-code').value,'');
  const requests=app.calls.length;await app.clock.advance(2999);assert.equal(app.calls.length,requests);
  app.setRemote({status:'payout_confirmed',to:receivingAddress,value:250000,hash:'b'.repeat(64),confirmations:2});
  await app.clock.advance(1);assert.equal(app.$('claim-status').textContent,'Received!');
  const stopped=app.calls.length;await app.clock.advance(30000);assert.equal(app.calls.length,stopped);
- assert.equal(app.$('release-claim').hidden,true);assert.equal(app.window.localStorage.length,0);assert.equal(app.window.sessionStorage.length,0);
+ assert.equal(app.window.localStorage.length,0);assert.equal(app.window.sessionStorage.length,0);
 });
 
-test('Nimiq Pay recipient lists accounts only on choice, defaults to first and permits another account',async()=>{
- const app=await recipientPage({accounts:[receivingAddress,otherReceivingAddress]});
- assert.equal(app.$('claim-pay').hidden,false);assert.equal(app.accountCalls(),0);
- await app.choose('pay');assert.equal(app.accountCalls(),1);
- assert.equal(app.$('claim-accounts-label').hidden,false);assert.equal(app.$('claim-accounts').value,receivingAddress);
- app.$('claim-accounts').value=otherReceivingAddress;app.$('claim-accounts').dispatchEvent(new app.window.Event('change'));
- await app.submit('123456',null);
- assert.equal(app.calls.find(([p])=>p.endsWith('/payout'))[1].to,otherReceivingAddress);
- assert.ok(!app.calls.some(([p])=>p.endsWith('/release')));
- const single=await recipientPage({accounts:[receivingAddress]});await single.choose('pay');assert.equal(single.$('claim-accounts-label').hidden,true);
- await single.submit('123456',null);assert.equal(single.calls.find(([p])=>p.endsWith('/payout'))[1].to,receivingAddress);
+test('in-app resend is explicit, replaces the entered code and never starts a payout',async()=>{
+ const app=await recipientPage({accounts:[receivingAddress]});app.enterCode();
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,0);
+ app.$('request-claim-code').click();await settle();
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,1);
+ assert.equal(app.$('claim-code').value,'');assert.equal(app.$('claim-pay').disabled,true);
+ assert.equal(app.$('claim-wallet').disabled,true);assert.equal(app.$('request-claim-code').disabled,true);
+ assert.equal(app.accountCalls(),0);assert.ok(!app.calls.some(([p])=>p.endsWith('/payout')));
 });
 
-test('account permission denial, legacy errors and empty accounts never request a code or lock choices',async()=>{
- for(const options of [{accountError:{type:'PERMISSION_DENIED'}},{accounts:{error:{type:'PERMISSION_DENIED'}}},{accounts:[]},{accountError:Error('unavailable')}]){
-  const app=await recipientPage(options);await app.choose('pay');
-  assert.ok(app.$('claim-status').textContent.length>10);assert.equal(app.$('claim-choices').disabled,false);
+test('account refusal, legacy errors and empty or malformed first accounts keep both choices usable',async()=>{
+ for(const options of [{accountError:{type:'PERMISSION_DENIED'}},{accounts:{error:{type:'PERMISSION_DENIED'}}},{accounts:[]},{accounts:['invalid',receivingAddress]},{accountError:Error('unavailable')}]){
+  const app=await recipientPage(options);app.enterCode();await app.choose('pay');
+  assert.ok(app.$('claim-status').textContent.length>10);assert.equal(app.$('claim-pay').disabled,false);
+  assert.equal(app.$('claim-wallet').disabled,false);
   assert.ok(!app.calls.some(([p])=>p.endsWith('/request')||p.endsWith('/payout')));
+  assert.equal(app.$('claim-code').value,'123456');
  }
 });
 
-test('Hub receive keeps release unchanged and never calls payout',async()=>{
- const app=await recipientPage();await app.choose('hub');await app.submit('123456',null);
+test('Nimiq Wallet uses the existing release action and only its original button opens the released link',async()=>{
+ const app=await recipientPage();app.enterCode();await app.choose('wallet');
  assert.deepEqual(app.calls.find(([p])=>p.endsWith('/release'))[1],{code:'123456'});
  assert.match(app.$('claim-status').textContent,/Code accepted/);assert.equal(app.$('request-claim-code').hidden,true);
- app.$('claim-form').dispatchEvent(new app.window.Event('submit',{cancelable:true}));await settle();
- assert.match(app.opened[0],/^https:\/\/hub.nimiq.com\/cashlink\/#/);
+ assert.equal(app.$('claim-pay').hidden,true);assert.equal(app.$('claim-wallet').disabled,false);
+ assert.equal(app.$('claim-wallet').textContent,'Receive in Nimiq Wallet');
+ await app.choose('wallet');assert.match(app.opened[0],/^https:\/\/hub.nimiq.com\/cashlink\/#/);
  assert.ok(!app.calls.some(([p])=>p.endsWith('/payout')));
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/release')).length,1);
 });
 
-test('recipient resumes pending, confirmed and failed payouts without code, even beyond claim expiry',async()=>{
+test('recipient resumes pending, confirmed and failed payouts without code even after expiry',async()=>{
  for(const status of ['payout_pending','payout_confirmed','payout_failed']){
-  const payout={status,hash:'c'.repeat(64),to:receivingAddress,value:250000,confirmations:status==='payout_confirmed'?2:0};
-  const app=await recipientPage({payout,expired:true});
+  const app=await recipientPage({payout:{status,hash:'c'.repeat(64),to:receivingAddress,value:250000,confirmations:status==='payout_confirmed'?2:0},expired:true});
   assert.equal(app.$('claim-status').textContent,flowText('en','claim_'+status));assert.equal(app.$('claim-choices').hidden,true);
   assert.equal(app.$('request-claim-code').hidden,true);assert.ok(!app.calls.some(([p])=>p.endsWith('/request')||p.endsWith('/payout')));
   if(status==='payout_pending'){
-   app.$('claim-retry').click();await settle();
-   assert.deepEqual(app.calls.find(([p])=>p.endsWith('/payout'))[1],{to:receivingAddress});
+   app.$('claim-retry').click();await settle();assert.deepEqual(app.calls.find(([p])=>p.endsWith('/payout'))[1],{to:receivingAddress});
    app.clock.hidden(true);const n=app.calls.length;await app.clock.advance(9000);assert.equal(app.calls.length,n);
    app.clock.hidden(false);await settle();assert.ok(app.calls.length>n);
    app.window.testFlow.destroy();const count=app.calls.length;await app.clock.advance(30000);assert.equal(app.calls.length,count);
@@ -1667,59 +1697,59 @@ test('recipient resumes pending, confirmed and failed payouts without code, even
  }
 });
 
-test('invalid address is refused locally; server address/code/funding errors remain visible and preserve the code',async()=>{
+test('server destination/code/funding errors preserve the code and allow retry with the same automatic account',async()=>{
  for(const error of ['invalid_destination','invalid_or_expired_code','cashlink_not_confirmed_or_invalid']){
-  const app=await recipientPage({payoutError:error});await app.choose('other');
-  await app.submit('123456','nonsense');assert.equal(app.calls.filter(([p])=>p.endsWith('/payout')).length,0);
-  await app.submit();assert.equal(app.$('claim-code').value,'123456');
+  const app=await recipientPage({accounts:[receivingAddress],payoutError:error});app.enterCode();await app.choose('pay');
+  assert.equal(app.$('claim-code').value,'123456');
   assert.equal(app.$('claim-status').textContent,error==='invalid_or_expired_code'?flowText('en','invalid'):flowText('en','claim_'+error));
-  assert.equal(app.$('claim-choices').disabled,false);app.setPayoutError('');await app.submit();
+  assert.equal(app.$('claim-pay').disabled,false);app.setPayoutError('');await app.choose('pay');
   assert.equal(app.$('claim-status').textContent,'Sending…');
  }
 });
 
-test('lost payout reply and destination conflict resume the server-locked address, never switch to Hub',async()=>{
- const app=await recipientPage();await app.choose('other');
+test('lost replies and destination conflicts resume only the locked server destination',async()=>{
+ const app=await recipientPage({accounts:[receivingAddress]});app.enterCode();
  const original=app.window.fetch;app.window.fetch=async(p,o)=>{const result=await original(p,o);if(p.endsWith('/payout'))throw Error('response lost');return result;};
- await app.submit();assert.equal(app.$('claim-status').textContent,'Sending…');
+ await app.choose('pay');assert.equal(app.$('claim-status').textContent,'Sending…');
  assert.equal(app.$('claim-choices').hidden,true);assert.equal(app.$('claim-code').value,'');
- const conflict=await recipientPage({payoutError:'payout_already_started'});await conflict.choose('other');
+ const conflict=await recipientPage({accounts:[receivingAddress],payoutError:'payout_already_started'});conflict.enterCode();
  conflict.setRemote({status:'payout_pending',hash:'b'.repeat(64),to:otherReceivingAddress,value:250000,confirmations:0});
- await conflict.submit();assert.equal(conflict.$('claim-destination').textContent,flowText('en','claim_destination').replace('{to}',otherReceivingAddress));
- assert.equal(conflict.$('claim-hub').closest('fieldset').hidden,true);
+ await conflict.choose('pay');assert.ok(conflict.$('claim-payout-details').textContent.includes(otherReceivingAddress));
+ assert.equal(conflict.$('claim-wallet').closest('fieldset').hidden,true);
  conflict.setPayoutError('');conflict.$('claim-retry').click();await settle();
  assert.equal(conflict.calls.filter(([p])=>p.endsWith('/payout')).at(-1)[1].to,otherReceivingAddress);
 });
 
-test('unavailable status fails closed with retry; no code or release until status is known',async()=>{
- const app=await recipientPage({statusError:'chain_unavailable'});
+test('unavailable status fails closed and unavailable payouts remain retryable',async()=>{
+ const app=await recipientPage({statusError:'chain_unavailable'});app.enterCode();
  assert.equal(app.$('claim-choices').disabled,true);assert.equal(app.$('claim-retry').hidden,false);
- await app.choose('hub');assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,0);
+ await app.choose('wallet');assert.equal(app.calls.filter(([p])=>p.endsWith('/release')).length,0);
  app.setStatusError('');app.$('claim-retry').click();await settle();assert.equal(app.$('claim-choices').disabled,false);
  for(const code of ['chain_unavailable','payout_unavailable']){
-  const failed=await recipientPage({payoutError:code});await failed.choose('other');await failed.submit();
-  assert.equal(failed.$('claim-status').textContent,flowText('en','claim_payoutUnavailable'));assert.equal(failed.$('claim-retry').hidden,false);
+  const failed=await recipientPage({accounts:[receivingAddress],payoutError:code});failed.enterCode();await failed.choose('pay');
+  assert.equal(failed.$('claim-status').textContent,flowText('en','claim_payoutUnavailable'));
   failed.setPayoutError('');failed.$('claim-retry').click();await settle();assert.equal(failed.$('claim-status').textContent,'Sending…');
  }
 });
 
-test('double submit sends only one recipient payout and never uses a sender session endpoint',async()=>{
- const app=await recipientPage();await app.choose('other');
- app.$('claim-address').value=receivingAddress;app.$('claim-address').dispatchEvent(new app.window.Event('input'));app.$('claim-code').value='123456';
- for(let i=0;i<3;i++)app.$('claim-form').dispatchEvent(new app.window.Event('submit',{cancelable:true}));
+test('duplicate wallet taps send one payout; Enter does not silently choose a wallet',async()=>{
+ const app=await recipientPage({accounts:[receivingAddress]});app.enterCode();
+ app.$('claim-form').dispatchEvent(new app.window.Event('submit',{cancelable:true}));await settle();
+ assert.equal(app.accountCalls(),0);
+ for(let i=0;i<3;i++)app.$('claim-pay').click();
  await settle();assert.equal(app.calls.filter(([p])=>p.endsWith('/payout')).length,1);
  assert.ok(app.calls.every(([p])=>p.startsWith('/api/claims/')));
 });
 
-test('recipient copy and narrow layout cover five languages without raw service HTML or unsupported words',async()=>{
- for(const language of ['fr','en','es','de','zh']){
+test('two-choice recipient labels and narrow layout cover five languages with no technical wallet name',async()=>{
+ const labels={fr:['Recevoir dans Nimiq Pay','Recevoir dans Nimiq Wallet','Renvoyer le code'],en:['Receive in Nimiq Pay','Receive in Nimiq Wallet','Resend code'],es:['Recibir en Nimiq Pay','Recibir en Nimiq Wallet','Reenviar código'],de:['In Nimiq Pay empfangen','In Nimiq Wallet empfangen','Code erneut senden'],zh:['接收到 Nimiq Pay','接收到 Nimiq Wallet','重新发送验证码']};
+ for(const [language,expected]of Object.entries(labels)){
   const app=await recipientPage({language,accounts:[receivingAddress]});
-  for(const key of ['choose','pay','other','hub','address','account','destination','send','retry','checkingPayout','payout_pending','payout_confirmed','payout_failed','invalid_destination','cashlink_not_confirmed_or_invalid','payout_already_started','payoutUnavailable','accountsUnavailable','accountsCancelled','details']){
-   assert.notEqual(flowText(language,'claim_'+key),'claim_'+key);
-   assert.ok(!/Mainnet|OTP/.test(flowText(language,'claim_'+key)));
+  assert.deepEqual([app.$('claim-pay').textContent,app.$('claim-wallet').textContent,app.$('request-claim-code').textContent],expected);
+  for(const key of ['choose','pay','wallet','resend','enterCode','openPay','retry','checkingPayout','payout_pending','payout_confirmed','payout_failed','invalid_destination','cashlink_not_confirmed_or_invalid','payout_already_started','payoutUnavailable','accountsUnavailable','accountsCancelled','details']){
+   assert.notEqual(flowText(language,'claim_'+key),'claim_'+key);assert.ok(!/Mainnet|OTP|\bHub\b/.test(flowText(language,'claim_'+key)));
   }
-  assert.equal(app.$('claim-other').textContent,flowText(language,'claim_other'));
-  await app.choose('other');await app.submit();
+  app.enterCode();await app.choose('pay');
   const css=app.doc.createElement('style');css.textContent=read('../internal/web/static/wire-pay.css');app.doc.head.append(css);
   assert.equal(app.window.innerWidth,375);assert.equal(app.window.getComputedStyle(app.$('claim-choices')).display,'none');
   assert.equal(app.doc.querySelector('#claim-payout-details img'),null);

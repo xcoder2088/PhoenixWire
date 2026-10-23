@@ -262,30 +262,35 @@ This also covers a prepared-card wrapper and New card; Done closes the complete 
 CSS keeps this panel in normal flow and within a 375 px viewport. An unpaid card keeps one detailed status and a short
 closing hint instead of repeating the wallet/expiry warning. Retry and its countdown precede technical details.
 
-## Receiving NIM directly (server contract de755d5)
+## Receiving NIM: exactly two choices (supersedes 26aa944)
 
-`classic.html` remains the recipient entry point for `/?claim=…`; `flow.js` owns this UI, not the mirrored files.
-Following the owner's latest UI order, the recipient chooses Nimiq Pay, another wallet or Hub **before requesting the code**.
-No code is requested on page load. Selecting a route explicitly requests the code using the existing public request route;
-submitting uses it with either `payout` plus `to`, or the unchanged Hub `release` action. Changing the receiving address
-before submission does not consume the code. Server validation remains authoritative.
+The recipient page (`classic.html`, `/?claim=…`) has one six-digit code field, Resend code immediately below it, then
+exactly two buttons: **Receive in Nimiq Pay** and **Receive in Nimiq Wallet**, translated into all five languages.
+Both are disabled until six digits are entered. There is no address input, account selector, other-wallet route or extra
+release button. Enter in the form does not silently choose a wallet. The technical wallet implementation name is not UI copy.
 
-Nimiq Pay is offered only when `window.nimiq` exists. Its `listAccounts()` call runs only on that choice; its documented
-`string[]` result supplies the first receiving address, with a selector when there are several. Refusal, an empty list or
-a legacy error envelope leaves the other choices available. No wallet transaction or funding marker is changed here.
-Provider reference: https://nimiq.dev/mini-apps/api-reference/nimiq-provider#listaccounts.
+The first API request is still POST `payout_status` with `{}`. Existing pending/confirmed/failed payouts replace the code
+controls and resume the existing three-second tracker without requesting a new code. Unknown status fails closed with Retry.
+On an ordinary browser's first load, after confirming that no payout exists and the card has not expired, the existing
+public request route sends the code. In Nimiq Pay the page does **not** automatically request another code: the recipient
+keeps the code received in Safari, enters it and presses Receive in Nimiq Pay. Resend remains explicit and rate limited.
 
-The first API request on recipient load is POST `payout_status` with `{}`, without needing a sender session. Only a known
-`payout_not_started` result unlocks initial choices. An unavailable status fails closed and offers retry. Existing pending,
-confirmed or failed payouts replace the code/route controls, including after the card's original claim expiry.
-Pending status is checked every three seconds, resumes on foreground/pageshow/online, shares in-flight reads and stops at
-a terminal result or flow destruction. An explicit retry can resume a pending payout using its **server-returned** destination
-and no code. A lost creation response is reconciled through status before offering another action. A destination conflict
-locks Hub and address changes. Invalid code/address and unconfirmed funding leave the code available for correction/retry;
-unavailable service reads never claim receipt. A failed payout shows the support instruction and retained-funds message.
+Outside the app, Receive in Nimiq Pay opens `nimiqpay://miniapp?url=` with the encoded public target
+`https://wire.phoenixmail.ca/?claim=<id>`. This uses the same custom-scheme mini-app opening mechanism as sender funding,
+not its authenticated handoff routes. There is no recipient code, address, session or personal data in that URL. Opening
+it does not consume the code or call payout/release. A visible hint allows another attempt or Nimiq Wallet if opening fails.
 
-Codes, destinations and payout data stay in page memory, not browser storage or console logs; reload recovers from server
-status. UI strings cover FR/EN/ES/DE/ZH. `tests/wire-pay.test.mjs` uses a public-route fake server and logical timers for
-choice, accounts, release, payout, errors, lost replies, concurrent clicks, reload-style resumption and the 375 px DOM/CSS.
-The older claim tests now select Hub explicitly and simulate the initial empty payout status. No Go, CSP or pm/ file changes
-are required. These simulated tests do not verify a real iPhone or execute any real payment.
+With `window.nimiq`, an explicit click calls `listAccounts()` and uses **only the first** address, without an account selector.
+After that it submits `payout {code,to}`. Refusal, empty/invalid first account and legacy error envelopes leave both choices
+usable and preserve the code. No funding transaction or funding marker changes. Provider reference:
+https://nimiq.dev/mini-apps/api-reference/nimiq-provider#listaccounts.
+
+Nimiq Wallet uses the existing `release {code}` operation and validated cashlink URL. The same button opens that URL once
+released; no additional lower button is rendered. After release the code controls and Nimiq Pay choice are hidden.
+A payout already started locks this route. Pending retry uses only the server-returned destination without another code;
+response loss, failures, foreground resumption, expiry and terminal success retain the existing handling. The code and
+recipient payout data are never written to browser storage or logs. No Go, CSP or pm/ changes are needed.
+
+Tests simulate both browser contexts, exact button labels and placement, disabled states, public-only app links, absence
+of code consumption during app opening, first-account receipt, release, errors, lost replies, status recovery and 375 px
+DOM/CSS. These are simulated checks, not a real Nimiq Pay/iPhone execution or real payment.

@@ -1,4 +1,4 @@
-import { flowText } from './flow-text.js?v=0.4.17';
+import { flowText } from './flow-text.js?v=0.4.18';
 import { addressValid,cardPresentation,paintCard } from './model.js?v=0.3.0';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
@@ -9,11 +9,11 @@ if(!embedded)window.PhoenixNimiqPayments={addressValid};
 const $=id=>root.querySelector('[id="'+id+'"]');
 const t=key=>flowText(document.documentElement.lang,key);
 const walletWords={
- en:{cancelled:'Payment cancelled in Nimiq Pay.',failed:'Nimiq Pay could not complete the request. Check your wallet before using the Hub: a payment may already have been sent.',hub:'Nimiq Wallet',confirm:'Only continue if your wallet shows that this card has NOT been paid. Pay the same card with the Hub?',network:'Switch Nimiq Pay to the network used by this service before paying.'},
- fr:{cancelled:'Paiement annulé dans Nimiq Pay.',failed:'Nimiq Pay n’a pas pu terminer la demande. Vérifiez votre portefeuille avant d’utiliser le Hub : un paiement peut déjà être parti.',hub:'Portefeuille Nimiq',confirm:'Continuez seulement si votre portefeuille indique que cette carte n’a PAS été payée. Alimenter la même carte avec le Hub ?',network:'Choisissez dans Nimiq Pay le réseau utilisé par ce service avant de payer.'},
- es:{cancelled:'Pago cancelado en Nimiq Pay.',failed:'Nimiq Pay no pudo completar la solicitud. Revisa tu cartera antes de usar el Hub: el pago podría haberse enviado.',hub:'Cartera Nimiq',confirm:'Continúa solo si tu cartera indica que esta tarjeta NO se ha pagado. ¿Pagar la misma tarjeta con el Hub?',network:'Selecciona en Nimiq Pay la red que usa este servicio antes de pagar.'},
- de:{cancelled:'Zahlung in Nimiq Pay abgebrochen.',failed:'Nimiq Pay konnte die Anfrage nicht abschließen. Prüfe deine Wallet vor der Nutzung des Hubs: Die Zahlung könnte bereits gesendet sein.',hub:'Nimiq Wallet',confirm:'Nur fortfahren, wenn diese Karte laut deiner Wallet NICHT bezahlt wurde. Dieselbe Karte mit dem Hub bezahlen?',network:'Wähle vor der Zahlung in Nimiq Pay das Netzwerk dieses Dienstes.'},
- zh:{cancelled:'已在 Nimiq Pay 中取消付款。',failed:'Nimiq Pay 未能完成请求。使用 Hub 前请检查钱包：付款可能已发送。',hub:'Nimiq 钱包',confirm:'仅在钱包显示此卡尚未付款时继续。是否通过 Hub 为同一张卡付款？',network:'付款前，请在 Nimiq Pay 中选择此服务所用的网络。'}
+ en:{cancelled:'Payment cancelled in Nimiq Pay.',failed:'Nimiq Pay could not complete the request. Check your wallet before using Nimiq Wallet: a payment may already have been sent.',hub:'Nimiq Wallet',confirm:'Only continue if your wallet shows that this card has NOT been paid. Pay the same card with Nimiq Wallet?',network:'Switch Nimiq Pay to the network used by this service before paying.'},
+ fr:{cancelled:'Paiement annulé dans Nimiq Pay.',failed:'Nimiq Pay n’a pas pu terminer la demande. Vérifiez votre portefeuille avant d’utiliser Nimiq Wallet : un paiement peut déjà être parti.',hub:'Portefeuille Nimiq',confirm:'Continuez seulement si votre portefeuille indique que cette carte n’a PAS été payée. Alimenter la même carte avec Nimiq Wallet ?',network:'Choisissez dans Nimiq Pay le réseau utilisé par ce service avant de payer.'},
+ es:{cancelled:'Pago cancelado en Nimiq Pay.',failed:'Nimiq Pay no pudo completar la solicitud. Revisa tu cartera antes de usar Nimiq Wallet: el pago podría haberse enviado.',hub:'Cartera Nimiq',confirm:'Continúa solo si tu cartera indica que esta tarjeta NO se ha pagado. ¿Pagar la misma tarjeta con Nimiq Wallet?',network:'Selecciona en Nimiq Pay la red que usa este servicio antes de pagar.'},
+ de:{cancelled:'Zahlung in Nimiq Pay abgebrochen.',failed:'Nimiq Pay konnte die Anfrage nicht abschließen. Prüfe deine Wallet vor der Nutzung von Nimiq Wallet: Die Zahlung könnte bereits gesendet sein.',hub:'Nimiq Wallet',confirm:'Nur fortfahren, wenn diese Karte laut deiner Wallet NICHT bezahlt wurde. Dieselbe Karte mit Nimiq Wallet bezahlen?',network:'Wähle vor der Zahlung in Nimiq Pay das Netzwerk dieses Dienstes.'},
+ zh:{cancelled:'已在 Nimiq Pay 中取消付款。',failed:'Nimiq Pay 未能完成请求。使用 Nimiq Wallet 前请检查钱包：付款可能已发送。',hub:'Nimiq 钱包',confirm:'仅在钱包显示此卡尚未付款时继续。是否通过 Nimiq Wallet 为同一张卡付款？',network:'付款前，请在 Nimiq Pay 中选择此服务所用的网络。'}
 };
 const wt=key=>(walletWords[document.documentElement.lang]||walletWords.en)[key];
 const progressWords={
@@ -308,7 +308,6 @@ function refreshText(){
  fallback.textContent=wt('hub');
  root.querySelectorAll('[data-wire]').forEach(el=>el.textContent=t(el.dataset.wire));
  if(configured&&!claimMode){$('preview-submit').textContent=t(active&&active.stage!=='ready'?'retry':'pay');$('notice').textContent=t(ready?'note':'unavailable');root.querySelector('.security').textContent=t('security');root.querySelector('.lock').textContent=cardPresentation(document.documentElement.lang).locked;}
- if(receiveURL)$('release-claim').textContent=t('receive');
  if(cooling)updateClaimControls();
  if(claimMode)updateClaimControls();
  renderProgress();
@@ -679,21 +678,21 @@ $('card-form').addEventListener('submit',event=>{
 $('nim-handoff-pay')?.addEventListener('click',()=>fundNim());
 function updateClaimControls(){
  if(!claimMode)return;
- const locked=reception.locked||Boolean(reception.payout)||Boolean(receiveURL),available=reception.known&&!reception.expired&&!locked;
+ const locked=reception.locked||Boolean(reception.payout),available=reception.known&&!reception.expired&&!locked;
  root.querySelectorAll('[data-claim]').forEach(el=>el.textContent=ct(el.dataset.claim));
- $('claim-choices').hidden=locked||reception.expired;$('claim-choices').disabled=busy||!available;
- $('claim-pay').hidden=!window.nimiq;
- $('claim-address-label').hidden=!available||reception.route!=='other';$('claim-address').disabled=busy||!available;
- $('claim-accounts-label').hidden=!available||reception.route!=='pay'||$('claim-accounts').options.length<2;$('claim-accounts').disabled=busy||!available;
- const chosen=Boolean(reception.route)&&available;
- $('request-claim-code').hidden=!chosen;$('request-claim-code').disabled=busy||cooling>0;
- $('request-claim-code').textContent=cooling?t('resendIn')+' '+cooling+' s':t('requestCode');
- $('claim-code').closest('label').hidden=!chosen;$('claim-code').disabled=busy||!chosen;$('claim-code').required=chosen;
- $('release-claim').hidden=!chosen&&!receiveURL;
- $('release-claim').textContent=receiveURL?t('receive'):reception.route==='hub'?ct('hub'):ct('send');
- $('release-claim').disabled=busy||(!receiveURL&&(!chosen||!/^[0-9]{6}$/.test($('claim-code').value)));
+ const validCode=/^[0-9]{6}$/.test($('claim-code').value);
+ $('claim-choices').hidden=locked||reception.expired;
+ $('claim-choices').disabled=busy||!available||(!validCode&&!receiveURL);
+ $('claim-pay').hidden=Boolean(receiveURL);
+ $('claim-pay').disabled=busy||!available||!validCode;
+ $('claim-wallet').disabled=busy||!available||(!validCode&&!receiveURL);
+ $('request-claim-code').hidden=!available||Boolean(receiveURL);
+ $('request-claim-code').disabled=busy||cooling>0;
+ $('request-claim-code').textContent=cooling?ct('resend')+' · '+cooling+' s':ct('resend');
+ $('claim-code').closest('label').hidden=!available||Boolean(receiveURL);
+ $('claim-code').disabled=busy||!available||Boolean(receiveURL);
+ $('claim-code').required=available&&!receiveURL;
  $('claim-retry').hidden=!reception.retry;$('claim-retry').disabled=busy||Boolean(reception.read);
- $('claim-destination').hidden=!reception.to;$('claim-destination').textContent=ct('destination').replace('{to}',reception.to);
  $('claim-payout-details').hidden=!reception.payout;
  if(reception.payout){const p=reception.payout;
   $('claim-payout-details').textContent=ct('details').replace('{value}',new Intl.NumberFormat(document.documentElement.lang,{maximumFractionDigits:5}).format(p.value/100000)).replace('{to}',p.to).replace('{hash}',p.hash||'').replace('{confirmations}',p.confirmations||0);
@@ -741,33 +740,41 @@ async function claimTask(run,button){
  }finally{busy=false;button.removeAttribute('aria-busy');updateClaimControls();}
 }
 async function requestClaimCode(){
- if(!reception.route||!reception.known||reception.locked||reception.expired||cooling>0)return;
- try{await api('/api/claims/'+claimID()+'/request',{},{timeout:true});reception.message='codeSent';cooldown();}
+ if(!reception.known||reception.locked||reception.expired||receiveURL||cooling>0)return;
+ try{await api('/api/claims/'+claimID()+'/request',{},{timeout:true});$('claim-code').value='';reception.message='codeSent';cooldown();}
  catch(error){if(error.status===429){cooldown();reception.message='waitCode';return;}throw error;}
 }
+function openReleasedWallet(){
+ if(mobile())window.open(receiveURL,'_self','noopener,noreferrer');
+ else window.open(receiveURL,'_blank','noopener,noreferrer');
+}
 function chooseReception(route){
- if(busy||!reception.known||reception.locked||reception.expired||receiveURL)return;
+ if(busy||!reception.known||reception.locked||reception.payout||reception.expired)return;
+ if(route==='wallet'&&receiveURL){openReleasedWallet();return;}
+ if(receiveURL||!/^[0-9]{6}$/.test($('claim-code').value))return;
+ if(route==='pay'&&!window.nimiq){
+  // Recipient links carry only the public card id: never a code, session or destination.
+  const target='https://wire.phoenixmail.ca/?claim='+claimID();
+  try{window.open('nimiqpay://miniapp?url='+encodeURIComponent(target),'_self','noopener,noreferrer');}catch{}
+  reception.message='claim_openPay';updateClaimControls();return;
+ }
  void claimTask(async()=>{
+  reception.route=route;
   if(route==='pay'){
    try{
     const accounts=await window.nimiq.listAccounts();
     if(accounts?.error)throw accounts.error;
-    const addresses=Array.isArray(accounts)?[...new Set(accounts.filter(a=>typeof a==='string'&&softAddress(a)))]:[];
-    if(!addresses.length)throw Error('no_accounts');
-    $('claim-accounts').replaceChildren(...addresses.map(address=>{const option=document.createElement('option');option.value=address;option.textContent=address;return option;}));
-    reception.to=addresses[0];
+    const first=Array.isArray(accounts)?accounts[0]:null;
+    if(typeof first!=='string'||!softAddress(first))throw Error('no_accounts');
+    reception.to=first;
    }catch(error){reception.message='claim_'+(error?.type==='PERMISSION_DENIED'||error?.code===4001?'accountsCancelled':'accountsUnavailable');return;}
-  }else reception.to=route==='other'?$('claim-address').value.trim():'';
-  reception.route=route;reception.message='';updateClaimControls();
-  await requestClaimCode();
+  }
+  await submitClaim();
  },$('claim-'+route));
 }
 function softAddress(value){return /^NQ[0-9]{2}[0-9A-Z]{32}$/.test(value.replace(/\s/g,'').toUpperCase());}
 $('claim-pay')?.addEventListener('click',()=>chooseReception('pay'));
-$('claim-other')?.addEventListener('click',()=>chooseReception('other'));
-$('claim-hub')?.addEventListener('click',()=>chooseReception('hub'));
-$('claim-address')?.addEventListener('input',()=>{reception.to=$('claim-address').value.trim();updateClaimControls();});
-$('claim-accounts')?.addEventListener('change',()=>{reception.to=$('claim-accounts').value;updateClaimControls();});
+$('claim-wallet')?.addEventListener('click',()=>chooseReception('wallet'));
 $('claim-retry')?.addEventListener('click',()=>claimTask(async()=>{
  await refreshPayout();
  // Resume only the server's locked destination, without consuming another code.
@@ -776,22 +783,18 @@ $('claim-retry')?.addEventListener('click',()=>claimTask(async()=>{
 },$('claim-retry')));
 $('claim-code').addEventListener('input',()=>{$('claim-code').value=$('claim-code').value.replace(/\D/g,'').slice(0,6);updateClaimControls();});
 $('request-claim-code').addEventListener('click',()=>claimTask(requestClaimCode,$('request-claim-code')));
-$('claim-form').addEventListener('submit',event=>{
- event.preventDefault();
- if(receiveURL){if(mobile())location.assign(receiveURL);else window.open(receiveURL,'_blank','noopener,noreferrer');return;}
- if(!/^[0-9]{6}$/.test($('claim-code').value))return;
- void claimTask(submitClaim,$('release-claim'));
-});
+// Enter must not silently choose one of the two wallets.
+$('claim-form').addEventListener('submit',event=>event.preventDefault());
 async function submitClaim(){
-  if(!reception.route||!reception.known||reception.locked||reception.expired)return;
-  if(reception.route!=='hub'){
-   if(!softAddress(reception.to)){reception.message='claim_invalid_destination';return;}
-   reception.locked=true;updateClaimControls();
-   showPayout(await api('/api/claims/'+claimID()+'/payout',{code:$('claim-code').value,to:reception.to},{timeout:true}));return;
-  }
-  const result=await api('/api/claims/'+claimID()+'/release',{code:$('claim-code').value},{timeout:true});
-  receiveURL=validatedCashlink(result.cashlink);$('claim-code').value='';
-  clearInterval(coolTimer);cooling=0;reception.message='accepted';
+ if(!reception.route||!reception.known||reception.locked||reception.expired||!/^[0-9]{6}$/.test($('claim-code').value))return;
+ if(reception.route==='pay'){
+  if(!softAddress(reception.to)){reception.message='claim_invalid_destination';return;}
+  reception.locked=true;updateClaimControls();
+  showPayout(await api('/api/claims/'+claimID()+'/payout',{code:$('claim-code').value,to:reception.to},{timeout:true}));return;
+ }
+ const result=await api('/api/claims/'+claimID()+'/release',{code:$('claim-code').value},{timeout:true});
+ receiveURL=validatedCashlink(result.cashlink);$('claim-code').value='';
+ clearInterval(coolTimer);cooling=0;reception.message='accepted';
 }
 function claimID(){const id=new URLSearchParams(location.search).get('claim');if(!/^[a-f0-9]{48}$/.test(id||''))throw Error('claim_unavailable');return id;}
 async function boot(){
@@ -802,6 +805,11 @@ async function boot(){
   try{const p=await api('/api/claims/'+claimID());paintCard($('claim-card'),document.documentElement.lang,p.id);$('claim-info').textContent=t('from')+' '+p.sender;$('claim-amount').textContent=p.amount+' NIM';$('claim-message').textContent=p.message;
    window.PhoenixNimiqIdenticons?.paint($('claim-iqon'),p.address);
    if(new Date(p.expires_at).getTime()<=Date.now()&&!reception.payout){reception.expired=true;reception.message='expired';}
+   if(reception.known&&!reception.payout&&!reception.expired){
+    // A recipient arriving in the app keeps the code requested in the browser valid.
+    if(window.nimiq)reception.message='claim_enterCode';
+    else await claimTask(requestClaimCode,$('request-claim-code'));
+   }
    updateClaimControls();
   }catch(error){if(!reception.payout){reception.expired=true;reception.message='failed';updateClaimControls();}}return;
  }
@@ -848,7 +856,6 @@ async function boot(){
  }catch{status('feedback','unavailable');}
 }
 const started=boot();
-function hideClaimInputs(){$('request-claim-code').hidden=true;$('release-claim').hidden=true;$('claim-code').closest('label').hidden=true;$('claim-code').disabled=true;}
 
 return {ready:started,resume,destroy(){destroyed=true;window.removeEventListener('wire-language',refreshText);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pageshow',resume);window.removeEventListener('online',resume);clearInterval(coolTimer);clearTimeout(reception.timer);clearTimeout(walletTimer);for(const watch of monitors.values())stopMonitor(watch);for(const controller of controllers)controller.abort();controllers.clear();}};
 }
