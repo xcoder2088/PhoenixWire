@@ -98,6 +98,49 @@ const retryWords={
     "expired": "卡片已过期。请勿再次付款。发件人可在 Safari 中取回延迟到账的资金。"
   }
 };
+const rowWords={
+  "fr": {
+    "started": "Démarrée à {time}.",
+    "arrival": "Si tu as payé, le paiement peut apparaître dans quelques minutes. Rien de nouveau n’est débité sans confirmation dans ton portefeuille.",
+    "busy": "Une demande de portefeuille est déjà en cours. Termine-la dans ton portefeuille ; le nouveau formulaire reste disponible.",
+    "recoveryReady": "Lien prêt. Ouvre-le pour récupérer les fonds.",
+    "openRecovery": "Ouvrir la récupération",
+    "recoveryFailed": "Impossible de préparer la récupération. Réessaie sur cette ligne."
+  },
+  "en": {
+    "started": "Started at {time}.",
+    "arrival": "If you paid, the payment may appear in a few minutes. Nothing new is debited without approval in your wallet.",
+    "busy": "A wallet request is already in progress. Finish it in your wallet; the new form remains available.",
+    "recoveryReady": "Link ready. Open it to recover the funds.",
+    "openRecovery": "Open recovery",
+    "recoveryFailed": "Recovery could not be prepared. Try again on this row."
+  },
+  "es": {
+    "started": "Iniciada a las {time}.",
+    "arrival": "Si has pagado, el pago puede aparecer en unos minutos. No se debita nada nuevo sin confirmar en tu cartera.",
+    "busy": "Ya hay una solicitud en la cartera. Termínala allí; el nuevo formulario sigue disponible.",
+    "recoveryReady": "Enlace listo. Ábrelo para recuperar los fondos.",
+    "openRecovery": "Abrir recuperación",
+    "recoveryFailed": "No se pudo preparar la recuperación. Reintenta en esta fila."
+  },
+  "de": {
+    "started": "Gestartet um {time}.",
+    "arrival": "Falls du bezahlt hast, kann die Zahlung in einigen Minuten erscheinen. Ohne Bestätigung in deiner Wallet wird nichts erneut abgebucht.",
+    "busy": "Eine Wallet-Anfrage läuft bereits. Beende sie in deiner Wallet; das neue Formular bleibt verfügbar.",
+    "recoveryReady": "Link bereit. Öffne ihn, um das Guthaben zurückzuholen.",
+    "openRecovery": "Rückholung öffnen",
+    "recoveryFailed": "Die Rückholung konnte nicht vorbereitet werden. Versuche es in dieser Zeile erneut."
+  },
+  "zh": {
+    "started": "于 {time} 开始。",
+    "arrival": "如果你已付款，付款可能在几分钟后显示。未经钱包确认，不会再次扣款。",
+    "busy": "钱包请求仍在进行。请先在钱包中完成；新建表单仍可填写。",
+    "recoveryReady": "链接已准备好。打开即可取回资金。",
+    "openRecovery": "打开资金恢复",
+    "recoveryFailed": "无法准备资金恢复。请在此行重试。"
+  }
+};
+for(const language of Object.keys(rowWords))Object.assign(retryWords[language],rowWords[language]);
 const rt=key=>(retryWords[document.documentElement.lang]||retryWords.en)[key];
 const walletFailures=new Map();
 let walletTimer=null,nativeRequestInFlight=false;
@@ -109,7 +152,7 @@ let configured=false,ready=false,verified=false,busy=false,claimMode=false,activ
 let receiveURL='',cooling=0,coolTimer=null;
 let paymentList=[];
 let displayed=null;
-const preparedContext=Boolean(embedded&&(initialPayment||scopedPaymentID));
+let preparedContext=Boolean(embedded&&(initialPayment||scopedPaymentID));
 let editingTransferredDraft=Boolean(embedded&&initialDraft&&!initialDraft.payment_id);
 const completedForms=new Set();
 const monitors=new Map(),checks=new Map(),controllers=new Set();
@@ -156,7 +199,10 @@ function diagnostic(error,p){
 function renderWallet(p){
  clearTimeout(walletTimer);walletTimer=null;
  const failure=p&&walletFailures.get(p.id);walletPanel.hidden=!failure||p.stage==='sent';
- if(walletPanel.hidden)return;
+ if(walletPanel.hidden){
+  if(!document.hidden&&paymentList.some(p=>(walletFailures.get(p.id)?.waitUntil||0)>Date.now()))walletTimer=setTimeout(()=>renderProgress(),1000);
+  return;
+ }
  walletNote.textContent=rt('close');detailLabel.textContent=rt('detail');
  if(walletDetail.textContent!==(failure.detail||''))walletDetail.textContent=failure.detail||'';
  walletDetail.hidden=!failure.detail;detailLabel.hidden=!failure.detail;copyDetail.hidden=!failure.detail;
@@ -170,6 +216,73 @@ function renderWallet(p){
 }
 const read=key=>{try{return sessionStorage.getItem(key)||'';}catch{return '';}};
 const save=(key,value)=>{try{sessionStorage.setItem(key,value);}catch{}};
+const foldedIDs=new Set();
+try{const ids=JSON.parse(localStorage.getItem('wire-nim-folded')||'[]');if(Array.isArray(ids))for(const id of ids)if(/^[a-f0-9]{48}$/.test(id))foldedIDs.add(id);}catch{}
+const isFolded=p=>!scopedPaymentID&&foldedIDs.has(p.id);
+function fold(p){if(!p||scopedPaymentID)return;foldedIDs.add(p.id);try{localStorage.setItem('wire-nim-folded',JSON.stringify([...foldedIDs]));}catch{}}
+let freshForm=!scopedPaymentID&&read('wire-nim-new-form')==='yes',formEpoch=0;
+const rowViews=new Map(),recoveryStates=new Map();
+function rememberRecord(p){const index=paymentList.findIndex(x=>x.id===p.id);if(index<0)paymentList.push(p);else paymentList[index]=p;}
+function pendingFailure(p){
+ if(p.stage!=='funding_started'||walletFailures.has(p.id)||read('wire-nim-approved:'+p.id)==='yes')return;
+ const at=Date.parse(p.started_at||'');
+ walletFailures.set(p.id,{state:'checking',detail:'',waitUntil:Number.isFinite(at)?at+180000:0,tooSoon:Number.isFinite(at)});
+}
+function recoveryAllowed(p){return !scopedPaymentID&&p.address&&(['funded','delivery_pending','delivery_failed','sent','expired'].includes(p.stage)||Date.now()>=deadline(p));}
+function renderHistory(){
+ if(destroyed)return;
+ const list=$('payment-list'),seen=new Set();
+ for(const p of preparedContext?[]:paymentList){
+  seen.add(p.id);let view=rowViews.get(p.id);
+  if(!view){
+   const row=document.createElement('div');row.className='history-row';row.dataset.paymentId=p.id;
+   const label=document.createElement('p'),state=document.createElement('p');state.className='nim-row-state';
+   const actions=document.createElement('div');actions.className='nim-row-actions';
+   const retry=document.createElement('button');retry.type='button';retry.className='secondary-btn nim-row-retry';retry.onclick=()=>void retryPayment(false,p.id);
+   const create=document.createElement('button');create.type='button';create.className='secondary-btn nim-row-new';create.onclick=()=>newCard(p.id);
+   const recover=document.createElement('button');recover.type='button';recover.className='secondary-btn nim-row-recover';recover.onclick=()=>void recoverCard(p.id);
+   const link=document.createElement('a');link.className='nim-row-recovery-link';link.target='_blank';link.rel='noopener noreferrer';
+   const resend=document.createElement('button');resend.type='button';resend.className='secondary-btn';resend.onclick=()=>resendCard(p.id);
+   const notice=document.createElement('p');notice.className='nim-row-notice';notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');
+   actions.append(retry,create,recover,link,resend);row.append(label,state,actions,notice);
+   view={row,label,state,retry,create,recover,link,resend,notice};rowViews.set(p.id,view);list.append(row);
+  }
+  const failure=walletFailures.get(p.id),recovery=recoveryStates.get(p.id)||{},wait=Math.max(0,Math.ceil(((failure?.waitUntil||0)-Date.now())/1000));
+  view.label.textContent=p.amount+' NIM · '+p.recipient;
+  view.state.textContent=p.stage==='funding_started'?progressText(p):t(p.stage);
+  if(wait>0)view.state.textContent+=' '+rt('remaining').replace('{time}',Math.floor(wait/60)+':'+String(wait%60).padStart(2,'0'));
+  view.retry.textContent=rt('retry');view.retry.hidden=p.stage!=='funding_started'||Date.now()>=deadline(p)||failure?.funded;view.retry.disabled=busy||nativeRequestInFlight||wait>0;
+  view.create.textContent=t('newCard');view.create.hidden=Boolean(scopedPaymentID);
+  view.recover.textContent=recoveryAllowed(p)?t('recover'):'';view.recover.hidden=!recoveryAllowed(p)||Boolean(recovery.href);view.recover.disabled=Boolean(recovery.loading);
+  view.link.hidden=!recoveryAllowed(p)||!recovery.href;if(recovery.href)view.link.href=recovery.href;else view.link.removeAttribute('href');view.link.textContent=rt('openRecovery');
+  view.resend.textContent=p.stage==='delivery_failed'?pt('resend'):'';view.resend.hidden=p.stage!=='delivery_failed';view.resend.disabled=busy||checks.has(p.id);
+  view.notice.textContent=recovery.loading?t('working'):recovery.error?rt('recoveryFailed'):recovery.href?rt('recoveryReady'):recovery.notice||'';
+ }
+ for(const[id,view]of rowViews)if(!seen.has(id)){view.row.remove();rowViews.delete(id);}
+}
+async function recoverCard(id){
+ const p=paymentList.find(p=>p.id===id);if(!p||!recoveryAllowed(p)||recoveryStates.get(id)?.loading)return;
+ recoveryStates.set(id,{loading:true});renderHistory();
+ try{const result=await api('/api/payments/'+id+'/recovery',{},{timeout:true});recoveryStates.set(id,{href:validatedCashlink(result.cashlink)});}
+ catch{recoveryStates.set(id,{error:true});}
+ finally{renderHistory();}
+}
+function newCard(id=displayed?.id){
+ if(scopedPaymentID)return;
+ formEpoch++;
+ for(const p of paymentList)if(p.id===id||p.id===displayed?.id)fold(p);
+ fold(displayed);fold(active);
+ requestID=nextID();save('wire-request-id',requestID);save('wire-nim-new-form','yes');
+ freshForm=true;editingTransferredDraft=false;preparedContext=false;root.classList?.remove('wire-nim-prepared');
+ active=null;displayed=null;save('wire-pending-payment','');save('wire-pending-wallet','');save('wire-form','');
+ for(const key of ['recipient','amount','message']){$(key).readOnly=false;$(key).value='';}
+ $('currency').disabled=false;$('currency').value='NIM';
+ $('preview-empty').hidden=false;$('payment-card').hidden=true;$('preview-title').hidden=true;
+ if($('nim-handoff-card')?.contains($('payment-card')))root.querySelector('.preview-area').append($('payment-card'));
+ $('card-form').append($('feedback'),fallback);fallback.hidden=true;fallbackCheckout=null;
+ $('feedback').textContent=busy?rt('busy'):'';
+ renderProgress();renderHistory();$('recipient').focus();
+}
 let requestID=read('wire-request-id');
 function nextID(){const bytes=crypto.getRandomValues(new Uint8Array(16));return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');}
 if(!/^[a-f0-9]{32}$/.test(requestID)){requestID=nextID();save('wire-request-id',requestID);}
@@ -197,13 +310,14 @@ function refreshText(){
 }
 window.addEventListener('wire-language',refreshText);
 async function task(run,target='feedback',cleanup){
- if(busy)return;busy=true;status(target,'working');
+ if(busy){$(target).textContent=rt('busy');return;}busy=true;status(target,'working');
  renderProgress();
  try{await run();}catch(error){$(target).textContent=explain(error);}finally{busy=false;cleanup?.();renderProgress();}
 }
 let usdtAssets=[];
 function senderUI(email){verified=Boolean(email);window.wireUsdtState={assets:usdtAssets,isVerified:verified};if(!embedded)window.WireUSDT?.configure(window.wireUsdtState);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');}
 function showPayment(p){
+ if(isFolded(p))return;
  displayed=p;
  if(embedded&&p.stage==='sent'){
   if(!completedForms.has(p.id)){completedForms.add(p.id);requestID=nextID();save('wire-request-id',requestID);save('wire-form','');}
@@ -224,21 +338,16 @@ function showPayment(p){
  renderProgress();
 }
 async function loadHistory(){
- const data=await api('/api/payments',undefined,{timeout:true});$('my-payments').hidden=false;$('payment-list').textContent='';
+ const data=await api('/api/payments',undefined,{timeout:true});$('my-payments').hidden=Boolean(scopedPaymentID);
  paymentList=scopedPaymentID?data.payments.filter(p=>p.id===scopedPaymentID):data.payments;
- for(const p of preparedContext?[]:data.payments){
-  const row=document.createElement('div');row.className='history-row';
-  const label=document.createElement('p');label.textContent=`${p.amount} NIM · ${p.recipient} · ${t(p.stage)}`;row.append(label);
-  if(p.stage==='delivery_failed'){const resend=document.createElement('button');resend.type='button';resend.textContent=pt('resend');resend.disabled=checks.has(p.id);resend.addEventListener('click',()=>resendCard(p.id));row.append(resend);}
-  if(p.address){const recover=document.createElement('button');recover.type='button';recover.textContent=t('recover');recover.addEventListener('click',()=>task(async()=>{const result=await api(`/api/payments/${p.id}/recovery`,{});const link=document.createElement('a');link.href=validatedCashlink(result.cashlink);link.target='_blank';link.rel='noopener noreferrer';link.textContent=t('recover');recover.replaceWith(link);}));row.append(recover);}
-  $('payment-list').append(row);
- }
- active=preparedContext?paymentList.find(p=>p.id===(initialPayment?.id||scopedPaymentID))||null:editingTransferredDraft?null:data.payments.find(p=>!['sent'].includes(p.stage))||null;
+ for(const p of paymentList)pendingFailure(p);
+ const visible=paymentList.filter(p=>!isFolded(p));
+ active=preparedContext?visible.find(p=>p.id===(initialPayment?.id||scopedPaymentID))||null:freshForm||editingTransferredDraft?null:visible.find(p=>p.id===displayed?.id)||visible.find(p=>p.stage!=='sent')||null;
  const pending=read('wire-pending-payment');
- const shown=preparedContext?active:editingTransferredDraft?null:data.payments.find(p=>p.id===pending)||data.payments.find(p=>p.id===displayed?.id)||active||(!embedded?data.payments[0]:null);
- for(const p of data.payments){const watch=monitors.get(p.id);if(watch){watch.payment=p;if(p.stage==='sent')stopMonitor(watch);}}
+ const shown=preparedContext?active:freshForm||editingTransferredDraft?null:visible.find(p=>p.id===pending)||visible.find(p=>p.id===displayed?.id)||active||(!embedded?visible[0]:null);
+ for(const p of paymentList){const watch=monitors.get(p.id);if(watch){watch.payment=p;if(p.stage==='sent')stopMonitor(watch);}}
  if(shown)showPayment(shown);
- $('new-card').hidden=Boolean(active);refreshText();
+ renderHistory();refreshText();
 }
 function validatedCashlink(value){const url=new URL(value);if(url.origin!=='https://hub.nimiq.com'||url.pathname!=='/cashlink/'||!/^#[A-Za-z0-9_=-]+$/.test(url.hash))throw Error('invalid_cashlink');return url.href;}
 const artSaved=new Set();
@@ -254,12 +363,15 @@ function monitor(p){
 function stopMonitor(watch){clearTimeout(watch.timer);watch.timer=null;watch.stopped=true;}
 function progressText(p){
  const watch=monitors.get(p.id),failure=walletFailures.get(p.id);
+ if(watch?.note&&['offline','session'].includes(watch.note)&&p.stage!=='sent')return pt(watch.note);
  if(failure&&p.stage!=='sent'){
   if(failure.expired||Date.now()>=deadline(p))return rt('expired');
   if(failure.funded)return rt('received');
   if(failure.state==='unfunded'){
    const hours=new Intl.NumberFormat(document.documentElement.lang,{maximumFractionDigits:1}).format(Math.max(0,Math.ceil((deadline(p)-Date.now())/360000)/10));
-   return rt('unpaid').replace('{hours}',hours);
+   const at=Date.parse(p.started_at||'');
+   const started=Number.isFinite(at)?rt('started').replace('{time}',new Intl.DateTimeFormat(document.documentElement.lang,{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(at)):'';
+   return rt('unpaid').replace('{hours}',hours)+' '+started+' '+rt('arrival');
   }
   return rt('unknown');
  }
@@ -274,6 +386,10 @@ function renderProgress(){
  if(destroyed)return;
  const p=displayed,show=p&&(['funding_started','funded','delivery_pending','delivery_failed','sent'].includes(p.stage)||walletFailures.has(p.id));
  renderWallet(p);
+ $('new-card').hidden=Boolean(scopedPaymentID)||!verified;
+ if(show)progress.append($('new-card'));else root.querySelector('.workspace').before($('new-card'));
+ $('preview-submit').disabled=busy||nativeRequestInFlight;
+ renderHistory();
  const complete=embedded&&p?.stage==='sent';
  const newlyComplete=complete&&!root.classList.contains('wire-nim-complete');
  if(embedded)root.classList.toggle('wire-nim-complete',complete);
@@ -305,7 +421,8 @@ function observe(p){
   stopMonitor(watch);fallback.hidden=true;fallbackCheckout=null;
   if(read('wire-pending-payment')===p.id){save('wire-pending-payment','');save('wire-pending-wallet','');save('wire-form','');}
  }
- if(!displayed||displayed.id===p.id||read('wire-pending-payment')===p.id)showPayment(p);
+ if(!isFolded(p)&&(!freshForm||displayed?.id===p.id)&&(!displayed||displayed.id===p.id||read('wire-pending-payment')===p.id))showPayment(p);
+ else onStatus(p,progressText(p));
 }
 function confirm(id,resend=false){
  if(checks.has(id))return checks.get(id);
@@ -317,7 +434,7 @@ function confirm(id,resend=false){
   if(Date.now()>=deadline(p))throw Object.assign(Error('claim_expired'),{status:410});
   if(resend&&p.stage!=='delivery_failed')return {payment:p};
   await ensureArtwork(p);
-  try{const result=await api(`/api/payments/${id}/${resend?'resend':'confirm'}`,{},{timeout:true});observe(result.payment);await loadHistory();$('feedback').textContent=progressText(result.payment);return result;}
+  try{const result=await api(`/api/payments/${id}/${resend?'resend':'confirm'}`,{},{timeout:true});observe(result.payment);await loadHistory();if(displayed?.id===result.payment.id)$('feedback').textContent=progressText(result.payment);return result;}
   catch(error){
    if(error.message==='funding_pending')throw error;
    try{await loadHistory();const current=paymentList.find(p=>p.id===id);if(current){observe(current);if(current.stage==='sent')return {payment:current};}}catch{}
@@ -353,7 +470,7 @@ async function poll(id){
  const watch=monitor(p);if(p.stage==='sent'){observe(p);return;}
  await runMonitor(watch);
 }
-function approve(p){save('wire-nim-approved:'+p.id,'yes');observe(p);$('feedback').textContent=progressText(p);}
+function approve(p){save('wire-nim-approved:'+p.id,'yes');observe(p);if(displayed?.id===p.id)$('feedback').textContent=progressText(p);}
 function resume(){
  if(destroyed||claimMode||document.hidden||!verified||editingTransferredDraft)return;
  renderProgress();
@@ -376,7 +493,7 @@ $('verify-sender-code').addEventListener('click',()=>task(async()=>{
  const result=await api('/api/sender/verify',{code:$('sender-code').value});$('sender-code').value='';senderUI(result.email);await loadHistory();
 },'sender-status'));
 $('logout').addEventListener('click',()=>task(async()=>{await api('/api/logout',{});location.reload();}));
-$('new-card').addEventListener('click',()=>{requestID=nextID();save('wire-request-id',requestID);active=null;displayed=null;for(const id of ['recipient','amount','message'])$(id).readOnly=false;$('currency').disabled=false;$('recipient').value='';$('message').value='';$('feedback').textContent='';renderProgress();});
+$('new-card').addEventListener('click',()=>newCard());
 function nativeWallet(){return typeof window.nimiq?.sendBasicTransactionWithData==='function';}
 function rememberPayment(p,wallet){
  save('wire-pending-payment',p.id);save('wire-pending-wallet',wallet);
@@ -412,6 +529,7 @@ function useHubAfterPreparation(){
  if(handoffPreparation)handoffPreparation.finally(open).catch(()=>{});else open();
 }
 async function prepareHandoffPayment(){
+ const epoch=formEpoch;
  if(busy||!verified||scopedPaymentID)throw Error('sender_verification_required');
  busy=true;renderProgress();
  try{
@@ -419,6 +537,9 @@ async function prepareHandoffPayment(){
   if(preparedContext&&!p)throw Error('payment_unavailable');
   if(!p){const result=await api('/api/payments',{recipient:$('recipient').value,amount:$('amount').value.trim().replace(',','.'),currency:'NIM',message:$('message').value,request_id:requestID,language:document.documentElement.lang},{timeout:true});p=result.payment;active=p;}
   if(p.stage==='preparing'){const result=await api(`/api/payments/${p.id}/prepare`,{},{timeout:true});p=result.payment;active=p;}
+  rememberRecord(p);
+  if(epoch!==formEpoch){if(active?.id===p.id)active=null;fold(p);renderHistory();throw Error('view_changed');}
+  freshForm=false;save('wire-nim-new-form','');
   showPayment(p);
   if(p.stage!=='ready')throw Object.assign(Error('payment_not_fundable'),{status:409});
   handedOver=true;
@@ -429,8 +550,8 @@ async function prepareHandoffPayment(){
 
 async function requestWallet(p,started,forceHub=false){
  const native=!forceHub&&nativeWallet();
- active=started.payment;
- p=started.payment;
+ p=started.payment;rememberRecord(p);
+ if(!isFolded(p)&&!freshForm)active=p;
   // Hub's checkout extraData becomes the chain transaction's recipientData.
   const checkout={appName:started.checkout.appName,recipient:started.checkout.recipient,value:started.checkout.value,extraData:new Uint8Array(started.checkout.recipientData)};
   if(native){
@@ -454,20 +575,21 @@ async function requestWallet(p,started,forceHub=false){
     const refused=failure.type==='PERMISSION_DENIED'||failure.code===4001||failure.name==='PermissionDeniedError';
     try{await confirm(p.id);return;}
     catch(error){failed.state=error.message==='funding_pending'?'unfunded':'unknown';failed.expired=error.status===410;}
-    fallbackCheckout={p,checkout};fallback.hidden=refused;
-    if(!failed.expired){const watch=monitor(active||p);schedule(watch);}
-    $('feedback').textContent=refused?wt('cancelled'):'';
+    fallbackCheckout={p,checkout};fallback.hidden=refused||isFolded(p)||displayed?.id!==p.id;
+    if(!failed.expired){const watch=monitor(p);schedule(watch);}
+    if(displayed?.id===p.id)$('feedback').textContent=refused?wt('cancelled'):'';
     renderProgress();return;
    }
    walletFailures.delete(p.id);
    // The returned hash is not evidence of funding; the existing server check decides.
-   approve(active);await poll(p.id);return;
+   approve(p);await poll(p.id);return;
   }
   await hubCheckout(p,checkout);
 }
-async function retryPayment(forceHub=false){
- if(busy||nativeRequestInFlight||!displayed||!walletFailures.has(displayed.id))return;
- const id=displayed.id;
+async function retryPayment(forceHub=false,paymentID=displayed?.id){
+ const id=typeof paymentID==='string'?paymentID:displayed?.id;
+ if(!id||scopedPaymentID&&id!==scopedPaymentID||!walletFailures.has(id))return;
+ if(busy||nativeRequestInFlight){const state=recoveryStates.get(id)||{};state.notice=rt('busy');recoveryStates.set(id,state);renderHistory();return;}
  void task(async()=>{
   let failure=walletFailures.get(id);
   if(!failure)return;
@@ -483,7 +605,7 @@ async function retryPayment(forceHub=false){
   catch(error){
    if(error.message==='retry_too_soon'){
     await loadHistory();failure.tooSoon=true;failure.state='unfunded';
-    const started=Date.parse(active?.started_at||'');failure.waitUntil=Number.isFinite(started)?started+180000:0;return;
+    const started=Date.parse(paymentList.find(p=>p.id===id)?.started_at||'');failure.waitUntil=Number.isFinite(started)?started+180000:0;return;
    }
    if(error.message==='already_funded'){
     failure.funded=true;await poll(id);return;
@@ -501,8 +623,10 @@ async function retryPayment(forceHub=false){
 }
 
 function fundNim(forceHub=false){
- if(busy)return;
+ if(busy){$('feedback').textContent=rt('busy');return;}
+ if(active&&isFolded(active))active=null;
  if(displayed?.stage==='sent')return;
+ const epoch=formEpoch;
  const native=!forceHub&&nativeWallet();
  const openWallet=!native&&verified&&ready&&$('currency').value==='NIM'&&(!active||active.stage==='ready')&&!mobile();
  const popup=openWallet?window.open('about:blank','NimiqAccounts','width=800,height=850'):null;
@@ -515,8 +639,10 @@ function fundNim(forceHub=false){
   if(active&&active.stage!=='ready'){await poll(active.id);return;}
   let p=active;
   if(preparedContext&&!p)throw Error('payment_unavailable');
-  if(!p){const result=await api('/api/payments',{recipient:$('recipient').value,amount:$('amount').value.trim().replace(',','.'),currency:'NIM',message:$('message').value,request_id:requestID,language:document.documentElement.lang});p=result.payment;active=p;}
-  editingTransferredDraft=false;
+  if(!p){const result=await api('/api/payments',{recipient:$('recipient').value,amount:$('amount').value.trim().replace(',','.'),currency:'NIM',message:$('message').value,request_id:requestID,language:document.documentElement.lang},{timeout:true});p=result.payment;active=p;}
+  rememberRecord(p);
+  if(epoch!==formEpoch){if(active?.id===p.id)active=null;fold(p);onStatus(p,progressText(p));renderHistory();return;}
+  freshForm=false;save('wire-nim-new-form','');editingTransferredDraft=false;
   showPayment(p);
   await ensureArtwork(p);
   if(p.stage!=='ready'){await confirm(p.id);return;}
@@ -533,6 +659,7 @@ function fundNim(forceHub=false){
   let started;
   try{started=await api(`/api/payments/${p.id}/start`,{},{timeout:true});}
   catch(error){if(error.message==='funding_already_started'){await loadHistory();await poll(p.id);return;}throw error;}
+  if(epoch!==formEpoch){fold(started.payment);rememberRecord(started.payment);void poll(p.id);return;}
   await requestWallet(p,started,forceHub);
  },'feedback',()=>{if(popup&&!popup.closed)popup.close();});
 }
@@ -578,9 +705,14 @@ async function boot(){
    $('nim-handoff-summary').append($('feedback'),fallback);
   }
   if(verified)await loadHistory();
+  if(!scopedPaymentID&&!preparedContext&&(freshForm||paymentList.length>0&&paymentList.every(isFolded))){
+   freshForm=true;save('wire-nim-new-form','yes');
+   for(const id of ['recipient','amount','message']){$(id).value='';$(id).readOnly=false;}
+   $('currency').disabled=false;$('payment-card').hidden=true;$('preview-title').hidden=true;renderProgress();
+  }
   if(preparedContext){
    if(!verified||!active){$('feedback').textContent=pt('session');renderProgress();return;}
-   if(active.stage==='funding_started'&&read('wire-nim-approved:'+active.id)!=='yes')walletFailures.set(active.id,{state:'checking',detail:'',waitUntil:0});
+   pendingFailure(active);
    showPayment(active);resume();return;
   }
   if(embedded&&initialDraft){

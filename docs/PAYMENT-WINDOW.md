@@ -223,3 +223,34 @@ that state does not itself establish that money was received. Confirmed funding 
 
 The chooser's main actions are now “Pay with Nimiq Pay” then “Nimiq Wallet”, with “Get Nimiq Pay” below, in all five languages.
 They do not detect installation or change the transfer protocol. The selector's Cancel closes only the wallet chooser, not a card.
+
+
+### Pending NIM cards must not occupy the next form
+
+A non-terminal payment is no longer treated as a permanent editor lock. Full verified senders always have a New card
+action, including while a card is waiting for funding. It folds the displayed payment, clears recipient/amount/message,
+and creates a fresh request ID. It makes no API request and does not cancel, delete, refund or alter the old card.
+Only folded payment IDs are persisted in localStorage `wire-nim-folded`; the fresh-form preference and request ID stay
+in tab session storage. Card records and recovery data are never evicted. A folded card remains in history/My cards and
+continues to be checked; late funding can send it normally without replacing or clearing the next form. A form generation
+guard also prevents a late create/start/wallet response from reclaiming an editor that the sender has reset.
+
+An incoming `funding_started` payment without local approval is checked and given a visible status/retry path, not a
+read-only dead end. The status includes server `started_at` in the browser's local HH:MM, the remaining card lifetime,
+and a warning that a payment already approved may still arrive. Retry is gated by the existing three-minute checkout
+protocol. Progress is in normal document flow, never sticky or overlaid on the card. A single native wallet request still
+blocks another wallet request, not the ability to fold a card or edit a fresh form; the reason is visible while waiting.
+Scoped app sessions never get New card or recovery: they retain only their card's summary, retry, tracking and Close.
+
+Recovery previously shared the payment-wide `task()` busy guard (which could silently drop a tap), and wrote failures
+to `#feedback`, hidden in some layouts. It now has independent per-row loading/error/ready state, a 30-second request
+timeout, and an adjacent live status. Rows are stable across background refreshes so an in-flight result remains visible.
+A successful response shows a validated Hub recovery link with an explicit “Open recovery” action; a failure leaves a
+retryable button on that row. Recovery is offered only when the card has an address AND funding is confirmed
+(funded/delivery_pending/delivery_failed), it is sent, or its day has expired (including possible late funds), never for
+an unexpired ready/funding_started card. Its link is not put in localStorage or logs. These changes are client-only.
+
+The shared flow remains usable in classic NIM mode; its script/style version references are refreshed without changing
+claim routes, the native funding marker, server authorization, CSP or mirrored payment files. Tests cover 375 px CSS/DOM,
+fold persistence, a distinct next request/card, late funding, concurrent wallet/recovery actions, recovery timeouts and
+scoped restrictions. They do not replace an actual iPhone check after owner deployment.

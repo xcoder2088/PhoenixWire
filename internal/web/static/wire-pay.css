@@ -1,5 +1,5 @@
 /* Wire's own frame around PhoenixMail's payment window (the window brings its own styles: /pm/*). */
-.wire-nim-progress{position:sticky;top:0;z-index:2;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:16px;margin:0 0 18px;border:1px solid var(--accent);border-radius:12px;background:var(--panel);color:var(--text)}
+.wire-nim-progress{position:static;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:16px;margin:0 0 18px;border:1px solid var(--accent);border-radius:12px;background:var(--panel);color:var(--text)}
 .wire-nim-progress p{flex:1 1 240px;margin:0;line-height:1.5;font-weight:650;overflow-wrap:anywhere}
 .wire-nim-progress button{min-height:48px;padding:12px 22px;border-radius:10px;font-weight:700}
 /* A sent NIM card has one completion screen, without a second form or floating notice. */
@@ -170,3 +170,8 @@ html.wire-app[data-palette="phoenixfire"][data-theme="light-paper"]{--wire-butto
 html[data-palette="phoenixfire"] .wire-body button,html[data-palette="phoenixfire"] .wire-wallet-choice a{background:var(--wire-button-bg);background-image:none;}
 html[data-palette="phoenixfire"] .wire-body button:hover:not(:disabled),html[data-palette="phoenixfire"] .wire-wallet-choice a:hover{background:var(--wire-button-hover);}
 #wire-choice-get{margin-top:24px;font-size:16px;}
+.wire-nim-host .history-row{min-width:0;padding:16px 0;overflow-wrap:anywhere;}
+.nim-row-actions{display:flex;flex-wrap:wrap;gap:8px;}
+.nim-row-actions button,.nim-row-actions a{min-height:44px;max-width:100%;white-space:normal;}
+.nim-row-notice{font-size:14px;line-height:1.5;overflow-wrap:anywhere;}
+.wire-nim-host>#new-card{margin:0 0 16px;min-height:44px;}
