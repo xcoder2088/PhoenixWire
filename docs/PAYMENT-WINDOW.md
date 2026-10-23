@@ -146,3 +146,11 @@ cashlink status response; NIM dates come from `/api/payments`. A NIM `claimed_at
 not release of the claim link. Missing, invalid and zero dates are omitted. Polling time and local creation estimates are
 never substituted for these dates. The current Go responses do not yet expose sent/claimed dates: see
 `HANDOFF-DATES-CARTES-2026-10-23.md` for the server work left to implement.
+
+## Hand-over to the Nimiq Pay app (server)
+
+The app is another browser (its own cookies), so the sender and the draft cross over with an opaque token, not through the address:
+`POST /api/handoff` (verified sender; body: recipient, amount, message, language) answers `{token, expires_in: 120}`; `POST /api/handoff/redeem`
+(no session) answers `{email, draft}` and sets the cookie of the sender in the new browser. The token is 43 random characters, used once, valid two
+minutes, tied to the session it came from (signing out cancels it), never longer than that session, only its hash is kept in memory, never logged.
+Every failure of redeem is the same `404 invalid_or_expired`. Code: `internal/wire/handoff.go`.

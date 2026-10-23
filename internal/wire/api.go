@@ -53,6 +53,9 @@ type API struct {
 	// the public gas light: remembered for a short while, with its own lock (it asks the chain, so it never waits behind a.mu)
 	gasMu    sync.Mutex
 	gasCache map[string]gasEntry
+	// the hand-over to the Nimiq Pay app (handoff.go), under mu
+	handoffs    map[string]handoff
+	handoffAsks map[string][]time.Time
 }
 
 var idRE = regexp.MustCompile(`^[a-f0-9]{48}$`)
@@ -198,6 +201,11 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 			a.verifySender(w, r)
 			return
 		}
+	case "/api/handoff/redeem":
+		if r.Method == "POST" {
+			a.handoffRedeem(w, r)
+			return
+		}
 	case "/api/session":
 		if r.Method == "GET" {
 			_, s, ok := a.current(r)
@@ -222,9 +230,13 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	_, s, ok := a.current(r)
+	sessKey, s, ok := a.current(r)
 	if !ok || !s.Verified {
 		failure(w, 401, "sender_verification_required")
+		return
+	}
+	if path == "/api/handoff" && r.Method == "POST" {
+		a.handoffCreate(w, r, sessKey, s)
 		return
 	}
 	if strings.HasPrefix(path, "/api/usdt/") {

@@ -214,6 +214,36 @@ func TestGasLightRouteIsReachableWithoutASession(t *testing.T) {
 	}
 }
 
+// The hand-over routes are reachable through the web server (the redeem needs no session: the other browser has none).
+func TestHandoffRoutesAreReachable(t *testing.T) {
+	dir := t.TempDir()
+	mail := wire.MailerSend{APIKey: "fixture", From: "no-reply@example.test"}
+	engine, err := service.New(service.Config{Directory: filepath.Join(dir, "engine"), RPCURL: "http://127.0.0.1:1", Master: bytes.Repeat([]byte{7}, 32), Sender: service.MailerSend{APIKey: mail.APIKey, From: mail.From}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer engine.Close()
+	api, err := wire.New(wire.Config{Directory: filepath.Join(dir, "gateway"), Origin: "https://wire.example.test", Master: bytes.Repeat([]byte{9}, 32), Engine: engine, Mail: mail})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer api.Close()
+	post := func(path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Origin", "https://wire.example.test")
+		r := httptest.NewRecorder()
+		NewHandler(api).ServeHTTP(r, req)
+		return r
+	}
+	if r := post("/api/handoff/redeem", `{"token":"`+strings.Repeat("A", 43)+`"}`); r.Code != 404 || !strings.Contains(r.Body.String(), "invalid_or_expired") {
+		t.Fatalf("redeem must reach the gateway: %d %s", r.Code, r.Body)
+	}
+	if r := post("/api/handoff", `{"recipient":"a@b.co","amount":"1"}`); r.Code != 401 {
+		t.Fatalf("a token needs a verified sender: %d %s", r.Code, r.Body)
+	}
+}
+
 func TestUSDTRoutesArePublicOnlyForTheRecipient(t *testing.T) {
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
 	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
