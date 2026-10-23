@@ -53,3 +53,11 @@ checkout, artwork, history/recovery and mobile return handling are preserved. A 
 `wire-pay.css` no longer hides NIM. `wire-pay.js` binds that button to the embedded NIM flow and removes the separate Send NIM
 exit link. Light mode maps to `light-paper`, the selector present in pm/; dark mode remains `dark`. Buttons have neutral fills
 and theme-accent outlines. These are host changes, not additional modifications under pm/.
+
+## NIM funded from Nimiq Pay
+
+Inside the Nimiq Pay app Wire funds a NIM card with `window.nimiq.sendBasicTransactionWithData`, which takes the data as text and sends it as UTF-8. The
+funding mark of a cashlink (`00 82 80 92 87`) therefore reaches the chain as `00 c2 82 c2 80 c2 92 c2 87`. The funding check
+(`engine/secureclaim/internal/nimiq/mainnet_rpc.go`, `fundingMarker`) accepts exactly these two forms and nothing else: the amount, the address
+and the two confirmations are checked as before, and a transfer with no data or any other data is still refused. Confirm on a real device after
+any change to either side.

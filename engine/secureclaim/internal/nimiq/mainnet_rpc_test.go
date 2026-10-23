@@ -88,6 +88,29 @@ func TestMainnetVerifierRejectsBadRPCAndFunding(t *testing.T) {
 	if ok, err = v.ConfirmedSpendable(ctx, "mainnet", addr, 250000); ok || err != nil {
 		t.Fatal("wrong funding marker accepted", err)
 	}
+	// Nimiq Pay sends the marker as UTF-8 text: that exact form, and only that, is the same funding mark.
+	marker = "00C282C280C292C287"
+	if ok, err = v.ConfirmedSpendable(ctx, "mainnet", addr, 250000); !ok || err != nil {
+		t.Fatal("the funding mark as Nimiq Pay sends it was not recognized", err)
+	}
+	for _, other := range []string{"", "00", "0082809287c2", "00c282c280c292c288", "c282c280c292c287", "00c282c280c292c28700", "00c2", "0082809288", "00 82 80 92 87", "0x0082809287"} {
+		marker = other
+		if ok, err = v.ConfirmedSpendable(ctx, "mainnet", addr, 250000); ok || err != nil {
+			t.Fatalf("funding mark %q accepted", other)
+		}
+	}
+	// the amount, the address and the confirmations are still checked with the Nimiq Pay form
+	marker = cashlinkFundingMarkerNimiqPay
+	balance = 1
+	if ok, err = v.ConfirmedSpendable(ctx, "mainnet", addr, 250000); ok || err != nil {
+		t.Fatal("insufficient balance accepted with the Nimiq Pay mark", err)
+	}
+	balance = 250001
+	confirmed = 1
+	if ok, err = v.ConfirmedSpendable(ctx, "mainnet", addr, 250000); ok || err != nil {
+		t.Fatal("unconfirmed payment accepted with the Nimiq Pay mark", err)
+	}
+	confirmed = 3
 	if ok, err = v.ConfirmedSpendable(ctx, "testnet", addr, 250000); ok || err == nil {
 		t.Fatal("mainnet request accepted")
 	}

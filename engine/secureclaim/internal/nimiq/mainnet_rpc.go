@@ -16,6 +16,14 @@ import (
 
 const cashlinkFundingMarker = "0082809287"
 
+// Nimiq Pay's mini-app API takes the data of a transaction as TEXT and sends it as UTF-8: the same five code points (U+0000 U+0082 U+0080 U+0092
+// U+0087) reach the chain as these nine bytes. It is the same funding mark from another sender, accepted only as exactly this and nothing else.
+const cashlinkFundingMarkerNimiqPay = "00c282c280c292c287"
+
+func fundingMarker(recipientData string) bool {
+	return strings.EqualFold(recipientData, cashlinkFundingMarker) || strings.EqualFold(recipientData, cashlinkFundingMarkerNimiqPay)
+}
+
 var ErrRPC = errors.New("nimiq_mainnet_rpc_unavailable")
 
 // MainnetVerifier queries a configured Nimiq Albatross RPC endpoint.
@@ -175,7 +183,7 @@ func (v *MainnetVerifier) ConfirmedSpendable(ctx context.Context, network, addre
 		if err != nil {
 			continue
 		}
-		if normalized(tx.To) == address && amount >= exactLuna && tx.Confirmations >= 2 && tx.ExecutionResult && strings.EqualFold(tx.RecipientData, cashlinkFundingMarker) {
+		if normalized(tx.To) == address && amount >= exactLuna && tx.Confirmations >= 2 && tx.ExecutionResult && fundingMarker(tx.RecipientData) {
 			return true, nil
 		}
 	}
