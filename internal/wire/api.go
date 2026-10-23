@@ -87,6 +87,22 @@ func New(c Config) (*API, error) {
 	return &API{db: db, otp: otp, engine: c.Engine, mail: c.Mail, origin: strings.TrimSuffix(c.Origin, "/"), master: append([]byte(nil), c.Master...), unlock: unlock, now: time.Now}, nil
 }
 func (a *API) Close() { clear(a.master); a.unlock() }
+
+// USDTEngine is what the embedded engine offers when the USDC / USDT cashlinks run in the same process.
+type USDTEngine interface {
+	USDTReady() bool
+	USDTHandler() http.Handler
+	IssuerCall(ctx context.Context, method, path string, body []byte) (int, []byte, error)
+}
+
+// USDT returns the USDC / USDT engine, or nil when it is not configured.
+func (a *API) USDT() USDTEngine {
+	if e, ok := a.engine.(USDTEngine); ok && e.USDTReady() {
+		return e
+	}
+	return nil
+}
+
 func (a *API) Ready(ctx context.Context) bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()

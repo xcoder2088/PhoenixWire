@@ -441,25 +441,7 @@ func LegacyMain() {
 	mux.HandleFunc("/api/v1/claims/", s.handler)
 	mux.HandleFunc("/api/v1/evm/cards", s.evmIssuer)
 	mux.HandleFunc("/api/v1/evm/cards/", s.evmIssuer)
-	mux.HandleFunc("/api/v1/usdt/", func(w http.ResponseWriter, r *http.Request) {
-		if s.usdt == nil {
-			write(w, 503, map[string]string{"error": "usdt_unavailable"})
-			return
-		}
-		if r.URL.Path == "/api/v1/usdt/issuer/relayers" || strings.HasPrefix(r.URL.Path, "/api/v1/usdt/issuer/relayers/") {
-			s.usdt.relayers(s, w, r)
-			return
-		}
-		if r.URL.Path == "/api/v1/usdt/issuer/gas-status" {
-			s.usdt.gasStatus(s, w, r)
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, "/api/v1/usdt/issuer/cards") {
-			s.usdt.issuer(s, w, r)
-			return
-		}
-		s.usdt.browser(w, r)
-	})
+	mux.HandleFunc("/api/v1/usdt/", s.usdtRoutes)
 	files := http.FileServer(http.Dir("./web"))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
@@ -477,4 +459,26 @@ func LegacyMain() {
 	address := fmt.Sprintf("127.0.0.1:%d", n)
 	log.Printf("NimiqSecureClaim local Mainnet service at http://%s (OTP email sender: %t, issuer enabled: %t, encrypted vault configured: %t, encrypted OTP persistence: %t)", address, !console, len(s.creationKey) >= 32, s.escrow != nil && s.cashlinkVault != nil, s.otp.Durable())
 	log.Fatal(http.ListenAndServe(address, mux))
+}
+
+// usdtRoutes serves every /api/v1/usdt/ route: the recipient's browser routes and the issuer routes (X-Claim-Service-Key). The
+// standalone server and the embedded Wire engine share it.
+func (s *server) usdtRoutes(w http.ResponseWriter, r *http.Request) {
+	if s.usdt == nil {
+		write(w, 503, map[string]string{"error": "usdt_unavailable"})
+		return
+	}
+	if r.URL.Path == "/api/v1/usdt/issuer/relayers" || strings.HasPrefix(r.URL.Path, "/api/v1/usdt/issuer/relayers/") {
+		s.usdt.relayers(s, w, r)
+		return
+	}
+	if r.URL.Path == "/api/v1/usdt/issuer/gas-status" {
+		s.usdt.gasStatus(s, w, r)
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/api/v1/usdt/issuer/cards") {
+		s.usdt.issuer(s, w, r)
+		return
+	}
+	s.usdt.browser(w, r)
 }

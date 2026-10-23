@@ -7,6 +7,7 @@ import (
 	"github.com/xcoder2088/PhoenixWire/internal/wire"
 	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -31,7 +32,11 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 			ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
 			defer cancel()
 			ready := api.Ready(ctx)
-			writeJSON(w, 200, map[string]any{"mode": "integrated", "payments_enabled": ready, "email_enabled": true, "otp_enabled": true, "assets": []string{"NIM"}})
+			assetList := []string{"NIM"}
+			if api.USDT() != nil {
+				assetList = append(assetList, "USDC_POLYGON", "USDT_POLYGON", "USDT_ETHEREUM")
+			}
+			writeJSON(w, 200, map[string]any{"mode": "integrated", "payments_enabled": ready, "email_enabled": true, "otp_enabled": true, "assets": assetList})
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"mode": "preview", "payments_enabled": false, "email_enabled": false, "otp_enabled": false, "assets": []string{"NIM", "USDT_ETHEREUM", "USDT0_POLYGON"}})
@@ -46,12 +51,29 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"code": "payments_not_connected"})
 		})
 	}
+	// USDC / USDT cards: the recipient's routes of the engine are public; its issuer routes never are (the gateway reaches them in-process).
+	if api != nil && api.USDT() != nil {
+		usdt := api.USDT().USDTHandler()
+		mux.HandleFunc("/api/v1/usdt/", func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/api/v1/usdt/issuer") {
+				http.NotFound(w, r)
+				return
+			}
+			usdt.ServeHTTP(w, r)
+		})
+		serveClaimAssets(mux)
+	}
 	files, err := fs.Sub(assets, "static")
 	if err != nil {
 		panic(err)
 	}
 	static := http.FileServer(http.FS(files))
-	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+	// No method in the pattern: "GET /" would conflict with the method-less API patterns above (Go 1.22 mux) and stop the integrated server.
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		// An explicit allowlist prevents directory listings and SPA fallbacks on unknown APIs.
 		switch r.URL.Path {
 		case "/", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/card-mirror.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/design.css", "/brand/phoenix-wire.webp", "/brand/phoenix-emblem.webp", "/brand/nimiq-logo.svg", "/brand/usdt.svg":
@@ -61,10 +83,12 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 		}
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-src https://hub.nimiq.com; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'")
+		if !claimPaths[r.URL.Path] { // the claim page brings its own policy and camera permission (claim.go)
+			w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-src https://hub.nimiq.com; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'")
+			w.Header().Set("Referrer-Policy", "no-referrer")
+			w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("Referrer-Policy", "no-referrer")
-		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		w.Header().Set("Cache-Control", "no-store")
 		mux.ServeHTTP(w, r)
 	})

@@ -1,12 +1,18 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"net/http"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/xcoder2088/NimiqSecureClaim/internal/claim"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/escrow"
@@ -78,6 +84,23 @@ func New(c Config) (*Engine, error) {
 		return nil, err
 	}
 	s := &server{claims: claims, otp: manager, cashlinkVault: private, chainReady: func(ctx context.Context) bool { return verifier.NetworkReady(ctx) == nil }}
+	// USDC / USDT cashlinks run in the same process when the operator names the chains (NIMIQ_CLAIM_USDTLINK_CHAINS). Their keys
+	// (co-signer master, relayers) are generated in <state>/usdtlink and belong to Wire alone. The gateway reaches the issuer routes
+	// in-process with a key that exists only in this process's memory.
+	if strings.TrimSpace(os.Getenv("NIMIQ_CLAIM_USDTLINK_CHAINS")) != "" {
+		raw := make([]byte, 32)
+		if _, err := rand.Read(raw); err != nil {
+			secrets.Close()
+			return nil, err
+		}
+		s.creationKey = hex.EncodeToString(raw)
+		handler, err := setupUSDTLink(s, c.Directory)
+		if err != nil {
+			secrets.Close()
+			return nil, err
+		}
+		s.usdt = handler
+	}
 	ok = true
 	return &Engine{s, provision, unlock, secrets}, nil
 }
@@ -91,6 +114,30 @@ func (e *Engine) Confirm(ctx context.Context, id string) (bool, error) {
 	return e.provision.FundingConfirmed(ctx, id)
 }
 func (e *Engine) PublicHandler() http.Handler { return http.HandlerFunc(e.server.handler) }
+
+// USDTReady says whether the USDC / USDT cashlinks are running in this process.
+func (e *Engine) USDTReady() bool { return e.server.usdt != nil }
+
+// USDTHandler serves every /api/v1/usdt/ route (recipient routes and issuer routes). The gateway must expose only the recipient
+// routes to the public: the issuer routes need the in-process key below and are reached through IssuerCall.
+func (e *Engine) USDTHandler() http.Handler { return http.HandlerFunc(e.server.usdtRoutes) }
+
+// IssuerCall performs an issuer request in-process (create a card, read its status, cancel, refund, relayer balances...). It never
+// crosses the network and the key never leaves the process.
+func (e *Engine) IssuerCall(ctx context.Context, method, path string, body []byte) (int, []byte, error) {
+	if e.server.usdt == nil {
+		return 503, []byte(`{"error":"usdt_unavailable"}`), nil
+	}
+	req, err := http.NewRequestWithContext(ctx, method, path, bytes.NewReader(body))
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Claim-Service-Key", e.server.creationKey)
+	rec := httptest.NewRecorder()
+	e.server.usdtRoutes(rec, req)
+	return rec.Code, rec.Body.Bytes(), nil
+}
 func (e *Engine) Recovery(id string) (string, error) {
 	seed, err := e.server.cashlinkVault.Open(id)
 	if err != nil {
