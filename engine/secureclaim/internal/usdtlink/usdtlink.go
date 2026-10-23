@@ -167,6 +167,7 @@ type Record struct {
 	HeldAt       time.Time `json:"held_at,omitempty"`   // when Held was last read; zero: never read, so what the card holds is UNKNOWN
 	Cancelled    bool      `json:"cancelled,omitempty"`
 	ClaimTx      string    `json:"claim_tx,omitempty"`      // the confirmed payout to the recipient (kept when a later refund recovers a surplus)
+	ClaimedAt    time.Time `json:"claimed_at,omitempty"`    // when the block that holds that payout was mined; zero: not known (never made up from the time of a look)
 	Settled      uint64    `json:"settled,omitempty"`       // payouts of ours confirmed on chain: the Safe nonce we expect
 	SettledOther bool      `json:"settled_other,omitempty"` // the Safe nonce moved without any payout of ours
 	// Op is the one operation (claim or refund) in flight or last settled. It is written to disk BEFORE the transaction is
@@ -239,6 +240,9 @@ type Issuer struct {
 	Recovering   bool   `json:"recovering,omitempty"` // a refund is in flight, even if the card shows as paid
 	BalanceUnits uint64 `json:"balance_units"`        // what the card holds now, last read (a surplus or a late deposit is visible and refundable)
 	Stale        bool   `json:"stale,omitempty"`      // the chain could not be read: the state shown is the last known one
+	// ClaimedAt is when the recipient's payout was mined (the block's own timestamp), once that payout is confirmed and verified. A refund is
+	// never a claim; a card paid before this was kept has it filled in from the receipt of its payout, or not at all.
+	ClaimedAt *time.Time `json:"claimed_at,omitempty"`
 }
 
 // Input is a card to create.
@@ -784,6 +788,16 @@ func (s *Service) deepEnough(ctx context.Context, r *Record, op *Operation, rc c
 	return true, false, nil
 }
 
+// blockTime dates a block with its own timestamp. A node that cannot say gives the zero time (the date stays unknown), a node that
+// fails gives an error (the payout is settled on the next look, not now, so that its date is not lost).
+func (s *Service) blockTime(ctx context.Context, node chain.Chain, block uint64) (time.Time, error) {
+	bt, ok := node.(chain.BlockTimer)
+	if !ok {
+		return time.Time{}, nil
+	}
+	return bt.BlockTime(ctx, block)
+}
+
 // dropAfter is how long a transaction that never shows up on chain is given before the operation is released.
 const dropAfter = 2 * time.Hour
 
@@ -796,12 +810,21 @@ func (s *Service) refresh(ctx context.Context, r *Record) error {
 		return err
 	}
 	changed, paidNow := false, false
-	settle := func(op *Operation) { // a payout of ours is confirmed on chain: deep enough, and the right transfers
+	settle := func(op *Operation, at time.Time) { // a payout of ours is confirmed on chain: deep enough, and the right transfers
 		op.Done, changed = true, true
 		r.Settled++
 		if op.Kind == "claim" {
 			r.ClaimTx, paidNow = op.Tx, true
+			if !at.IsZero() {
+				r.ClaimedAt = at // the date of the block that holds the payout, not of this look
+			}
 		}
+	}
+	dateOf := func(op *Operation, rc chain.Receipt) (time.Time, error) {
+		if op.Kind != "claim" {
+			return time.Time{}, nil // a refund is not a claim: it gets no claim date
+		}
+		return s.blockTime(ctx, c.Node, rc.Block)
 	}
 	if op := r.Op; inFlight(r) {
 		switch {
@@ -822,7 +845,11 @@ func (s *Service) refresh(ctx context.Context, r *Record) error {
 					r.Anomaly, changed = "payout_transfers_not_found", true // succeeded on chain without the expected transfers: never "paid"
 				}
 				if done {
-					settle(op)
+					at, err := dateOf(op, rc)
+					if err != nil {
+						return err
+					}
+					settle(op, at)
 				}
 			case rc.Found:
 				op.Failed, changed = true, true // mined and reverted: nothing was paid
@@ -855,7 +882,11 @@ func (s *Service) refresh(ctx context.Context, r *Record) error {
 				i++
 				continue
 			}
-			settle(r.Late[i])
+			at, err := dateOf(r.Late[i], rc)
+			if err != nil {
+				return err
+			}
+			settle(r.Late[i], at)
 			r.Op = r.Late[i] // the late operation is the card's last one, whatever its kind
 			r.Late = append(r.Late[:i], r.Late[i+1:]...)
 			continue
@@ -866,6 +897,15 @@ func (s *Service) refresh(ctx context.Context, r *Record) error {
 			continue
 		}
 		i++
+	}
+	if r.ClaimTx != "" && r.ClaimedAt.IsZero() {
+		// A card paid before its date was kept: the receipt of its confirmed payout says in which block it was mined. If the node cannot say,
+		// the date stays unknown.
+		if rc, err := c.Node.Receipt(ctx, r.ClaimTx); err == nil && rc.Found && rc.Success {
+			if at, err := s.blockTime(ctx, c.Node, rc.Block); err == nil && !at.IsZero() {
+				r.ClaimedAt, changed = at, true
+			}
+		}
 	}
 	if (r.Op == nil || r.Op.Done || r.Op.Failed) && n > r.Settled && !r.SettledOther {
 		// The card executed a payout that we did not relay (a signature we issued, relayed elsewhere).
@@ -910,6 +950,10 @@ func (s *Service) Status(ctx context.Context, id string) (Issuer, error) {
 		in.BalanceUnits = bal.Uint64()
 	}
 	in.Public, in.Recipient, in.Stale, in.Recovering, in.Anomaly = s.public(r), r.Recipient, err != nil, inFlight(r) && r.Op.Kind == "refund", r.Anomaly // an unreadable chain is said, not hidden
+	if !r.ClaimedAt.IsZero() && r.ClaimTx != "" && r.Anomaly == "" {
+		at := r.ClaimedAt.UTC()
+		in.ClaimedAt = &at
+	}
 	return in, nil
 }
 

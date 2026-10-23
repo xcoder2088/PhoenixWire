@@ -70,6 +70,12 @@ type Chain interface {
 	Receipt(ctx context.Context, hash string) (Receipt, error)
 }
 
+// BlockTimer is what a caller needs to date an event: when a block was mined (the block's own timestamp, never the time of the
+// question). HTTP implements it; callers use it when the Chain they hold does, and leave the date unknown when it does not.
+type BlockTimer interface {
+	BlockTime(ctx context.Context, block uint64) (time.Time, error)
+}
+
 // HTTP talks JSON-RPC to public nodes of one chain.
 type HTTP struct {
 	id        uint64
@@ -302,6 +308,27 @@ func (c *HTTP) Send(ctx context.Context, raw []byte) error {
 		}
 	}
 	return err
+}
+
+// BlockTime is the timestamp of a mined block, in UTC. A block the node does not know, or a timestamp that makes no sense, is an error.
+func (c *HTTP) BlockTime(ctx context.Context, block uint64) (time.Time, error) {
+	raw, err := c.call(ctx, "eth_getBlockByNumber", "0x"+strconv.FormatUint(block, 16), false)
+	if err != nil {
+		return time.Time{}, err
+	}
+	var b struct {
+		Number    string `json:"number"`
+		Timestamp string `json:"timestamp"`
+	}
+	if string(raw) == "null" || json.Unmarshal(raw, &b) != nil {
+		return time.Time{}, ErrUnavailable
+	}
+	number, e1 := hexBig(json.RawMessage(strconv.Quote(b.Number)))
+	seconds, e2 := hexBig(json.RawMessage(strconv.Quote(b.Timestamp)))
+	if e1 != nil || e2 != nil || !number.IsUint64() || number.Uint64() != block || !seconds.IsInt64() || seconds.Int64() < 1_400_000_000 || seconds.Int64() > 1<<40 {
+		return time.Time{}, ErrUnavailable
+	}
+	return time.Unix(seconds.Int64(), 0).UTC(), nil
 }
 
 // Receipt reports whether a transaction is mined and whether it succeeded. A transaction not yet mined gives Found=false.

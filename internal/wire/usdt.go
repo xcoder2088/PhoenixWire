@@ -30,6 +30,9 @@ type usdtCard struct {
 	Created, LastInvite          time.Time
 	Invites                      int
 	Invited                      bool
+	// SentAt: the first invitation the mail service accepted (a resend keeps it). ClaimedAt: when the block that holds the confirmed payout
+	// to the recipient was mined, as the engine says it once. Both stay unset for what cannot be known: never made up.
+	SentAt, ClaimedAt *time.Time
 }
 
 type usdtInvite struct {
@@ -106,7 +109,14 @@ func (a *API) usdtServe(w http.ResponseWriter, r *http.Request, s session) {
 		list := []map[string]any{}
 		for _, c := range a.db.state.USDT {
 			if c.Sender == s.Email {
-				list = append(list, map[string]any{"id": c.ID, "asset": c.Asset, "chain": c.Chain, "symbol": c.Symbol, "amount": c.Amount, "recipient": c.Recipient, "message": c.Message, "created": c.Created, "invited": c.Invited, "safe": c.Safe})
+				row := map[string]any{"id": c.ID, "asset": c.Asset, "chain": c.Chain, "symbol": c.Symbol, "amount": c.Amount, "recipient": c.Recipient, "message": c.Message, "created": c.Created.UTC(), "invited": c.Invited, "safe": c.Safe}
+				if c.SentAt != nil { // dates are the owner's: this list is the sender's own, and a date that is not known is not shown
+					row["sent_at"] = c.SentAt.UTC()
+				}
+				if c.ClaimedAt != nil {
+					row["claimed_at"] = c.ClaimedAt.UTC()
+				}
+				list = append(list, row)
 			}
 		}
 		sort.Slice(list, func(i, j int) bool { return list[i]["created"].(time.Time).After(list[j]["created"].(time.Time)) })
@@ -224,7 +234,37 @@ func (a *API) usdtCardAction(w http.ResponseWriter, r *http.Request, engine USDT
 	}
 	switch action {
 	case "status":
-		call("/status", map[string]any{}, "state", "balance_units", "tx_hash", "tx_kind", "recovering", "stale")
+		out, status, code := engineAnswer(engine.IssuerCall(ctx, "POST", "/api/v1/usdt/issuer/cards/"+c.ID+"/status", []byte("{}")))
+		if code != "" {
+			failure(w, status, code)
+			return
+		}
+		pick := map[string]json.RawMessage{}
+		for _, k := range []string{"state", "balance_units", "tx_hash", "tx_kind", "recovering", "stale"} {
+			if v, ok := out[k]; ok {
+				pick[k] = v
+			}
+		}
+		// The claim date is the engine's: the timestamp of the block that holds the confirmed payout to the recipient. It is taken once, only
+		// for a card that is paid by a claim (a refund is not one), and kept: a later look never changes it.
+		if str(out, "state") == "paid" && str(out, "tx_kind") == "claim" {
+			if at, ok := a.blockDate(str(out, "claimed_at")); ok && c.ClaimedAt == nil {
+				prev := a.db.state.USDT[c.ID]
+				c.ClaimedAt = &at
+				a.db.state.USDT[c.ID] = c
+				if a.db.save() != nil { // not kept: the date is shown next time, never made up
+					a.db.state.USDT[c.ID] = prev
+					c.ClaimedAt = nil
+				}
+			}
+			if c.ClaimedAt != nil {
+				pick["claimed_at"], _ = json.Marshal(c.ClaimedAt.UTC())
+			}
+		}
+		if c.SentAt != nil {
+			pick["sent_at"], _ = json.Marshal(c.SentAt.UTC())
+		}
+		respond(w, 200, pick)
 	case "cancel":
 		call("/cancel", map[string]any{"sender_token": c.SenderToken}, "state")
 	case "refund":
@@ -299,6 +339,10 @@ func (a *API) usdtInvite(w http.ResponseWriter, r *http.Request, engine USDTEngi
 		return
 	}
 	c.Invited = true
+	if c.SentAt == nil {
+		sent := a.now().UTC()
+		c.SentAt = &sent
+	}
 	a.db.state.USDT[c.ID] = c
 	if a.db.save() != nil {
 		failure(w, 503, "state_unavailable")
@@ -308,3 +352,12 @@ func (a *API) usdtInvite(w http.ResponseWriter, r *http.Request, engine USDTEngi
 }
 
 var errUSDTMail = errors.New("email_delivery_unavailable")
+
+// blockDate reads a date the engine took from a block's own timestamp. Anything that is not a plausible past instant is not a date.
+func (a *API) blockDate(text string) (time.Time, bool) {
+	at, err := time.Parse(time.RFC3339, text)
+	if err != nil || at.Year() < 2024 || at.After(a.now().Add(time.Hour)) {
+		return time.Time{}, false
+	}
+	return at.UTC(), true
+}

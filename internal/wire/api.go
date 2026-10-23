@@ -87,7 +87,7 @@ func New(c Config) (*API, error) {
 		return nil, err
 	}
 	ok = true
-	return &API{db: db, otp: otp, engine: c.Engine, mail: c.Mail, origin: strings.TrimSuffix(c.Origin, "/"), master: append([]byte(nil), c.Master...), unlock: unlock, now: time.Now}, nil
+	return &API{db: db, otp: otp, engine: c.Engine, mail: c.Mail, origin: strings.TrimSuffix(c.Origin, "/"), master: append([]byte(nil), c.Master...), unlock: unlock, now: func() time.Time { return time.Now().UTC() }}, nil
 }
 func (a *API) Close() { clear(a.master); a.unlock() }
 
@@ -566,6 +566,10 @@ func (a *API) confirm(w http.ResponseWriter, r *http.Request, p payment, resend 
 		return
 	}
 	p.Stage = "sent"
+	if p.SentAt == nil { // the first success only: a resend does not move it
+		sent := a.now().UTC()
+		p.SentAt = &sent
+	}
 	if !a.savePayment(w, p) {
 		return
 	}

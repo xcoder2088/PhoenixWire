@@ -35,6 +35,8 @@ type fakeNode struct {
 	deep        *big.Int                // the balance at a deep block, when different from the latest
 	estimate    uint64                  // gas the node estimates for any call (0: it refuses, as a call that would revert)
 	failBalance bool                    // balanceOf calls fail (the node cannot be read)
+	times       map[uint64]time.Time    // when each block was mined (BlockTimer)
+	timeErr     error                   // the node cannot say when a block was mined
 }
 
 func (f *fakeNode) ChainID() uint64 { return 137 }
@@ -75,6 +77,15 @@ func (f *fakeNode) CallAt(_ context.Context, _, _ cl.Address, _ []byte, _ uint64
 func (f *fakeNode) Receipt(_ context.Context, h string) (chain.Receipt, error) {
 	return f.receipts[h], nil
 }
+func (f *fakeNode) BlockTime(_ context.Context, block uint64) (time.Time, error) {
+	if f.timeErr != nil {
+		return time.Time{}, f.timeErr
+	}
+	return f.times[block], nil
+}
+
+// plainNode is a node that cannot say when a block was mined (no BlockTimer).
+type plainNode struct{ chain.Chain }
 
 // fakeCodes stands for the e-mail code manager: the right code is always 123456, and it remembers who was mailed.
 type fakeCodes struct {
@@ -1537,5 +1548,138 @@ func TestAPruneThatCannotBeWrittenIsRetried(t *testing.T) {
 	raw, _ = os.ReadFile(filepath.Join(s.dir, "auths.json"))
 	if strings.Contains(string(raw), "grant_hash") || s.authsDirty {
 		t.Fatalf("the retry did not rewrite the file (dirty %v)", s.authsDirty)
+	}
+}
+
+func claimedAtOf(t *testing.T, s *Service, id string) *time.Time {
+	t.Helper()
+	in, err := s.Status(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return in.ClaimedAt
+}
+
+// The claim date is the timestamp of the block that holds the confirmed payout: not the time of the look, never invented.
+func TestClaimDateIsTheBlockTimeOfTheConfirmedPayout(t *testing.T) {
+	s, node := newService(t)
+	c := newCard(t, s)
+	ctx := context.Background()
+	mined := time.Date(2026, 10, 23, 14, 5, 9, 0, time.UTC)
+	node.times = map[uint64]time.Time{100: mined, 101: mined.Add(time.Hour)}
+	node.balance = big.NewInt(int64(c.Units + c.FeeUnits))
+	_, _ = s.Refresh(ctx, c.ID)
+	if claimedAtOf(t, s, c.ID) != nil {
+		t.Fatal("no claim date before any claim")
+	}
+	// a payout that was sent but is not confirmed (no receipt yet): no date
+	s.mu.Lock()
+	s.records[c.ID].Op = &Operation{Kind: "claim", To: dest1, Units: c.Units, Tx: "0xclaim", Started: s.now()}
+	s.mu.Unlock()
+	if claimedAtOf(t, s, c.ID) != nil {
+		t.Fatal("a payout that is not mined has no date")
+	}
+	// mined but without the transfers it must make: an anomaly is never a claim
+	node.nonce = 1
+	node.receipts["0xclaim"] = chain.Receipt{Found: true, Success: true, Block: 100}
+	if claimedAtOf(t, s, c.ID) != nil {
+		t.Fatal("an anomaly is never a claim")
+	}
+	s.mu.Lock()
+	s.records[c.ID].Anomaly = ""
+	s.mu.Unlock()
+	// mined and reverted: nothing was paid
+	node.receipts["0xclaim"] = chain.Receipt{Found: true, Success: false, Block: 100}
+	if claimedAtOf(t, s, c.ID) != nil {
+		t.Fatal("a reverted payout has no date")
+	}
+	// confirmed: the date is the block's, whatever the clock says now
+	s.mu.Lock()
+	s.records[c.ID].Op = &Operation{Kind: "claim", To: dest1, Units: c.Units, Tx: "0xclaim", Started: s.now()}
+	s.records[c.ID].Anomaly = ""
+	s.mu.Unlock()
+	node.receipts["0xclaim"] = payoutReceipt(c, dest1, c.Units, 100)
+	node.nonce, node.balance = 1, big.NewInt(0)
+	at := claimedAtOf(t, s, c.ID)
+	if at == nil || !at.Equal(mined) || at.Location() != time.UTC {
+		t.Fatalf("claimed_at = %v, want %v (UTC)", at, mined)
+	}
+	// it is kept: a later look, with the block's time now unknown, changes nothing
+	node.timeErr = errors.New("rpc down")
+	if again := claimedAtOf(t, s, c.ID); again == nil || !again.Equal(mined) {
+		t.Fatalf("the date must be stable: %v", again)
+	}
+}
+
+func TestClaimDateIsNotLostWhenTheNodeCannotDateTheBlockYet(t *testing.T) {
+	s, node := newService(t)
+	c := newCard(t, s)
+	ctx := context.Background()
+	node.balance = big.NewInt(int64(c.Units + c.FeeUnits))
+	_, _ = s.Refresh(ctx, c.ID)
+	s.mu.Lock()
+	s.records[c.ID].Op = &Operation{Kind: "claim", To: dest1, Units: c.Units, Tx: "0xclaim", Started: s.now()}
+	s.mu.Unlock()
+	node.receipts["0xclaim"] = payoutReceipt(c, dest1, c.Units, 100)
+	node.nonce, node.balance = 1, big.NewInt(0)
+	node.timeErr = errors.New("rpc down")
+	if in, _ := s.Status(ctx, c.ID); in.State == StatePaid || in.ClaimedAt != nil || !in.Stale {
+		t.Fatalf("not settled while its date cannot be read, and said so: %+v", in)
+	}
+	mined := time.Date(2026, 10, 23, 15, 0, 0, 0, time.UTC)
+	node.timeErr, node.times = nil, map[uint64]time.Time{100: mined}
+	if in, _ := s.Status(ctx, c.ID); in.State != StatePaid || in.ClaimedAt == nil || !in.ClaimedAt.Equal(mined) {
+		t.Fatalf("settled with its date once the node can say: %+v", in)
+	}
+}
+
+// A refund is not a claim; a card paid before the date was kept gets it from the receipt of its payout, or stays without.
+func TestRefundIsNotAClaimAndOldCardsAreNotInvented(t *testing.T) {
+	s, node := newService(t)
+	c := newCard(t, s)
+	ctx := context.Background()
+	mined := time.Date(2026, 10, 22, 20, 0, 0, 0, time.UTC)
+	node.times = map[uint64]time.Time{100: mined}
+	node.balance = big.NewInt(int64(c.Units + c.FeeUnits))
+	_, _ = s.Refresh(ctx, c.ID)
+	s.mu.Lock()
+	s.records[c.ID].Op = &Operation{Kind: "refund", To: dest2, Units: c.Units, Tx: "0xrefund", Started: s.now()}
+	s.mu.Unlock()
+	node.nonce = 1
+	node.receipts["0xrefund"] = payoutReceipt(c, dest2, c.Units, 100)
+	node.balance = big.NewInt(0)
+	if claimedAtOf(t, s, c.ID) != nil {
+		t.Fatal("a refund must not become a claim")
+	}
+	// an old card: paid (claim_tx kept) with no date. The receipt of that payout dates it.
+	old := newCard(t, s)
+	node.balance = big.NewInt(int64(old.Units + old.FeeUnits))
+	_, _ = s.Refresh(ctx, old.ID)
+	s.mu.Lock()
+	s.records[old.ID].ClaimTx = "0xold"
+	s.records[old.ID].Op = &Operation{Kind: "claim", To: dest1, Units: old.Units, Tx: "0xold", Done: true}
+	s.records[old.ID].Settled = 1
+	s.mu.Unlock()
+	node.nonce, node.balance = 1, big.NewInt(0)
+	node.receipts["0xold"] = payoutReceipt(old, dest1, old.Units, 100)
+	if at := claimedAtOf(t, s, old.ID); at == nil || !at.Equal(mined) {
+		t.Fatalf("an old card is dated from its receipt: %v", at)
+	}
+	// an old card whose node cannot date blocks: no date, nothing invented
+	older := newCard(t, s)
+	node.balance = big.NewInt(int64(older.Units + older.FeeUnits))
+	_, _ = s.Refresh(ctx, older.ID)
+	s.mu.Lock()
+	s.records[older.ID].ClaimTx = "0xolder"
+	s.records[older.ID].Op = &Operation{Kind: "claim", To: dest1, Units: older.Units, Tx: "0xolder", Done: true}
+	s.records[older.ID].Settled = 1
+	s.mu.Unlock()
+	node.receipts["0xolder"] = payoutReceipt(older, dest1, older.Units, 100)
+	node.balance = big.NewInt(0)
+	chainCfg := s.chains[evm.AssetUSDTPolygon]
+	chainCfg.Node = plainNode{node}
+	s.chains[evm.AssetUSDTPolygon] = chainCfg
+	if at := claimedAtOf(t, s, older.ID); at != nil {
+		t.Fatalf("no date when the node cannot say: %v", at)
 	}
 }

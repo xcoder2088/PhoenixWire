@@ -21,19 +21,22 @@ type session struct {
 	Expires  time.Time
 }
 type payment struct {
-	ID           string    `json:"id"`
-	Sender       string    `json:"sender"`
-	Recipient    string    `json:"recipient"`
-	Amount       string    `json:"amount"`
-	Luna         uint64    `json:"luna"`
-	Message      string    `json:"message"`
-	Language     string    `json:"language"`
-	Address      string    `json:"address"`
-	Stage        string    `json:"stage"`
-	Created      time.Time `json:"created"`
-	LastDelivery time.Time `json:"-"`
-	Deliveries   int       `json:"-"`
-	Nimicon      string    `json:"-"`
+	ID        string    `json:"id"`
+	Sender    string    `json:"sender"`
+	Recipient string    `json:"recipient"`
+	Amount    string    `json:"amount"`
+	Luna      uint64    `json:"luna"`
+	Message   string    `json:"message"`
+	Language  string    `json:"language"`
+	Address   string    `json:"address"`
+	Stage     string    `json:"stage"`
+	Created   time.Time `json:"created"`
+	// SentAt is when the first invitation was accepted by the mail service; a failed attempt gives none, a resend never replaces it,
+	// and a card that was sent before this was kept has none (it is not made up).
+	SentAt       *time.Time `json:"sent_at,omitempty"`
+	LastDelivery time.Time  `json:"-"`
+	Deliveries   int        `json:"-"`
+	Nimicon      string     `json:"-"`
 }
 
 // Internal snapshot fields for delivery counters must persist across restart.
