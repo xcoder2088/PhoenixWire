@@ -50,7 +50,7 @@ html{height:auto!important;min-height:100%;overflow-x:hidden!important;overflow-
 html.wire-app[data-theme="dark"]{color-scheme:dark;--bg:#10141e;--panel:#141925;--panel2:#202637;--line:#41495d;--text:#f0f2f8;--muted:#a8b0bf;--accent:#ff8a1f;--accent-soft:var(--panel2)}
 html.wire-app[data-theme="light-paper"]{color-scheme:light;--bg:#f3f4f6;--panel:#fff;--panel2:#f0f2f6;--line:#ccd2dd;--text:#202938;--muted:#455165;--accent:#bc4c11;--accent-soft:var(--panel2)}
 /* Wire's original three palettes, mapped to the payment window's variable names. */
-html.wire-app[data-theme="dark"][data-palette="phoenixfire"]{--bg:#15131b;--panel:#1d1a24;--panel2:#272130;--line:#3b3044;--accent:#ffb16b}
+html.wire-app[data-theme="dark"][data-palette="phoenixfire"]{--bg:#121416;--panel:#1b1e22;--panel2:#272b30;--line:#454b53;--accent:#ffb16b}
 html.wire-app[data-theme="dark"][data-palette="aurora"]{--bg:#11121e;--panel:#1b1b2d;--panel2:#25253e;--line:#353750;--accent:#b6a0ff}
 html.wire-app[data-theme="dark"][data-palette="ocean"]{--bg:#10191f;--panel:#172630;--panel2:#203544;--line:#304959;--accent:#6dd8e6}
 html.wire-app[data-theme="light-paper"][data-palette="phoenixfire"]{--bg:#f3d4bf;--panel:#fff9f3;--panel2:#f7e2d1;--line:#ac7455;--accent:#aa3d08}
@@ -157,3 +157,16 @@ body.wire-body{background:var(--bg);color:var(--text)}
 .wire-nim-summary #feedback{overflow-wrap:anywhere;}
 .wire-nim-prepared .wire-nim-summary>button{max-width:100%;min-height:44px;white-space:normal;}
 #wire-handoff-home{overflow-wrap:anywhere;}
+
+#nim-wallet-failure{flex-basis:100%;width:100%;min-width:0;box-sizing:border-box;}
+#nim-wallet-detail{font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;text-align:left;max-width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;}
+#nim-wallet-detail-label,#nim-wallet-close-note,#nim-wallet-wait{font-size:14px;line-height:1.5;overflow-wrap:anywhere;}
+#nim-wallet-failure button{max-width:100%;white-space:normal;min-height:44px;margin:6px;}
+.wire-nim-progress:has(#nim-wallet-failure:not([hidden])){position:static;align-items:stretch;}
+
+/* Phoenix keeps its orange outline; neutral button surfaces avoid a brown cast. */
+html.wire-app[data-palette="phoenixfire"][data-theme="dark"]{--wire-button-bg:#1b1e22;--wire-button-hover:#272b30;}
+html.wire-app[data-palette="phoenixfire"][data-theme="light-paper"]{--wire-button-bg:#ffffff;--wire-button-hover:#eef1f5;}
+html[data-palette="phoenixfire"] .wire-body button,html[data-palette="phoenixfire"] .wire-wallet-choice a{background:var(--wire-button-bg);background-image:none;}
+html[data-palette="phoenixfire"] .wire-body button:hover:not(:disabled),html[data-palette="phoenixfire"] .wire-wallet-choice a:hover{background:var(--wire-button-hover);}
+#wire-choice-get{margin-top:24px;font-size:16px;}

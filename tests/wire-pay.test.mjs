@@ -32,7 +32,7 @@ function fakeClock(window){
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
 const handoffToken='Q'.repeat(43);
 const handoffDraft={recipient:'friend@example.test',amount:'2.5',message:'Bonjour 🐦',language:'fr'};
-async function start({ handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
+async function start({nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
   const dom = new JSDOM(read('../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
@@ -51,6 +51,7 @@ async function start({ handoffStatus=200,redeemStatus=200,redeemDraft=handoffDra
   let currentSession=session,codeFails=false,heldCode=null,logoutFails=false;
   const owned=JSON.parse(JSON.stringify(serverCards));let failStatus=false;
   window.confirm = message => { confirmations.push(message); return true; };
+  let nativeActive=0,maxNativeActive=0;
   let fundingVisible = !nativeMode && Boolean(nimPending || returning || nimStage && nimStage!=='ready');
   if(nativeMode){
     window.nimiqPay={network,language:'en'};
@@ -60,14 +61,19 @@ async function start({ handoffStatus=200,redeemStatus=200,redeemDraft=handoffDra
       nativeCalls.push({request,hex:Buffer.from(encoded).toString('hex')});
       assert.equal(request.data, '\u0000\u0082\u0080\u0092\u0087');
       assert.equal(Buffer.from(encoded).toString('hex'), '00c282c280c292c287');
-      if(nativeMode==='denied')throw {type:'PERMISSION_DENIED',code:4001};
-      if(nativeMode==='legacy-denied')return {error:{type:'PERMISSION_DENIED'}};
-      fundingVisible=nativeMode==='success'||nativeMode==='error-after-send';
-      if(nativeMode==='error'||nativeMode==='error-after-send')throw {type:'NETWORK_ERROR'};
+      const outcome=nativeResults[nativeCalls.length-1]||nativeMode;
+      nativeActive++;maxNativeActive=Math.max(maxNativeActive,nativeActive);
+      try{
+      if(holdNative&&nativeCalls.length===holdNativeAt)await new Promise(resolve=>{holdNative.release=resolve;});
+      if(outcome==='denied')throw {type:'PERMISSION_DENIED',code:4001};
+      if(outcome==='legacy-denied')return {error:{type:'PERMISSION_DENIED'}};
+      fundingVisible=outcome==='success'||outcome==='error-after-send';
+      if(outcome==='error'||outcome==='error-after-send')throw nativeError||{type:'NETWORK_ERROR'};
       return 'b'.repeat(64);
+      }finally{nativeActive--;}
     }};
   }
-  const nim = { id: 'a'.repeat(48), sender: 'sender@example.test', recipient: 'friend@example.test', amount: '2.5', luna: 250000, message: 'Hi', address: 'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY', stage: nimStage || (nimPending || returning ? 'funding_started' : 'ready'),created:new window.Date(window.Date.now()-createdAgo).toISOString() };
+  const nim = { id: 'a'.repeat(48), sender: 'sender@example.test', recipient: 'friend@example.test', amount: '2.5', luna: 250000, message: 'Hi', address: 'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY', started_at:new window.Date(window.Date.now()-startedAgo).toISOString(),stage: nimStage || (nimPending || returning ? 'funding_started' : 'ready'),created:new window.Date(window.Date.now()-createdAgo).toISOString() };
   let nimPayments = nimPending || returning || nimStage || session.handoff ? [nim] : [],holdConfirm=null,activeConfirms=0,maxConfirms=0,mailFails=false,readsFail=false;
   if (returning) window.sessionStorage.setItem('wire-pending-payment', nim.id);
   window.PhoenixNimiqIdenticons = { async png() { return 'fixture-artwork'; }, paint() {} };
@@ -102,7 +108,7 @@ async function start({ handoffStatus=200,redeemStatus=200,redeemDraft=handoffDra
     }
     if(currentSession.handoff?.payment_id){
       const id=currentSession.handoff.payment_id;
-      if(!['/api/config','/api/session','/api/logout','/api/payments'].includes(path)&&!['art','start','confirm','resend'].some(action=>path==='/api/payments/'+id+'/'+action))return answer(403,{code:'handoff_scope'});
+      if(!['/api/config','/api/session','/api/logout','/api/payments'].includes(path)&&!['art','start','checkout','confirm','resend'].some(action=>path==='/api/payments/'+id+'/'+action))return answer(403,{code:'handoff_scope'});
       if(path==='/api/payments'&&options.method)return answer(403,{code:'handoff_scope'});
     }
     if (path === '/api/config') return answer(200, { mode: 'integrated', payments_enabled: true, assets: nimOnly ? ['NIM'] : ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM'] });
@@ -111,7 +117,14 @@ async function start({ handoffStatus=200,redeemStatus=200,redeemDraft=handoffDra
     if (path === '/api/payments' && !options.method) return readsFail?answer(503,{code:'chain_unavailable'}):answer(200, { payments: nimPayments });
     if (path === '/api/payments') {Object.assign(nim,{recipient:body.recipient,amount:body.amount,message:body.message,language:body.language});nimPayments = [nim];return answer(201, { payment: nim }); }
     if (path.endsWith('/art')) return answer(200, { saved: true });
-    if (path.endsWith('/start')) {if(startRace){nim.stage='funding_started';fundingVisible=true;return answer(409,{code:'funding_already_started'});}if(nim.stage!=='ready')return answer(409,{code:'funding_already_started'});nim.stage = 'funding_started'; return answer(200, { payment: nim, checkout: { appName: 'Phoenix Wire', recipient: nim.address, value: nim.luna, recipientData: rawMarker } }); }
+    if (path.endsWith('/start')) {if(startRace){nim.stage='funding_started';fundingVisible=true;return answer(409,{code:'funding_already_started'});}if(nim.stage!=='ready')return answer(409,{code:'funding_already_started'});nim.stage = 'funding_started';nim.started_at=new window.Date().toISOString(); return answer(200, { payment: nim, checkout: { appName: 'Phoenix Wire', recipient: nim.address, value: nim.luna, recipientData: rawMarker } }); }
+    if(path.endsWith('/checkout')){
+      if(checkoutCode){if(checkoutCode==='already_funded')fundingVisible=true;if(checkoutCode==='funding_not_started')nim.stage='ready';return answer(checkoutError,{code:checkoutCode});}
+      if(nim.stage!=='funding_started')return answer(409,{code:'funding_not_started'});
+      if(window.Date.now()-Date.parse(nim.started_at)<180000)return answer(409,{code:'retry_too_soon'});
+      if(fundingVisible)return answer(409,{code:'already_funded'});
+      return answer(200,{payment:nim,checkout:{appName:'Phoenix Wire',recipient:nim.address,value:nim.luna,recipientData:rawMarker}});
+    }
     if (path.endsWith('/confirm')) {
       activeConfirms++;maxConfirms=Math.max(maxConfirms,activeConfirms);
       try{
@@ -164,7 +177,7 @@ async function start({ handoffStatus=200,redeemStatus=200,redeemDraft=handoffDra
     fundOnChain(){fundingVisible=true;},setStage(stage){nim.stage=stage;},failMail(value){mailFails=value;},failReads(value){readsFail=value;},holdNextConfirm(){const held={};holdConfirm=held;return held;},maxConfirms:()=>maxConfirms,
     failCode(value){codeFails=value;},holdCode(){const held={};heldCode=held;return held;},
     failLogout(value){logoutFails=value;},
-    opened,consoleMessages,redeemHashes,
+    opened,consoleMessages,redeemHashes,maxNativeActive:()=>maxNativeActive,
     snapshot(){return Object.fromEntries(Object.keys(window.sessionStorage).map(k=>[k,window.sessionStorage.getItem(k)]));},
     snapshotLocal(){return Object.fromEntries(Object.keys(window.localStorage).map(k=>[k,window.localStorage.getItem(k)]));},serverCards:owned,failCardStatus(value){failStatus=value;}};
 }
@@ -360,7 +373,7 @@ test('the theme button selects a supported light palette, keeps its preference a
   const style = t.doc.createElement('style'); style.textContent = read('../internal/web/static/wire-pay.css'); t.doc.head.append(style);
   assert.equal(t.window.getComputedStyle(t.doc.documentElement).getPropertyValue('--panel').trim(), '#fff9f3');
   t.$('wire-theme').click();
-  assert.equal(t.window.getComputedStyle(t.doc.documentElement).getPropertyValue('--panel').trim(), '#1d1a24');
+  assert.equal(t.window.getComputedStyle(t.doc.documentElement).getPropertyValue('--panel').trim(), '#1b1e22');
 });
 
 test('NIM cannot be opened before sender confirmation and does not ask again afterward', async () => {
@@ -417,11 +430,11 @@ test('wallet choice precedes card creation, stays retryable after opening Pay an
 test('wallet choice has all four actions in the five languages and Escape preserves the NIM form',async()=>{
   const t=await start({nimOnly:true});await submitNim(t);
   const expected={
-    fr:['J’ai déjà Nimiq Pay','Obtenir Nimiq Pay','Utiliser le portefeuille Nimiq (Hub)','Annuler'],
-    en:['I already have Nimiq Pay','Get Nimiq Pay','Use the Nimiq wallet (Hub)','Cancel'],
-    es:['Ya tengo Nimiq Pay','Obtener Nimiq Pay','Usar la cartera Nimiq (Hub)','Cancelar'],
-    de:['Ich habe bereits Nimiq Pay','Nimiq Pay herunterladen','Nimiq Wallet (Hub) verwenden','Abbrechen'],
-    zh:['我已安装 Nimiq Pay','获取 Nimiq Pay','使用 Nimiq 钱包（Hub）','取消']
+    fr:['Payer avec Nimiq Pay','Obtenir Nimiq Pay','Portefeuille Nimiq','Annuler'],
+    en:['Pay with Nimiq Pay','Get Nimiq Pay','Nimiq Wallet','Cancel'],
+    es:['Pagar con Nimiq Pay','Obtener Nimiq Pay','Cartera Nimiq','Cancelar'],
+    de:['Mit Nimiq Pay bezahlen','Nimiq Pay herunterladen','Nimiq Wallet','Abbrechen'],
+    zh:['使用 Nimiq Pay 付款','获取 Nimiq Pay','Nimiq 钱包','取消']
   };
   for(const [lang,labels]of Object.entries(expected)){
     t.$('wire-language').value=lang;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
@@ -487,7 +500,8 @@ test('native refusal, including the legacy error envelope, is cancellation witho
 });
 
 test('native errors check funding before offering Hub, then reuse the same card and original raw Hub marker',async()=>{
-  const t=await start({nimOnly:true,nativeMode:'error'});await submitNim(t);
+  const t=await start({nimOnly:true,nativeMode:'error',clocked:true});await submitNim(t);
+  await t.clock.advance(180000);
   assert.ok(t.calls.some(([p])=>p.endsWith('/confirm')));assert.equal(t.checkouts.length,0);
   const fallback=t.doc.querySelector('.wire-nim-hub-fallback');assert.equal(fallback.hidden,false);
   fallback.click();await settle();
@@ -884,7 +898,7 @@ test('PhoenixFire, Aurora and Ocean are available, persist across visits and rem
  const invalid=await start({local:{'wire-palette':'unknown'}});assert.equal(invalid.$('wire-palette').value,'phoenixfire');
 });
 
-test('the restored palette selector is localized and dark palettes retain original colours, while light palettes have stronger contrast',async()=>{
+test('palette selector is localized, Phoenix dark is charcoal, and Aurora/Ocean retain their original dark colours',async()=>{
  const t=await start();
  for(const[language,label,ocean]of [['fr','Thème','Océan'],['en','Theme','Ocean'],['es','Tema','Océano'],['de','Design','Ozean'],['zh','主题','海洋']]){
   t.$('wire-language').value=language;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
@@ -895,6 +909,10 @@ test('the restored palette selector is localized and dark palettes retain origin
  for(const theme of ['dark'])for(const palette of ['phoenixfire','aurora','ocean']){
   const restored=[...style.sheet.cssRules].find(r=>r.selectorText===`html.wire-app[data-theme="${theme}"][data-palette="${palette}"]`);
   const old=[...original.sheet.cssRules].find(r=>r.selectorText===(theme==='dark'?`:root[data-palette=${palette}]`:`:root[data-theme=light][data-palette=${palette}]`));
+  if(palette==='phoenixfire'){
+   for(const[token,value]of Object.entries({'--bg':'#121416','--panel':'#1b1e22','--panel2':'#272b30','--line':'#454b53','--accent':'#ffb16b'}))assert.equal(restored.style.getPropertyValue(token),value);
+   continue;
+  }
   for(const token of ['--bg','--panel','--line','--accent'])assert.equal(restored.style.getPropertyValue(token),old.style.getPropertyValue(token));
   assert.equal(restored.style.getPropertyValue('--panel2'),old.style.getPropertyValue('--field'));
  }
@@ -1163,6 +1181,121 @@ test('prepared card native refusal is cancellation without a second start, and n
   }else{assert.equal(app.nativeCalls.length,0);assert.equal(app.checkouts.length,1);}
   assert.equal(app.calls.filter(([p])=>p.endsWith('/start')).length,1);
  }
+});
+
+async function failedNative(options={}){
+ const app=await start({nativeMode:'error',clocked:true,url:'https://wire.phoenixmail.ca/#h='+handoffToken,...options});
+ app.$('nim-handoff-pay').click();await settle();return app;
+}
+
+test('native diagnostic exposes type/code/message as copyable text and logs only the redacted diagnostic',async()=>{
+ const message='Control character \u0000 is not allowed; friend@example.test sender@example.test NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY https://example.test/#secret '+handoffToken+' Bonjour 🐦 amount 2.5';
+ const app=await failedNative({nativeError:{type:'INVALID_DATA',code:'BAD_DATA',message},width:375});
+ const detail=app.$('nim-wallet-detail').textContent;
+ assert.match(detail,/type=INVALID_DATA/);assert.match(detail,/code=BAD_DATA/);assert.match(detail,/message=Control character \\u0000 is not allowed/);
+ for(const secret of ['friend@example.test','sender@example.test','NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY','https://example.test',handoffToken,'Bonjour 🐦','2.5'])assert.ok(!detail.includes(secret),secret);
+ assert.deepEqual(app.consoleMessages,[['Nimiq Pay request failed:',detail]]);
+ const copies=[];Object.defineProperty(app.window.navigator,'clipboard',{value:{async writeText(text){copies.push(text);}},configurable:true});
+ app.$('nim-wallet-copy').click();await settle();assert.deepEqual(copies,[detail]);
+ assert.equal(app.$('nim-wallet-failure').hidden,false);assert.equal(app.$('nim-wallet-retry').hidden,false);
+ assert.equal(app.$('nim-progress-close').hidden,false);
+ assert.equal(app.nativeCalls[0].request.data,'\u0000\u0082\u0080\u0092\u0087');
+ for(const store of [app.snapshot(),app.snapshotLocal()])assert.ok(!JSON.stringify(store).includes('INVALID_DATA'));
+ const css=read('../internal/web/static/wire-pay.css');assert.match(css,/#nim-wallet-detail\{[^}]*white-space:pre-wrap[^}]*overflow-wrap:anywhere/);
+});
+
+test('native retry waits from server started_at, counts down, and only pays on an explicit click after three minutes',async()=>{
+ const app=await failedNative({nativeResults:['error','success'],createdAgo:7200000});
+ assert.match(app.$('nim-progress-message').textContent,/22 h/);
+ await app.clock.advance(30000);const before=app.calls.length;
+ app.$('nim-wallet-retry').click();await settle();
+ assert.equal(app.nativeCalls.length,1);assert.match(app.$('nim-wallet-wait').textContent,/2:30/);assert.equal(app.$('nim-wallet-retry').disabled,true);
+ const after=app.calls.slice(before);assert.ok(after.findIndex(([p])=>p.endsWith('/confirm'))<after.findIndex(([p])=>p.endsWith('/checkout')));
+ await app.clock.advance(1000);assert.match(app.$('nim-wallet-wait').textContent,/2:29/);
+ await app.clock.advance(149000);assert.equal(app.$('nim-wallet-retry').disabled,false);assert.equal(app.nativeCalls.length,1,'the timer must never pay');
+ app.$('nim-wallet-retry').click();await settle();
+ assert.equal(app.nativeCalls.length,2);assert.equal(app.nativeCalls[1].hex,'00c282c280c292c287');
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/start')).length,1);
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/checkout')).length,2);
+ assert.equal(app.$('nim-progress-close').hidden,false);assert.match(app.$('nim-progress-message').textContent,/Carte envoyée/);
+});
+
+test('already_funded after a pending confirmation follows the card and never opens a second wallet',async()=>{
+ const app=await failedNative({checkoutCode:'already_funded'});
+ app.$('nim-wallet-retry').click();await settle();
+ assert.equal(app.nativeCalls.length,1);assert.equal(app.checkouts.length,0);
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/checkout')).length,1);
+ assert.match(app.$('nim-progress-message').textContent,/Carte envoyée/);
+ assert.equal(app.$('nim-wallet-failure').hidden,true);
+});
+
+test('funding received after native error is tracked normally, without displaying an unpaid state or a retry',async()=>{
+ const app=await start({nativeMode:'error-after-send',clocked:true,url:'https://wire.phoenixmail.ca/#h='+handoffToken});
+ app.$('nim-handoff-pay').click();await settle();
+ assert.equal(app.nativeCalls.length,1);assert.equal(app.$('nim-wallet-failure').hidden,true);
+ assert.match(app.$('nim-progress-message').textContent,/Carte envoyée/);
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/checkout')).length,0);
+});
+
+test('repeat retry, form and pay clicks cannot overlap native wallet requests',async()=>{
+ const gate={},app=await failedNative({nativeResults:['error','success'],holdNative:gate,holdNativeAt:2});
+ await app.clock.advance(180000);app.$('nim-wallet-retry').click();await settle();
+ assert.equal(app.nativeCalls.length,2);
+ for(let i=0;i<5;i++){app.$('nim-wallet-retry').click();app.$('nim-handoff-pay').click();app.$('card-form').dispatchEvent(new app.window.Event('submit',{cancelable:true}));}
+ await settle();assert.equal(app.nativeCalls.length,2);assert.equal(app.maxNativeActive(),1);
+ gate.release();await settle();assert.equal(app.nativeCalls.length,2);assert.equal(app.maxNativeActive(),1);
+});
+
+test('retry handles never-started and expired checkouts, and fails closed when the chain cannot be read',async()=>{
+ const unstarted=await failedNative({checkoutCode:'funding_not_started',nativeResults:['error','success']});
+ unstarted.$('nim-wallet-retry').click();await settle();assert.equal(unstarted.nativeCalls.length,2);
+ assert.equal(unstarted.calls.filter(([p])=>p.endsWith('/start')).length,2);assert.equal(unstarted.calls.filter(([p,b])=>p==='/api/payments'&&b).length,0);
+ const expired=await failedNative({checkoutCode:'claim_expired',checkoutError:410});expired.$('nim-wallet-retry').click();await settle();
+ assert.equal(expired.nativeCalls.length,1);assert.equal(expired.$('nim-wallet-retry').hidden,true);assert.match(expired.$('nim-progress-message').textContent,/Carte expirée/);
+ const offline=await failedNative();offline.failReads(true);offline.$('nim-wallet-retry').click();await settle();
+ assert.equal(offline.nativeCalls.length,1);assert.equal(offline.calls.filter(([p])=>p.endsWith('/checkout')).length,0);
+ assert.match(offline.$('nim-progress-message').textContent,/Impossible de confirmer/);
+});
+
+test('native failure state, retry, copy and close explanation are translated in all five languages',async()=>{
+ const expected={fr:['Pas encore payée','Réessayer le paiement','Tu peux fermer'],en:['Not yet paid','Retry payment','You can close'],es:['Aún no pagada','Reintentar el pago','Puedes cerrar'],de:['noch nicht bezahlt','Zahlung erneut versuchen','Du kannst schließen'],zh:['尚未付款','重试付款','你可以关闭']};
+ for(const [language,labels]of Object.entries(expected)){
+  const app=await failedNative({redeemDraft:{...handoffDraft,language}});
+  assert.ok(app.$('nim-progress-message').textContent.includes(labels[0]));assert.equal(app.$('nim-wallet-retry').textContent,labels[1]);
+  assert.ok(app.$('nim-wallet-close-note').textContent.includes(labels[2]));assert.ok(app.$('nim-wallet-copy').textContent);
+  assert.ok(!/Annuler|Cancel|Cancelar|Abbrechen|取消/.test(app.$('nim-wallet-failure').textContent));
+  app.$('nim-wallet-retry').click();await settle();assert.match(app.$('nim-wallet-wait').textContent,/3:00/);
+  assert.ok(app.$('nim-wallet-wait').textContent.length>15);
+ }
+});
+
+test('scoped reload after an interrupted native request restores retry without persisting the error or paying automatically',async()=>{
+ const app=await start({session:{verified:false,email:'',handoff:{payment_id:'a'.repeat(48)}},nimStage:'funding_started',nativeMode:'error',clocked:true});
+ assert.equal(app.$('nim-wallet-retry').hidden,false);assert.equal(app.nativeCalls.length,0);assert.equal(app.$('nim-wallet-detail').hidden,true);
+ assert.match(app.$('nim-progress-message').textContent,/Not yet paid/);
+ app.$('nim-wallet-retry').click();await settle();assert.match(app.$('nim-wallet-wait').textContent,/3:00/);
+ assert.equal(app.nativeCalls.length,0);assert.equal(app.$('wire-cards').hidden,true);
+});
+
+test('Safari keeps the prepared NIM card and truthful ready, confirmation-pending and sent history states',async()=>{
+ const app=await start({nimOnly:true,nimStage:'ready',clocked:true});
+ assert.equal(app.$('wire-cards').hidden,false);assert.match(app.$('wire-cards-list').textContent,/Waiting for your payment/);
+ app.setStage('funding_started');await app.clock.advance(30000);
+ assert.match(app.$('wire-cards-list').textContent,/Awaiting payment confirmation/);assert.ok(!/Payment received/.test(app.$('wire-cards-list').textContent));
+ app.setStage('sent');await app.clock.advance(30000);assert.match(app.$('wire-cards-list').textContent,/Card sent to/);
+ assert.equal(app.$('wire-cards-list').children.length,1);assert.equal(app.nativeCalls.length,0);
+});
+
+test('wallet choice presents Pay, Wallet then Get and Phoenix buttons retain neutral surfaces with accent outlines',async()=>{
+ const app=await start({nimOnly:true});await submitNim(app);
+ const choices=[...app.doc.querySelectorAll('.wire-wallet-choice>a,.wire-wallet-choice>button')];
+ assert.deepEqual(choices.map(el=>el.id),['wire-choice-open','wire-choice-hub','wire-choice-get','wire-choice-cancel']);
+ assert.equal(choices[0].textContent,'Pay with Nimiq Pay');assert.equal(choices[1].textContent,'Nimiq Wallet');assert.equal(choices[2].textContent,'Get Nimiq Pay');
+ const css=read('../internal/web/static/wire-pay.css');
+ assert.match(css,/data-theme="dark"\]\{--wire-button-bg:#1b1e22;--wire-button-hover:#272b30/);
+ assert.match(css,/data-theme="light-paper"\]\{--wire-button-bg:#ffffff;--wire-button-hover:#eef1f5/);
+ assert.match(css,/background:var\(--wire-button-bg\);background-image:none/);
+ assert.match(css,/border:1px solid var\(--accent\)/);
 });
 
 test('navigation has no decorative arrows, the close control is a large rounded square, and mobile controls avoid Safari focus zoom',async()=>{

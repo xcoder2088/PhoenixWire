@@ -1,7 +1,7 @@
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.3.0';
-import { mountNimFlow } from './flow.js?v=0.4.11';
+import { mountNimFlow } from './flow.js?v=0.4.12';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -14,18 +14,18 @@ const STORE = 'wire-usdt-cards', words = {
 };
 
 const walletChoiceWords={
- en:{choiceTitle:'How would you like to pay?',openPay:'I already have Nimiq Pay',getPay:'Get Nimiq Pay',useHub:'Use the Nimiq wallet (Hub)',cancelPay:'Cancel',openPayHelp:'If the app did not open, try again, install Nimiq Pay, or use the Hub. No payment has started.',storeHelp:'Choose the store for your phone.'},
- fr:{choiceTitle:'Comment voulez-vous payer ?',openPay:'J’ai déjà Nimiq Pay',getPay:'Obtenir Nimiq Pay',useHub:'Utiliser le portefeuille Nimiq (Hub)',cancelPay:'Annuler',openPayHelp:'Si l’application ne s’est pas ouverte, réessayez, installez Nimiq Pay ou utilisez le Hub. Aucun paiement n’a commencé.',storeHelp:'Choisissez la boutique de votre téléphone.'},
- es:{choiceTitle:'¿Cómo quieres pagar?',openPay:'Ya tengo Nimiq Pay',getPay:'Obtener Nimiq Pay',useHub:'Usar la cartera Nimiq (Hub)',cancelPay:'Cancelar',openPayHelp:'Si la aplicación no se abrió, inténtalo de nuevo, instala Nimiq Pay o usa el Hub. No se ha iniciado ningún pago.',storeHelp:'Elige la tienda de tu teléfono.'},
- de:{choiceTitle:'Wie möchtest du bezahlen?',openPay:'Ich habe bereits Nimiq Pay',getPay:'Nimiq Pay herunterladen',useHub:'Nimiq Wallet (Hub) verwenden',cancelPay:'Abbrechen',openPayHelp:'Falls die App nicht geöffnet wurde, versuche es erneut, installiere Nimiq Pay oder nutze den Hub. Es wurde keine Zahlung gestartet.',storeHelp:'Wähle den Store für dein Smartphone.'},
- zh:{choiceTitle:'你想如何付款？',openPay:'我已安装 Nimiq Pay',getPay:'获取 Nimiq Pay',useHub:'使用 Nimiq 钱包（Hub）',cancelPay:'取消',openPayHelp:'如果应用未打开，请重试、安装 Nimiq Pay，或使用 Hub。尚未开始付款。',storeHelp:'请选择你手机的应用商店。'}
+ en:{choiceTitle:'How would you like to pay?',openPay:'Pay with Nimiq Pay',getPay:'Get Nimiq Pay',useHub:'Nimiq Wallet',cancelPay:'Cancel',openPayHelp:'If the app did not open, try again, install Nimiq Pay, or use the Hub. No payment has started.',storeHelp:'Choose the store for your phone.'},
+ fr:{choiceTitle:'Comment voulez-vous payer ?',openPay:'Payer avec Nimiq Pay',getPay:'Obtenir Nimiq Pay',useHub:'Portefeuille Nimiq',cancelPay:'Annuler',openPayHelp:'Si l’application ne s’est pas ouverte, réessayez, installez Nimiq Pay ou utilisez le Hub. Aucun paiement n’a commencé.',storeHelp:'Choisissez la boutique de votre téléphone.'},
+ es:{choiceTitle:'¿Cómo quieres pagar?',openPay:'Pagar con Nimiq Pay',getPay:'Obtener Nimiq Pay',useHub:'Cartera Nimiq',cancelPay:'Cancelar',openPayHelp:'Si la aplicación no se abrió, inténtalo de nuevo, instala Nimiq Pay o usa el Hub. No se ha iniciado ningún pago.',storeHelp:'Elige la tienda de tu teléfono.'},
+ de:{choiceTitle:'Wie möchtest du bezahlen?',openPay:'Mit Nimiq Pay bezahlen',getPay:'Nimiq Pay herunterladen',useHub:'Nimiq Wallet',cancelPay:'Abbrechen',openPayHelp:'Falls die App nicht geöffnet wurde, versuche es erneut, installiere Nimiq Pay oder nutze den Hub. Es wurde keine Zahlung gestartet.',storeHelp:'Wähle den Store für dein Smartphone.'},
+ zh:{choiceTitle:'你想如何付款？',openPay:'使用 Nimiq Pay 付款',getPay:'获取 Nimiq Pay',useHub:'Nimiq 钱包',cancelPay:'取消',openPayHelp:'如果应用未打开，请重试、安装 Nimiq Pay，或使用 Hub。尚未开始付款。',storeHelp:'请选择你手机的应用商店。'}
 };
 
 const handoffWords={
   "fr": {
     "choiceHelp": "Nimiq Pay ouvre uniquement cette carte dans l’application, sans nouveau code courriel. Vérifiez-la avant de payer.",
     "handoffOpening": "Ouverture de Nimiq Pay…",
-    "handoffReady": "Touchez à nouveau « J’ai déjà Nimiq Pay » pour ouvrir l’application.",
+    "handoffReady": "Touchez à nouveau « Payer avec Nimiq Pay » pour ouvrir l’application.",
     "handoffExpired": "Le lien est invalide ou a expiré. Rouvrez le lien depuis Safari.",
     "handoffSession": "Votre connexion a expiré. Confirmez votre courriel ou utilisez le Hub.",
     "handoffLimit": "Trop de demandes. Patientez avant de réessayer, ou utilisez le Hub.",
@@ -40,7 +40,7 @@ const handoffWords={
   "en": {
     "choiceHelp": "Nimiq Pay opens only this card in the app, without another email code. Review it before paying.",
     "handoffOpening": "Opening Nimiq Pay…",
-    "handoffReady": "Tap “I already have Nimiq Pay” again to open the app.",
+    "handoffReady": "Tap “Pay with Nimiq Pay” again to open the app.",
     "handoffExpired": "The link is invalid or has expired. Reopen the link from Safari.",
     "handoffSession": "Your session has expired. Confirm your email or use the Hub.",
     "handoffLimit": "Too many requests. Wait before retrying, or use the Hub.",
@@ -55,7 +55,7 @@ const handoffWords={
   "es": {
     "choiceHelp": "Nimiq Pay abre solo esta tarjeta en la aplicación, sin otro código por correo. Revísala antes de pagar.",
     "handoffOpening": "Abriendo Nimiq Pay…",
-    "handoffReady": "Toca de nuevo «Ya tengo Nimiq Pay» para abrir la aplicación.",
+    "handoffReady": "Toca de nuevo «Pagar con Nimiq Pay» para abrir la aplicación.",
     "handoffExpired": "El enlace no es válido o ha caducado. Vuelve a abrirlo desde Safari.",
     "handoffSession": "Tu sesión ha caducado. Confirma tu correo o usa el Hub.",
     "handoffLimit": "Demasiadas solicitudes. Espera antes de reintentar o usa el Hub.",
@@ -70,7 +70,7 @@ const handoffWords={
   "de": {
     "choiceHelp": "Nimiq Pay öffnet nur diese Karte in der App, ohne weiteren E-Mail-Code. Prüfe sie vor dem Bezahlen.",
     "handoffOpening": "Nimiq Pay wird geöffnet…",
-    "handoffReady": "Tippe erneut auf „Ich habe bereits Nimiq Pay“, um die App zu öffnen.",
+    "handoffReady": "Tippe erneut auf „Mit Nimiq Pay bezahlen“, um die App zu öffnen.",
     "handoffExpired": "Der Link ist ungültig oder abgelaufen. Öffne ihn erneut in Safari.",
     "handoffSession": "Deine Sitzung ist abgelaufen. Bestätige deine E-Mail oder nutze den Hub.",
     "handoffLimit": "Zu viele Anfragen. Warte vor einem neuen Versuch oder nutze den Hub.",
@@ -85,7 +85,7 @@ const handoffWords={
   "zh": {
     "choiceHelp": "Nimiq Pay 只会在应用内打开此卡片，无需再次获取邮箱验证码。付款前请核对卡片。",
     "handoffOpening": "正在打开 Nimiq Pay…",
-    "handoffReady": "请再次点击“我已安装 Nimiq Pay”以打开应用。",
+    "handoffReady": "请再次点击“使用 Nimiq Pay 付款”以打开应用。",
     "handoffExpired": "链接无效或已过期。请从 Safari 重新打开链接。",
     "handoffSession": "会话已过期。请确认邮箱或使用 Hub。",
     "handoffLimit": "请求过多。请稍后重试或使用 Hub。",
@@ -358,7 +358,9 @@ const terminalCards=new Set(['paid','withdrawn','cancelled','expired','settled_e
 const assetNames={usdc_polygon:'USDC · Polygon',usdt_polygon:'USDT · Polygon',usdt_ethereum:'USDT · Ethereum'};
 let cardEpoch=0,ownedPromise=null,nimPromise=null,nimTimer=null;
 const fill=(key,entry)=>t(key).replace('{email}',entry.recipient||'');
+const nimPendingWords={fr:'En attente de confirmation du paiement',en:'Awaiting payment confirmation',es:'Esperando confirmación del pago',de:'Zahlungsbestätigung ausstehend',zh:'等待付款确认'};
 function cardLabel(c){
+ if(c.nim&&c.state==='funding_started')return nimPendingWords[lang]||nimPendingWords.en;
  if(c.nim)return fill(({preparing:'checkingCard',ready:'waitingCard',funding_started:'confirmingCard',funded:'fundedCard',delivery_pending:'fundedCard',delivery_failed:'mailFailedCard',sent:'sentCard',claimed:'claimedCard',expired:'expiredCard'})[c.state]||'checkingCard',c);
  const key=({paid:'claimedCard',withdrawn:'refundedCard',expired:'expiredCard',cancelled:'cancelledCard',settled_elsewhere:'otherCard'})[c.state];
  if(key)return t(key);

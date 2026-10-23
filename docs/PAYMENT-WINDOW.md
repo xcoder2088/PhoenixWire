@@ -80,7 +80,7 @@ that information is not provided by this list. No new server route, CSP rule or 
 
 ## Nimiq Pay per-card handoff (client)
 
-The wallet chooser creates nothing on opening. Only clicking “I already have Nimiq Pay” prepares the protected NIM card
+The wallet chooser creates nothing on opening. Only clicking “Pay with Nimiq Pay” prepares the protected NIM card
 using the verified sender's existing `POST /api/payments` idempotent request (or reuses its ready card). No funding is started.
 Then `POST /api/handoff {"payment_id": "..."}` returns a 43-character opaque token, single-use, valid for five minutes
 (`expires_in: 300`). No draft fields are sent to the handoff route.
@@ -151,8 +151,9 @@ payment, or change a payment card's own pastel colours. Background, border and f
 seconds. Transitions are disabled for reduced-motion preferences. The timer pauses in a hidden tab and resumes with a
 fresh interval on return; missed intervals are not replayed. The selector and live-mode label are translated in five languages.
 
-The light variants now use visibly tinted backgrounds and stronger field borders, accents and secondary text. Dark colours
-retain the original palettes. Official bundled currency logos appear in the currency picker, selected checkout heading and
+The light variants use visibly tinted backgrounds and stronger field borders, accents and secondary text. PhoenixFire dark now uses
+neutral charcoal surfaces rather than brown-purple panels, while retaining its orange outlines and icons. Its buttons are neutral charcoal
+in dark mode and white in light mode. Aurora and Ocean are unchanged. Official bundled currency logos appear in the currency picker, selected checkout heading and
 history rows, at 24 px, with text labels retained and decorative icons hidden from screen readers.
 
 ## Card history and dates
@@ -179,7 +180,7 @@ The app is another browser (its own cookies). What crosses over is not the sende
    it came from (signing out there cancels it). A lost answer loses the right: the sender asks for another.
 3. In the app, `POST /api/handoff/redeem {"token"}` (no session) answers `{payment, scoped: true, expires_at}` and sets a **scoped** session cookie.
    It is not a signed-in sender (`/api/session` says `verified:false` and `handoff:{payment_id}`). It can only: `GET /api/payments` (that payment),
-   `POST /api/payments/<id>/{art,start,confirm,resend}` for that id, and sign out. Everything else answers `403 handoff_scope`: no other payment,
+   `POST /api/payments/<id>/{art,start,checkout,confirm,resend}` for that id, and sign out. Everything else answers `403 handoff_scope`: no other payment,
    no creation, no recovery key, no USDC / USDT card, no hand-over of its own. It lasts two hours at most, never beyond the payment's own day or the
    Safari session. It survives a restart of the service.
 4. A browser already signed in as someone else is never replaced (`409 session_conflict`, the right is not used up); the same sender already
@@ -195,3 +196,30 @@ For a payment whose funding started (`start`) but never showed up on the chain (
 shown by then; `409 retry_too_soon` before), the chain does not already hold the amount (`409 already_funded`: follow the card with `confirm`) and the card is within
 its day (`410`). A payment that was never started answers `409 funding_not_started` (use `start`). A scoped session may call it for its own payment. There is
 no cancel: an unfunded card expires on its own, and a late payment to its address stays recoverable by the sender.
+
+
+### Native request failure and explicit retry (client)
+
+`flow.js` displays a top-of-card failure state, card expiry from `created + 24h`, an explicit Close action, and a five-language
+explanation that closing is not cancellation. No cancellation endpoint or cancel-card button is added. “Not yet paid” means
+the last server check has not confirmed funding, not a guarantee that the wallet has debited nothing: a pending transaction
+may still arrive. A failed chain read displays uncertainty, not an unpaid claim.
+
+Only the primitive type/code/message of a native failure are sampled. A bounded, escaped diagnostic removes known card fields,
+emails, URLs, Nimiq addresses, long key-like tokens and message numbers before display as selectable text and logging with
+`console.warn`. The raw error object, checkout, page URL and card metadata are never logged. A Copy button copies only that
+redacted string; diagnostics are not persisted in browser storage. The exact native funding text remains unchanged.
+
+Retry first confirms the SAME card. Funded/sent cards resume tracking without another wallet request. Otherwise it requests
+`checkout`; `retry_too_soon` disables retry and counts down from the server's `started_at + 3 minutes`, with no automatic
+wallet opening at zero. Missing timestamps are not replaced by invented dates. `already_funded` follows with confirm,
+`funding_not_started` uses start, and `410` disables payment and explains expiry. A chain/API read error fails closed.
+The Hub fallback uses the same confirm/checkout gate; it cannot bypass the three-minute delay. One flow-wide busy guard
+prevents overlapping wallet requests. An interrupted scoped reload restores the same card and checking/retry controls,
+never the raw error or an automatic payment.
+
+Safari's My cards keeps ready cards as waiting for payment, and labels `funding_started` as awaiting payment confirmation:
+that state does not itself establish that money was received. Confirmed funding and sent-email states remain separate.
+
+The chooser's main actions are now “Pay with Nimiq Pay” then “Nimiq Wallet”, with “Get Nimiq Pay” below, in all five languages.
+They do not detect installation or change the transfer protocol. The selector's Cancel closes only the wallet chooser, not a card.
