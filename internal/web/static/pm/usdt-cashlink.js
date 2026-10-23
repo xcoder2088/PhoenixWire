@@ -40,7 +40,8 @@ const hexToBytes=h=>Uint8Array.from(h.replace(/^0x/,'').match(/../g)||[],x=>pars
 
 function create(o){
  const lang=()=>WORDS[o.language()]?o.language():'en';
- const L=sym=>sw(WORDS[lang()],sym||'USDC/USDT');
+ // Marked Wire hook: host copy overrides leave the mirrored defaults unchanged when absent.
+ const L=sym=>sw({...WORDS[lang()],...(root.PhoenixWordOverrides?.[lang()]||{})},sym||'USDC/USDT');
  let ready=false;
  const lib=()=>{const C=root.PhoenixCashlink;if(!C){const e=Error('usdt_unavailable');e.code='usdt_unavailable';throw e}if(!ready){C.setProxyCreationCode(PROXY_CREATION_CODE);ready=true}return C};
  async function api(path,data){

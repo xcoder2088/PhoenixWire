@@ -30,12 +30,13 @@ function fakeClock(window){
 }
 
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
-async function start({ session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0 } = {}) {
+async function start({ session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false } = {}) {
   const dom = new JSDOM(read('../internal/web/static/index.html'), { url: 'https://wire.example.test/', runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
   const clock=clocked?fakeClock(window):null;
   for(const[key,value]of Object.entries(saved))window.sessionStorage.setItem(key,value);
+  for(const[key,value]of Object.entries(local))window.localStorage.setItem(key,value);
   Object.defineProperty(window, 'crypto', { value: webcrypto, configurable: true });
   Object.assign(window, { TextEncoder, TextDecoder, open: () => ({ closed: false, close() { this.closed = true; } }) });
   window.localStorage.setItem('wire-theme', theme);
@@ -43,6 +44,7 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
   for (const f of ['../engine/secureclaim/web/cashlink.js', '../internal/web/static/pm/usdt-cashlink.js', '../internal/web/static/pm/usdt-payments.js', '../internal/web/static/pm/nimiq-payments.js']) vm.runInContext(read(f), ctx);
   const C = window.PhoenixCashlink, calls = [], checkouts = [], behaviors = [], nativeCalls = [], confirmations = [];
   let currentSession=session;
+  const owned=JSON.parse(JSON.stringify(serverCards));let failStatus=false;
   window.confirm = message => { confirmations.push(message); return true; };
   let fundingVisible = !nativeMode;
   if(nativeMode){
@@ -80,6 +82,7 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
     calls.push([path, body]);
     if (path === '/api/config') return answer(200, { mode: 'integrated', payments_enabled: true, assets: nimOnly ? ['NIM'] : ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM'] });
     if (path === '/api/session') return answer(200, currentSession);
+    if(path==='/api/usdt/cards')return ownedUnavailable?answer(503,{code:'unavailable'}):answer(200,{cards:owned});
     if (path === '/api/payments' && !options.method) return readsFail?answer(503,{code:'chain_unavailable'}):answer(200, { payments: nimPayments });
     if (path === '/api/payments') { nimPayments = [nim]; return answer(201, { payment: nim }); }
     if (path.endsWith('/art')) return answer(200, { saved: true });
@@ -107,11 +110,17 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
       const owners = [body.linkOwner, C.checksum(C.addressOfKey(webcrypto.getRandomValues(new Uint8Array(32))))];
       const safe = C.checksum(C.cardAddress({ id: C.unhex(body.cardId), owners, threshold: 2 }, 137));
       const token = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359';
+      owned.push({id:body.cardId,asset:body.asset,amount:body.amount,recipient:body.recipient,invited:false,created:new window.Date().toISOString()});
       return answer(200, { card: { id: body.cardId, asset: body.asset, amount: body.amount, units: 2500000, feeUnits: 150000, refundFeeUnits: 100000, chainId: 137, safe, owners, token, relayer: '0x' + '33'.repeat(20) },
         pay: { recipient: safe, units: 2650000, amount: '2.65', link: 'ethereum:' + token + '@137/transfer?address=' + safe + '&uint256=2650000', qr: 'iVBORw0KGgo=' }, claimBase: 'https://wire.example.test/usdt.html', senderToken: body.cardId });
     }
-    if (path === '/api/usdt/cashlink/status') return answer(200, state(body));
-    if (path.endsWith('/invite')) return answer(200, invite(body));
+    if (path === '/api/usdt/cashlink/status') return failStatus?answer(503,{code:'unavailable'}):answer(200, state(body));
+    if (path.endsWith('/invite')) {
+      const result=invite(body),id=path.split('/').at(-2),card=owned.find(c=>c.id===id);
+      if(result.invited===true&&card)card.invited=true;
+      if(inviteMode==='lost')throw Error('lost response');
+      return answer(200,result);
+    }
     if (path === '/api/sender/verify') {currentSession={verified:true,email:'sender@example.test'};return answer(200,currentSession);}
     if (path === '/api/sender/request' || path === '/api/logout') return answer(200, { email: 'sender@example.test', ok: true });
     throw Error('unexpected API ' + path);
@@ -123,7 +132,8 @@ async function start({ session = { verified: true, email: 'sender@example.test' 
   await settle();
   return { window, $: id => window.document.getElementById(id), calls, doc: window.document, checkouts, behaviors, nativeCalls, confirmations,clock,
     fundOnChain(){fundingVisible=true;},setStage(stage){nim.stage=stage;},failMail(value){mailFails=value;},failReads(value){readsFail=value;},holdNextConfirm(){const held={};holdConfirm=held;return held;},maxConfirms:()=>maxConfirms,
-    snapshot(){return Object.fromEntries(Object.keys(window.sessionStorage).map(k=>[k,window.sessionStorage.getItem(k)]));}};
+    snapshot(){return Object.fromEntries(Object.keys(window.sessionStorage).map(k=>[k,window.sessionStorage.getItem(k)]));},
+    snapshotLocal(){return Object.fromEntries(Object.keys(window.localStorage).map(k=>[k,window.localStorage.getItem(k)]));},serverCards:owned,failCardStatus(value){failStatus=value;}};
 }
 
 async function makeCard(t) {
@@ -641,4 +651,121 @@ test('the sender card overrides PhoenixMail reflections with Wire’s shared lin
   assert.ok(t.doc.querySelector('.nimiq-payment-card').matches(cardRule.selectorText));
   const nimRule=rules.findIndex(r=>r.selectorText==='.wire-nim-host .payment-card');
   assert.ok(rules.indexOf(cardRule)>nimRule,'the override also wins over the embedded NIM background shorthand');
+});
+
+test('Wire funding copy names the recipient and Done; closing the window leaves My cards and the sent banner',async()=>{
+  const t=await start({clocked:true,state:()=>({state:'ready',balanceUnits:2650000})});await makeCard(t);
+  const stored=JSON.parse(t.window.localStorage.getItem('wire-usdt-cards'))[0];
+  assert.equal(stored.recipient,'friend@example.test');assert.equal(stored.amount,'2.5');assert.equal(stored.asset,'usdc_polygon');
+  await t.clock.advance(3000);
+  assert.equal(t.doc.querySelector('.usdt-funded').textContent,'✓ Card funded. Wire is sending the card to friend@example.test.');
+  assert.equal(t.doc.querySelector('.usdt-close').textContent,'Done');
+  assert.ok(!t.doc.querySelector('.usdt-note').textContent.includes('added to the email'));
+  t.doc.querySelector('.usdt-close').click();await settle();
+  assert.equal(t.doc.querySelector('.nimiq-payment-window'),null);
+  assert.equal(t.$('wire-cards').hidden,false);assert.match(t.$('wire-cards-list').textContent,/2.5 USDC · Polygon.*friend@example.test.*Card sent to friend@example.test/s);
+  assert.equal(t.$('wire-card-notices').hidden,false);assert.match(t.$('wire-card-notices').textContent,/Card funded. Email sent to friend@example.test./);
+  await t.clock.advance(120000);assert.equal(t.$('wire-card-notices').hidden,false,'notification has no automatic timeout');
+  assert.equal(t.calls.filter(([p])=>p.endsWith('/invite')).length,1);
+});
+
+test('the funded window and dashboard states are translated in all five languages',async()=>{
+  const labels={
+    fr:['Mes cartes','Carte alimentée. Wire envoie la carte à friend@example.test.','Terminé','En attente de votre paiement','Paiement reçu, confirmation en cours','Carte envoyée à friend@example.test','Réclamée','Remboursée','Expirée','Carte alimentée. Courriel envoyé à friend@example.test.'],
+    en:['My cards','Card funded. Wire is sending the card to friend@example.test.','Done','Waiting for your payment','Payment received, awaiting confirmation','Card sent to friend@example.test','Claimed','Refunded','Expired','Card funded. Email sent to friend@example.test.'],
+    es:['Mis tarjetas','Tarjeta financiada. Wire está enviando la tarjeta a friend@example.test.','Listo','Esperando tu pago','Pago recibido, esperando confirmación','Tarjeta enviada a friend@example.test','Reclamada','Reembolsada','Caducada','Tarjeta financiada. Correo enviado a friend@example.test.'],
+    de:['Meine Karten','Karte aufgeladen. Wire sendet die Karte an friend@example.test.','Fertig','Wartet auf deine Zahlung','Zahlung eingegangen, Bestätigung ausstehend','Karte an friend@example.test gesendet','Eingelöst','Zurückerstattet','Abgelaufen','Karte aufgeladen. E-Mail an friend@example.test gesendet.'],
+    zh:['我的卡片','卡片已充值。Wire 正在向 friend@example.test 发送卡片。','完成','等待你付款','已收到付款，正在等待确认','卡片已发送至 friend@example.test','已领取','已退款','已过期','卡片已充值。邮件已发送至 friend@example.test。']
+  };
+  const t=await start({clocked:true,state:()=>({state:'ready',balanceUnits:2650000})});await makeCard(t);await t.clock.advance(3000);
+  for(const[lang,w]of Object.entries(labels)){
+    t.$('wire-language').value=lang;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
+    const cl=t.window.PhoenixUSDTCashlink.create({language:()=>lang});
+    assert.equal(cl.words().fundedMsg.replace('{email}','friend@example.test'),w[1]);assert.equal(cl.words().close,w[2]);
+    assert.equal(t.$('wire-cards-title').textContent,w[0]);assert.equal(t.doc.querySelector('.wire-card-state').textContent,w[5]);
+    assert.equal(t.doc.querySelector('.wire-card-banner p').textContent,w[9]);
+  }
+  const id='c'.repeat(32),server={id,asset:'usdc_polygon',amount:'2.5',recipient:'friend@example.test',invited:true};let state='awaiting_funds';
+  const history=await start({clocked:true,serverCards:[server],state:()=>({state,balanceUnits:0})});
+  for(const[stage,index]of [['awaiting_funds',3],['verifying',4],['ready',5],['paid',6],['withdrawn',7],['expired',8]]){
+    state=stage;await history.clock.advance(60000);
+    for(const[lang,w]of Object.entries(labels)){history.$('wire-language').value=lang;history.$('wire-language').dispatchEvent(new history.window.Event('change'));assert.equal(history.doc.querySelector('.wire-card-state').textContent,w[index]);}
+  }
+});
+
+test('without host overrides the mirrored words remain unchanged',()=>{
+  const dom=new JSDOM('',{runScripts:'outside-only'});doms.push(dom);
+  vm.runInContext(read('../internal/web/static/pm/usdt-cashlink.js'),dom.getInternalVMContext());
+  const module=dom.window.PhoenixUSDTCashlink;
+  for(const lang of ['fr','en','es','de','zh']){
+    const base=module.WORDS[lang],actual=module.create({language:()=>lang}).words('USDT');
+    assert.equal(actual.fundedMsg,base.fundedMsg);assert.equal(actual.close,base.close);assert.equal(actual.errors.gas_not_needed,base.errors.gas_not_needed);
+  }
+});
+
+test('reload restores the dashboard and its notification; manual dismissal survives another visit',async()=>{
+  const first=await start({clocked:true,state:()=>({state:'ready',balanceUnits:2650000})});await makeCard(first);await first.clock.advance(8000);
+  assert.equal(first.doc.querySelector('.nimiq-payment-window'),null,'automatic window close does not erase the result');
+  const local=first.snapshotLocal(),serverCards=first.serverCards;first.window.close();
+  const second=await start({clocked:true,local,serverCards,state:()=>({state:'ready',balanceUnits:2650000})});await second.clock.advance(2500);
+  assert.match(second.$('wire-cards-list').textContent,/Card sent to friend@example.test/);assert.equal(second.$('wire-card-notices').hidden,false);
+  second.doc.querySelector('.wire-card-banner button').click();assert.equal(second.$('wire-card-notices').hidden,true);
+  const dismissed=second.snapshotLocal();second.window.close();
+  const third=await start({clocked:true,local:dismissed,serverCards,state:()=>({state:'ready',balanceUnits:2650000})});await third.clock.advance(6000);
+  assert.equal(third.$('wire-card-notices').hidden,true);assert.match(third.$('wire-cards-list').textContent,/Card sent to/);
+  assert.equal(third.calls.filter(([p])=>p.endsWith('/invite')).length,0);
+});
+
+test('an invite failure or unconfirmed reply never becomes a sent banner or a new funding request',async()=>{
+  for(const invite of [()=>{throw Error('mail unavailable');},()=>({})]){
+    const t=await start({clocked:true,invite,state:()=>({state:'ready',balanceUnits:2650000})});await makeCard(t);await t.clock.advance(8000);
+    assert.equal(t.$('wire-card-notices').hidden,true);assert.match(t.$('wire-cards-list').textContent,/email could not be sent/);
+    assert.equal(JSON.parse(t.window.localStorage.getItem('wire-usdt-cards'))[0].invited,false);
+    assert.equal(t.calls.filter(([p])=>p==='/api/usdt/cashlink/create').length,1);assert.equal(t.checkouts.length,0);
+    assert.equal(t.calls.filter(([p])=>p.endsWith('/invite')).length,1,'failed invitations are not retried every status tick');
+  }
+});
+
+test('a lost invitation reply is reconciled with the persisted server flag instead of sending a second email',async()=>{
+  const t=await start({clocked:true,inviteMode:'lost',state:()=>({state:'ready',balanceUnits:2650000})});await makeCard(t);await t.clock.advance(130000);
+  assert.equal(t.calls.filter(([p])=>p.endsWith('/invite')).length,1);assert.equal(t.$('wire-card-notices').hidden,false);
+  assert.match(t.$('wire-cards-list').textContent,/Card sent to friend@example.test/);
+});
+
+test('legacy records regain amount and recipient from owned metadata, with no claim fragment in dashboard or status calls',async()=>{
+  const id='d'.repeat(32),fragment='#c='+'A'.repeat(22)+'.'+'B'.repeat(43);
+  const local={'wire-usdt-cards':JSON.stringify([{id,fragment,recipient:'',invited:false}])};
+  const t=await start({clocked:true,local,serverCards:[{id,asset:'usdt_ethereum',amount:'12.5',recipient:'friend@example.test',invited:false}],state:()=>({state:'awaiting_funds',balanceUnits:0})});await t.clock.advance(2500);
+  assert.match(t.$('wire-cards-list').textContent,/12.5 USDT · Ethereum.*friend@example.test.*Waiting for your payment/s);
+  assert.ok(!t.$('wire-cards').innerHTML.includes(fragment));assert.ok(!JSON.stringify(t.calls.filter(([p])=>p.endsWith('/status'))).includes(fragment));
+  assert.equal(JSON.parse(t.window.localStorage.getItem('wire-usdt-cards'))[0].fragment,fragment);
+});
+
+test('an invited card keeps updating after window close, preserves its last state on failure and resumes on foreground',async()=>{
+  let state='ready';const t=await start({clocked:true,state:()=>({state,balanceUnits:2650000})});await makeCard(t);await t.clock.advance(8000);
+  t.failCardStatus(true);await t.clock.advance(6000);
+  assert.match(t.$('wire-cards-list').textContent,/Card sent to.*Stale view/s);
+  t.clock.hidden(true);const before=t.calls.length;t.clock.suspend(300000);assert.equal(t.calls.length,before);
+  t.failCardStatus(false);state='paid';t.clock.hidden(false);await settle();
+  assert.equal(t.doc.querySelector('.wire-card-state').textContent,'Claimed');assert.equal(t.doc.querySelector('.wire-card-stale'),null);
+  state='withdrawn';await t.clock.advance(60000);assert.equal(t.doc.querySelector('.wire-card-state').textContent,'Refunded');
+  state='expired';await t.clock.advance(60000);assert.equal(t.doc.querySelector('.wire-card-state').textContent,'Expired');
+});
+
+test('only the signed-in sender’s records are shown; logout hides private history and stops dashboard polling',async()=>{
+  const foreign={id:'e'.repeat(32),sender:'someone@example.test',recipient:'private@example.test',amount:'900',asset:'usdc_polygon',invited:true};
+  const t=await start({clocked:true,local:{'wire-usdt-cards':JSON.stringify([foreign])}});
+  assert.ok(!t.$('wire-cards-list').textContent.includes('private@example.test'));assert.equal(t.$('wire-cards-empty').hidden,false);
+  await makeCard(t);await t.clock.advance(2500);t.$('wire-logout').click();await settle();const count=t.calls.length;
+  assert.equal(t.$('wire-cards').hidden,true);assert.equal(t.$('wire-card-notices').hidden,true);
+  await t.clock.advance(120000);assert.equal(t.calls.length,count);
+});
+
+test('recipient and notification values are literal text, and NIM history appears without creating a payment',async()=>{
+  const id='f'.repeat(32),recipient='<img src=x onerror=alert(1)>',local={'wire-usdt-cards':JSON.stringify([{id,sender:'sender@example.test',recipient,amount:'2',asset:'usdt_polygon',invited:true,noticePending:true}])};
+  const t=await start({clocked:true,local,serverCards:[{id,asset:'usdt_polygon',recipient,amount:'2',invited:true}],nimStage:'sent',state:()=>({state:'ready',balanceUnits:2100000})});await t.clock.advance(2500);
+  assert.ok(t.$('wire-cards-list').textContent.includes(recipient));assert.ok(t.$('wire-card-notices').textContent.includes(recipient));
+  assert.equal(t.$('wire-cards-list').querySelector('img'),null);assert.equal(t.$('wire-card-notices').querySelector('img'),null);
+  assert.match(t.$('wire-cards-list').textContent,/2.5 NIM · Nimiq/);
+  assert.ok(!t.calls.some(([p,b])=>p==='/api/payments'&&b));assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);
 });

@@ -14,11 +14,12 @@ What is Wire's (and only that):
   `/api/usdt/cashlink/{create,status,cancel,refund,refund-claim,gas-status,gas}`), each answered by the gateway's
   own USDC / USDT card logic behind the sender's session. The QR of the payment link is drawn on the server.
 
-Three small, marked changes to the mirrored files (to re-apply after a new sync):
+Four small, marked changes to the mirrored integration (to re-apply after a new sync):
 
 1. `pm/nimiq-payments.js` `cardShell`: the card's emblem and name come from an `o.brand` option (PhoenixMail's by default).
 2. `pm/usdt-cashlink.js` and `pm/usdt-payments.js` `sw()`: the texts say `window.PhoenixBrandName` instead of "PhoenixMail".
 3. `wire-pay.css` hides "Request payment". NIM is now visible: the host binds its currency button to Wire’s existing protected NIM flow, without modifying the copied files.
+4. `pm/usdt-cashlink.js` and `pm/usdt-payments.js` merge the selected language's `window.PhoenixWordOverrides` over their default words. Wire sets only its host-specific copy in `wire-pay.js`. The funding panel in `pm/usdt-payments.js` formats `fundedMsg` with `{email}` from `entry.protectedRecipient || entry.to`. With no overrides, the original words and behavior are unchanged. Wire says it sends the card, uses Done, and does not describe an email composer.
 
 NIM now shares this entry point and sender verification. `flow.js` exports its existing flow for the NIM template in
 `index.html`; `classic.html` remains compatible and `/?claim=…` still opens it for NIM recipients. Sender free gas remains
@@ -28,7 +29,7 @@ unavailable (`/api/usdt/status` says `gas:false`).
 
 Wire adds an explicit return control to each payment-window instance from `wire-pay.js`. It invokes the copied window's own
 close button so its listeners and observers are cleaned up. Asset switches recreate the window; a host observer enhances each
-replacement. The mirrored files remain unchanged. The page also links directly to the PhoenixWire presentation
+replacement. Beyond the marked hooks, the mirrored files remain unchanged. The page also links directly to the PhoenixWire presentation
 (`https://phoenixmail.ca/#phoenixwire`) and PhoenixMail (`https://phoenixmail.ca/#phoenixmail`). Classic NIM has a link back to `/`.
 
 The tab and mobile shortcut name is Phoenix Wire, preserving the latest owner-side update. Icons derive from the existing emblem; normal static routing serves them with
@@ -61,3 +62,18 @@ funding mark of a cashlink (`00 82 80 92 87`) therefore reaches the chain as `00
 (`engine/secureclaim/internal/nimiq/mainnet_rpc.go`, `fundingMarker`) accepts exactly these two forms and nothing else: the amount, the address
 and the two confirmations are checked as before, and a transfer with no data or any other data is still refused. Confirm on a real device after
 any change to either side.
+
+## My cards on Wire's home page
+
+`wire-pay.js` renders USDC/USDT history from `wire-usdt-cards`, enriches amount/asset/recipient/invitation status using the existing
+authenticated `/api/usdt/cards` list, and polls `/api/usdt/cashlink/status` even after the payment window closes or an invitation
+has been sent. It resumes on foreground, marks failed reads as stale, and keeps the last known state. The host never displays
+the claim fragment or refund key in this dashboard and never evicts a fragment to limit the history.
+
+An invitation is labelled sent only after an `invited:true` response or the server's persisted invitation flag. A lost response
+is reconciled with that flag before retrying; failed attempts are spaced by at least a minute. The sent banner persists on this
+device until explicitly dismissed, independently of the copied window's automatic close. This confirms acceptance by the mail
+service, not delivery to an inbox. History is hidden on logout and polling stops. Records belonging to another sender are not shown.
+
+NIM rows use the existing `/api/payments` states and the NIM window's status callback. They do not infer that a NIM card was claimed:
+that information is not provided by this list. No new server route, CSP rule or payment operation is added by the dashboard.

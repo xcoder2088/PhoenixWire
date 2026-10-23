@@ -71,3 +71,11 @@ body.wire-body{background:var(--bg);color:var(--text)}
 /* The sender preview shares Wire's invitation, code and claim card surface. */
 .wire-body .nimiq-payment-card{background-image:linear-gradient(125deg,var(--card-bg,#ece3ff) 0%,#e2eeff 56%,#ffe8f4 100%);border-color:var(--card-accent,var(--card-border,#c7b1ee));border-radius:26px}
 .wire-body .nimiq-payment-card::before{content:none;display:none}
+
+.wire-cards{margin-top:18px}.wire-cards h2{margin:0 0 14px;font-size:21px}
+.wire-card-row{padding:16px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.wire-card-row p{margin:7px 0 0;line-height:1.5}.wire-card-recipient{color:var(--muted);font-size:14px}
+.wire-card-state{font-weight:650}.wire-card-stale{font-size:13px;color:var(--muted)}
+.wire-card-banner{display:flex;align-items:center;gap:12px;margin-top:18px;padding:16px;border:1px solid var(--accent);border-radius:14px;background:var(--panel);color:var(--text)}
+.wire-card-banner p{flex:1;min-width:0;margin:0;line-height:1.5;font-weight:650;overflow-wrap:anywhere}
+.wire-card-banner button{flex:none;min-width:44px;min-height:44px;border-radius:9px;font-size:22px}

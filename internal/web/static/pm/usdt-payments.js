@@ -124,7 +124,8 @@ const EXTRA={
 
 function create(c){
  const o=c.o,storage=c.storage;
- const L0=()=>WORDS[o.language()]||WORDS.en,L=sym=>sw(L0(),sym||'USDC/USDT'),X=()=>EXTRA[o.language()]||EXTRA.en;
+ // Marked Wire hook: only the embedding host supplies these copy overrides.
+ const L0=()=>({...(WORDS[o.language()]||WORDS.en),...(root.PhoenixWordOverrides?.[o.language()]||{})}),L=sym=>sw(L0(),sym||'USDC/USDT'),X=()=>EXTRA[o.language()]||EXTRA.en;
  const CL=root.PhoenixUSDTCashlink?root.PhoenixUSDTCashlink.create(o):null;
  const isCL=e=>!!(e&&e.card&&e.card.version===2);
  const unitsText=u=>(Number(u)/1e6).toFixed(6).replace(/0+$/,'').replace(/\.$/,'');
@@ -352,7 +353,7 @@ function create(c){
   if(watch){let stopped=false;
    // the Close button is there as soon as the payment is seen: nobody has to guess that the window can be closed
    const close=el('button',{type:'button',class:'secondary-btn usdt-close',text:w.close});close.onclick=()=>{watch.dismiss&&watch.dismiss()};
-   const funded=()=>{const ok=el('p',{class:'usdt-funded',role:'status',text:'✓ '+w.fundedMsg});box.replaceChildren(ok,close);
+   const funded=()=>{const ok=el('p',{class:'usdt-funded',role:'status',text:'✓ '+CL.fmt(w.fundedMsg,{email:entry.protectedRecipient||entry.to||''})});box.replaceChildren(ok,close);
     // the window closes by itself a moment later: nobody has to guess that it can be closed
     setTimeout(()=>{if(box.isConnected&&watch.dismiss)watch.dismiss()},watch.closeAfter??4000)};
    const tick=async()=>{if(stopped||!box.isConnected)return;
