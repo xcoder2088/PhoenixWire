@@ -403,3 +403,56 @@ func TestHandoffSessionBoundsLimitsAndConcurrency(t *testing.T) {
 		t.Fatalf("too many rights: %d", w.Code)
 	}
 }
+
+// After a refused or failed wallet request the app may try again, but never while the first payment could still be on its way, and never when
+// the money is already there.
+func TestHandoffCheckoutRetryIsSafe(t *testing.T) {
+	b := newBrowsers(t)
+	var p payment
+	b.inSafari(func() { p = b.f.create() })
+	b.redeem(b.handoff(t, p.ID).Token)
+	checkout := func(call func(string, string, any) *httptest.ResponseRecorder) *httptest.ResponseRecorder {
+		return call("POST", "/api/payments/"+p.ID+"/checkout", map[string]string{})
+	}
+	if w := checkout(b.appCall); w.Code != 409 || code(w, "") != "funding_not_started" {
+		t.Fatalf("before the funding started: %d %s", w.Code, w.Body)
+	}
+	started := b.appCall("POST", "/api/payments/"+p.ID+"/start", map[string]string{})
+	if started.Code != 200 || !strings.Contains(started.Body.String(), `"started_at"`) {
+		t.Fatalf("start: %d %s", started.Code, started.Body)
+	}
+	if w := checkout(b.appCall); w.Code != 409 || code(w, "") != "retry_too_soon" {
+		t.Fatalf("right after the first request: %d %s", w.Code, w.Body)
+	}
+	base := b.f.api.now()
+	b.f.api.now = func() time.Time { return base.Add(checkoutRetryAfter + time.Second) }
+	for k, s := range b.f.api.db.state.Sessions { // the sessions must outlive this clock jump
+		s.Expires = b.f.api.now().Add(time.Hour)
+		b.f.api.db.state.Sessions[k] = s
+	}
+	again := checkout(b.appCall)
+	var out struct {
+		Checkout struct {
+			Recipient     string
+			Value         uint64
+			RecipientData []int
+		}
+	}
+	if again.Code != 200 || json.Unmarshal(again.Body.Bytes(), &out) != nil || out.Checkout.Recipient != p.Address || out.Checkout.Value != 250000 || len(out.Checkout.RecipientData) != 5 {
+		t.Fatalf("the same checkout again: %d %s", again.Code, again.Body)
+	}
+	if w := b.appCall("POST", "/api/payments/"+p.ID+"/start", map[string]string{}); w.Code != 409 {
+		t.Fatalf("start still works once only: %d", w.Code)
+	}
+	// the money has arrived: no second payment, whatever the wait
+	b.f.rpcMu.Lock()
+	b.f.funded = true
+	b.f.rpcMu.Unlock()
+	if w := checkout(b.appCall); w.Code != 409 || code(w, "") != "already_funded" {
+		t.Fatalf("already funded: %d %s", w.Code, w.Body)
+	}
+	// the sender in Safari has it too, and nobody else's payment can be asked for
+	if w := checkout(b.safariCall); w.Code != 409 {
+		t.Fatalf("Safari: %d", w.Code)
+	}
+}

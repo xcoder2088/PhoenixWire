@@ -187,3 +187,11 @@ The app is another browser (its own cookies). What crosses over is not the sende
    Every other failure of the token: the same `404 invalid_or_expired`.
 5. No double payment: `start` can be called once for a payment from either browser (`409 funding_already_started` after); the client checks
    `confirm` before any new request to the wallet.
+
+### Asking the wallet again (`POST /api/payments/<id>/checkout`)
+
+For a payment whose funding started (`start`) but never showed up on the chain (the wallet refused, failed, or the app was closed). It answers the same
+`{payment, checkout}` as `start`, without starting anything again, and only when: the funding was started at least **3 minutes** ago (a first payment would have
+shown by then; `409 retry_too_soon` before), the chain does not already hold the amount (`409 already_funded`: follow the card with `confirm`) and the card is within
+its day (`410`). A payment that was never started answers `409 funding_not_started` (use `start`). A scoped session may call it for its own payment. There is
+no cancel: an unfunded card expires on its own, and a late payment to its address stays recoverable by the sender.

@@ -36,7 +36,9 @@ type payment struct {
 	Created   time.Time `json:"created"`
 	// SentAt is when the first invitation was accepted by the mail service; a failed attempt gives none, a resend never replaces it,
 	// and a card that was sent before this was kept has none (it is not made up).
-	SentAt       *time.Time `json:"sent_at,omitempty"`
+	SentAt *time.Time `json:"sent_at,omitempty"`
+	// StartedAt is when the funding was started (the wallet was asked): a second request to a wallet waits long enough for the first one to show.
+	StartedAt    *time.Time `json:"started_at,omitempty"`
 	LastDelivery time.Time  `json:"-"`
 	Deliveries   int        `json:"-"`
 	Nimicon      string     `json:"-"`

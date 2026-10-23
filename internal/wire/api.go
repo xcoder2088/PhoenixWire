@@ -338,10 +338,37 @@ func (a *API) paymentAction(w http.ResponseWriter, r *http.Request, s session, p
 			return
 		}
 		p.Stage = "funding_started"
+		started := a.now().UTC()
+		p.StartedAt = &started
 		if !a.savePayment(w, p) {
 			return
 		}
-		respond(w, 200, map[string]any{"payment": p, "checkout": map[string]any{"appName": "Phoenix Wire", "recipient": p.Address, "value": p.Luna, "recipientData": []int{0, 130, 128, 146, 135}}})
+		respond(w, 200, map[string]any{"payment": p, "checkout": checkoutOf(p)})
+	case "checkout":
+		// Ask the wallet again for a payment whose funding started but never showed up. Never while the first request could still be on its way,
+		// and never when the money is already there: a second payment would put twice the amount on the card.
+		if !a.now().Before(p.Created.Add(24 * time.Hour)) {
+			failure(w, 410, "claim_expired")
+			return
+		}
+		if p.Stage != "funding_started" {
+			failure(w, 409, "funding_not_started")
+			return
+		}
+		if p.StartedAt != nil && a.now().Sub(*p.StartedAt) < checkoutRetryAfter {
+			failure(w, 409, "retry_too_soon")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel()
+		if ok, err := a.engine.Confirm(ctx, p.ID); err != nil {
+			failure(w, 503, "chain_unavailable")
+			return
+		} else if ok {
+			failure(w, 409, "already_funded")
+			return
+		}
+		respond(w, 200, map[string]any{"payment": p, "checkout": checkoutOf(p)})
 	case "confirm":
 		a.confirm(w, r, p, false)
 	case "resend":
@@ -639,4 +666,11 @@ func (a *API) claim(w http.ResponseWriter, r *http.Request) {
 	clone.URL.Path = "/api/v1/claims/" + p.ID
 	clone.URL.RawQuery = "action=" + parts[1]
 	a.engine.PublicHandler().ServeHTTP(w, clone)
+}
+
+// checkoutRetryAfter is how long a started funding is given before the wallet may be asked again (a first payment shows within a minute or two).
+const checkoutRetryAfter = 3 * time.Minute
+
+func checkoutOf(p payment) map[string]any {
+	return map[string]any{"appName": "Phoenix Wire", "recipient": p.Address, "value": p.Luna, "recipientData": []int{0, 130, 128, 146, 135}}
 }
