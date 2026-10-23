@@ -37,6 +37,8 @@ const checkoutWords={
  zh:{chooseCoin:'选择币种',sendingCode:'正在发送验证码…',codeSentButton:'验证码已发送',resendCode:'重新发送验证码',out:'退出登录'}
 };
 for(const language of Object.keys(checkoutWords))Object.assign(words[language],checkoutWords[language]);
+const paletteWords={fr:{palette:'Thème',ocean:'Océan',livePalette:'Aléatoire en direct'},en:{palette:'Theme',ocean:'Ocean',livePalette:'Live shuffle'},es:{palette:'Tema',ocean:'Océano',livePalette:'Aleatorio en directo'},de:{palette:'Design',ocean:'Ozean',livePalette:'Zufälliger Wechsel'},zh:{palette:'主题',ocean:'海洋',livePalette:'实时随机'}};
+for(const language of Object.keys(paletteWords))Object.assign(words[language],paletteWords[language]);
 window.PhoenixWordOverrides=Object.fromEntries(Object.entries(cardWords).map(([language,w])=>[language,{fundedMsg:w.fundedCard,confirmingMsg:w.confirmingCard,close:w.doneCard,added:w.createdCard,created:w.createdCard}]));
 function read(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem(key, value); } catch { /* storage may be unavailable */ } }
@@ -90,6 +92,8 @@ function paint() {
  $('wire-email-label').textContent = t('email');paintCodeRequest(); $('wire-code-label').textContent = t('code'); $('wire-verify').textContent = t('verify');
  $('wire-as').textContent = t('as'); $('wire-logout').setAttribute('aria-label',t('out'));$('wire-logout').title=t('out');
  $('wire-language').value = preference;
+ $('wire-palette').setAttribute('aria-label',t('palette'));$('wire-palette').querySelector('[value="ocean"]').textContent=t('ocean');
+ $('wire-palette').querySelector('[value="live"]').textContent=t('livePalette');
  $('wire-pay-label').textContent = t('pay');
  paintTheme();
  if (nimCache) paintNim(nimCache.modal);
@@ -145,6 +149,25 @@ function applyTheme(value) {
  document.documentElement.dataset.theme = value === 'light' || value === 'light-paper' ? 'light-paper' : 'dark';
  paintTheme();
 }
+const palettes=['phoenixfire','aurora','ocean'];
+let paletteMode='live',paletteTimer=null;
+function setPaletteColour(palette){document.documentElement.dataset.palette=palette;document.documentElement.dataset.accent=palette;}
+function schedulePalette(){
+ clearTimeout(paletteTimer);paletteTimer=null;
+ if(paletteMode!=='live'||document.hidden)return;
+ paletteTimer=setTimeout(()=>{
+  if(document.hidden)return;
+  const options=palettes.filter(p=>p!==document.documentElement.dataset.palette);
+  setPaletteColour(options[Math.floor(Math.random()*options.length)]);schedulePalette();
+ },20000);
+}
+function applyPalette(value){
+ paletteMode=value==='live'||palettes.includes(value)?value:'phoenixfire';
+ document.documentElement.dataset.paletteMode=paletteMode;$('wire-palette').value=paletteMode;
+ setPaletteColour(paletteMode==='live'?(palettes.includes(document.documentElement.dataset.palette)?document.documentElement.dataset.palette:'phoenixfire'):paletteMode);
+ schedulePalette();
+}
+document.addEventListener('visibilitychange',schedulePalette);window.addEventListener('pageshow',schedulePalette);
 function styleClose(button){button.replaceChildren($('wire-close-icon').content.cloneNode(true));}
 function paintNim(root) {
  root.querySelectorAll('[data-nim-text]').forEach(el => { el.textContent = t(el.dataset.nimText); });
@@ -423,6 +446,7 @@ function showSender(verified, who) {
 
 $('wire-language').addEventListener('change', e => setLanguage(e.target.value));
 $('wire-theme').addEventListener('click', () => { const v = document.documentElement.dataset.theme === 'light-paper' ? 'dark' : 'light'; applyTheme(v); save('wire-theme', v); });
+$('wire-palette').addEventListener('change',event=>{applyPalette(event.target.value);save('wire-palette',paletteMode);});
 function paintCodeRequest(){
  const button=$('wire-send-code'),remaining=Math.max(0,Math.ceil((codeUntil-Date.now())/1000));
  button.disabled=codeSending||remaining>0;
@@ -458,6 +482,8 @@ $('wire-logout').addEventListener('click', async () => {
  }catch{say(t('fail'));}finally{clearTimeout(timeout);button.disabled=false;}
 });
 
+const savedPalette=read('wire-palette','');
+applyPalette(savedPalette==='live'||palettes.includes(savedPalette)?savedPalette:({orange:'phoenixfire',violet:'aurora',teal:'ocean'}[read('wire-accent','')]||(savedPalette?'phoenixfire':'live')));
 applyTheme(read('wire-theme', 'dark'));
 setLanguage(preference);
 (async () => {

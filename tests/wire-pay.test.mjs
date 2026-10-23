@@ -334,7 +334,7 @@ test('the theme button selects a supported light palette, keeps its preference a
   const style = t.doc.createElement('style'); style.textContent = read('../internal/web/static/wire-pay.css'); t.doc.head.append(style);
   assert.equal(t.window.getComputedStyle(t.doc.documentElement).getPropertyValue('--panel').trim(), '#fff');
   t.$('wire-theme').click();
-  assert.equal(t.window.getComputedStyle(t.doc.documentElement).getPropertyValue('--panel').trim(), '#141925');
+  assert.equal(t.window.getComputedStyle(t.doc.documentElement).getPropertyValue('--panel').trim(), '#1d1a24');
 });
 
 test('NIM cannot be opened before sender confirmation and does not ask again afterward', async () => {
@@ -840,6 +840,56 @@ test('failed server sign-out stays visibly signed in and allows another attempt'
  assert.equal(t.$('wire-ready').hidden,false);assert.equal(t.$('wire-sender').hidden,true);assert.equal(t.$('wire-logout').disabled,false);
  assert.match(t.$('wire-status').textContent,/Something went wrong/);
  t.failLogout(false);t.$('wire-logout').click();await settle();assert.equal(t.$('wire-ready').hidden,true);
+});
+
+test('PhoenixFire, Aurora and Ocean are available, persist across visits and remain independent of light and dark',async()=>{
+ const t=await start();assert.equal(t.$('wire-palette').value,'live');assert.equal(t.doc.documentElement.dataset.palette,'phoenixfire');
+ assert.deepEqual([...t.$('wire-palette').options].map(o=>o.value),['live','phoenixfire','aurora','ocean']);
+ for(const palette of ['aurora','ocean','phoenixfire']){
+  t.$('wire-palette').value=palette;t.$('wire-palette').dispatchEvent(new t.window.Event('change'));
+  assert.equal(t.doc.documentElement.dataset.palette,palette);assert.equal(t.doc.documentElement.dataset.accent,palette);
+  t.$('wire-theme').click();assert.equal(t.doc.documentElement.dataset.palette,palette);assert.equal(t.doc.documentElement.dataset.theme,'light-paper');
+  t.$('wire-theme').click();assert.equal(t.doc.documentElement.dataset.palette,palette);assert.equal(t.doc.documentElement.dataset.theme,'dark');
+  const restored=await start({local:t.snapshotLocal()});assert.equal(restored.$('wire-palette').value,palette);
+ }
+ const legacy=await start({local:{'wire-accent':'teal'}});assert.equal(legacy.$('wire-palette').value,'ocean');
+ const invalid=await start({local:{'wire-palette':'unknown'}});assert.equal(invalid.$('wire-palette').value,'phoenixfire');
+});
+
+test('the restored palette selector is localized and all six surfaces retain the original palette colours',async()=>{
+ const t=await start();
+ for(const[language,label,ocean]of [['fr','Thème','Océan'],['en','Theme','Ocean'],['es','Tema','Océano'],['de','Design','Ozean'],['zh','主题','海洋']]){
+  t.$('wire-language').value=language;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
+  assert.equal(t.$('wire-palette').getAttribute('aria-label'),label);assert.equal(t.$('wire-palette').querySelector('[value="ocean"]').textContent,ocean);
+ }
+ const style=t.doc.createElement('style');style.textContent=read('../internal/web/static/wire-pay.css');t.doc.head.append(style);
+ const original=t.doc.createElement('style');original.textContent=read('../internal/web/static/design.css');t.doc.head.append(original);
+ for(const theme of ['dark','light-paper'])for(const palette of ['phoenixfire','aurora','ocean']){
+  const restored=[...style.sheet.cssRules].find(r=>r.selectorText===`html.wire-app[data-theme="${theme}"][data-palette="${palette}"]`);
+  const old=[...original.sheet.cssRules].find(r=>r.selectorText===(theme==='dark'?`:root[data-palette=${palette}]`:`:root[data-theme=light][data-palette=${palette}]`));
+  for(const token of ['--bg','--panel','--line','--accent'])assert.equal(restored.style.getPropertyValue(token),old.style.getPropertyValue(token));
+  assert.equal(restored.style.getPropertyValue('--panel2'),old.style.getPropertyValue('--field'));
+ }
+});
+
+test('live palette changes colours without touching the NIM form or wallet, pauses in background, and stops for a fixed theme',async()=>{
+ const t=await start({nimOnly:true,clocked:true});t.$('pay').click();await settle();
+ t.$('recipient').value='friend@example.test';t.$('amount').value='2.5';t.$('message').value='Keep this draft';
+ const fields=['recipient','amount','message'].map(id=>t.$(id)),focus=fields[2];focus.focus();
+ assert.equal(t.doc.documentElement.dataset.palette,'phoenixfire');
+ await t.clock.advance(20000);const first=t.doc.documentElement.dataset.palette;assert.notEqual(first,'phoenixfire');
+ await t.clock.advance(20000);assert.notEqual(t.doc.documentElement.dataset.palette,first);
+ assert.deepEqual(fields.map(el=>el.value),['friend@example.test','2.5','Keep this draft']);assert.equal(t.doc.activeElement,focus);
+ assert.equal(t.nativeCalls.length,0);assert.equal(t.checkouts.length,0);assert.ok(!t.calls.some(([p,b])=>p==='/api/payments'&&b));
+ t.clock.hidden(true);const paused=t.doc.documentElement.dataset.palette;await t.clock.advance(120000);assert.equal(t.doc.documentElement.dataset.palette,paused);
+ t.clock.hidden(false);await t.clock.advance(20000);assert.notEqual(t.doc.documentElement.dataset.palette,paused);
+ t.$('wire-palette').value='ocean';t.$('wire-palette').dispatchEvent(new t.window.Event('change'));await t.clock.advance(120000);assert.equal(t.doc.documentElement.dataset.palette,'ocean');
+ t.$('wire-palette').value='live';t.$('wire-palette').dispatchEvent(new t.window.Event('change'));
+ const restored=await start({clocked:true,local:t.snapshotLocal()});assert.equal(restored.$('wire-palette').value,'live');
+ await restored.clock.advance(20000);assert.notEqual(restored.doc.documentElement.dataset.palette,'phoenixfire');
+ const texts={fr:'Aléatoire en direct',en:'Live shuffle',es:'Aleatorio en directo',de:'Zufälliger Wechsel',zh:'实时随机'};
+ for(const[language,label]of Object.entries(texts)){t.$('wire-language').value=language;t.$('wire-language').dispatchEvent(new t.window.Event('change'));assert.equal(t.$('wire-palette').querySelector('[value="live"]').textContent,label);}
+ const css=read('../internal/web/static/wire-pay.css');assert.match(css,/transition:background-color 2s ease/);assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
 });
 
 test('sign out keeps its outlined lock icon and PhoenixMail-sized rounded square across themes',async()=>{

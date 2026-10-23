@@ -118,3 +118,15 @@ Its outline and icon follow the theme accent. Sign out is provided as an accessi
 It uses the existing logout route, closes
 the payment window, stops tracking and hides private history after server success. A failed logout remains visibly signed
 in. Card recovery data stays in local storage; signing out never cancels a card or discards its recovery keys.
+
+## Live themes
+
+The header restores PhoenixFire, Aurora and Ocean from the original Wire palettes, each in light and dark. The selection
+is saved in `wire-palette`, shared with the classic page for fixed palettes, and old `wire-accent` preferences are respected.
+Without a saved colour preference, the new page uses Live shuffle: it starts with PhoenixFire, then selects a different
+palette at random every 20 seconds. A fixed palette remains available at any time. Light/dark is an independent choice.
+
+Live updates change CSS palette variables only. They never recreate the window, replace inputs, move focus, initiate a
+payment, or change a payment card's own pastel colours. Background, border and foreground colour transitions last two
+seconds. Transitions are disabled for reduced-motion preferences. The timer pauses in a hidden tab and resumes with a
+fresh interval on return; missed intervals are not replayed. The selector and live-mode label are translated in five languages.

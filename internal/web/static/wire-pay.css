@@ -48,6 +48,16 @@ html{height:auto!important;min-height:100%;overflow-x:hidden!important;overflow-
 /* Wire uses the light theme name understood by the PhoenixMail styles. */
 html.wire-app[data-theme="dark"]{color-scheme:dark;--bg:#10141e;--panel:#141925;--panel2:#202637;--line:#41495d;--text:#f0f2f8;--muted:#a8b0bf;--accent:#ff8a1f;--accent-soft:var(--panel2)}
 html.wire-app[data-theme="light-paper"]{color-scheme:light;--bg:#f3f4f6;--panel:#fff;--panel2:#f0f2f6;--line:#ccd2dd;--text:#202938;--muted:#596579;--accent:#bc4c11;--accent-soft:var(--panel2)}
+/* Wire's original three palettes, mapped to the payment window's variable names. */
+html.wire-app[data-theme="dark"][data-palette="phoenixfire"]{--bg:#15131b;--panel:#1d1a24;--panel2:#272130;--line:#3b3044;--accent:#ffb16b}
+html.wire-app[data-theme="dark"][data-palette="aurora"]{--bg:#11121e;--panel:#1b1b2d;--panel2:#25253e;--line:#353750;--accent:#b6a0ff}
+html.wire-app[data-theme="dark"][data-palette="ocean"]{--bg:#10191f;--panel:#172630;--panel2:#203544;--line:#304959;--accent:#6dd8e6}
+html.wire-app[data-theme="light-paper"][data-palette="phoenixfire"]{--bg:#faf5f3;--panel:#fff;--panel2:#faf4f3;--line:#e6d8d6;--accent:#af450d}
+html.wire-app[data-theme="light-paper"][data-palette="aurora"]{--bg:#f5f4fb;--panel:#fff;--panel2:#f5f4fb;--line:#dedbef;--accent:#7145cd}
+html.wire-app[data-theme="light-paper"][data-palette="ocean"]{--bg:#f0f7fa;--panel:#fff;--panel2:#f0f7fa;--line:#d4e3ea;--accent:#087185}
+.wire-head{flex-wrap:wrap}.wire-head select{min-width:0;max-width:100%}
+html[data-palette-mode="live"] .wire-body,html[data-palette-mode="live"] .wire-card,html[data-palette-mode="live"] .nimiq-payment-window,html[data-palette-mode="live"] .wire-body button,html[data-palette-mode="live"] .wire-body input,html[data-palette-mode="live"] .wire-body select,html[data-palette-mode="live"] .wire-body textarea{transition:background-color 2s ease,border-color 2s ease,color 2s ease}
+@media(prefers-reduced-motion:reduce){html[data-palette-mode="live"] .wire-body,html[data-palette-mode="live"] .wire-card,html[data-palette-mode="live"] .nimiq-payment-window,html[data-palette-mode="live"] .wire-body button,html[data-palette-mode="live"] .wire-body input,html[data-palette-mode="live"] .wire-body select,html[data-palette-mode="live"] .wire-body textarea{transition:none}}
 body.wire-body{background:var(--bg);color:var(--text)}
 .wire-body [hidden]{display:none!important}
 .wire-body input:not([type="radio"]):not([type="checkbox"]),.wire-body select,.wire-body textarea{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;font:inherit;max-width:100%}
