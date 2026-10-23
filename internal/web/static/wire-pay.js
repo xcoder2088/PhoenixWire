@@ -1,7 +1,7 @@
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.3.0';
-import { mountNimFlow } from './flow.js?v=0.4.4';
+import { mountNimFlow } from './flow.js?v=0.4.5';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -24,6 +24,7 @@ for(const language of Object.keys(walletChoiceWords))Object.assign(words[languag
 function read(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem(key, value); } catch { /* storage may be unavailable */ } }
 let preference = read('wire-language', 'auto'), lang = 'en', email = '', payments = null, usdtOn = false, nimOn = false, enabled = false, nimView = null, resumed = false;
+let nimCache=null;
 const t = key => (words[lang] || words.en)[key];
 
 async function api(path, data) {
@@ -44,7 +45,7 @@ function paint() {
  $('wire-language').value = preference;
  $('wire-pay-label').textContent = t('pay');
  paintTheme();
- if (nimView) paintNim(nimView.root);
+ if (nimCache) paintNim(nimCache.modal);
  window.dispatchEvent(new Event('wire-language'));
  $('wire-session-help').textContent = t('sessionHelp'); $('wire-session-confirmed').textContent = t('sessionConfirmed');
  document.querySelectorAll('.wire-window-back').forEach(button => { button.textContent = '← ' + t('back'); });
@@ -101,7 +102,12 @@ function closePaymentWindow() {
 }
 function openNimWindow() {
  if (!email || !nimOn) return;
+ if(nimView)return;
  closePaymentWindow();
+ if(nimCache){
+  document.body.append(nimCache.modal);document.addEventListener('keydown',nimCache.escape);nimView=nimCache.view;
+  paintNim(nimCache.modal);nimCache.flow.resume();nimCache.modal.querySelector('.wire-window-back').focus();return;
+ }
  const modal = $('wire-nim-template').content.firstElementChild.cloneNode(true);
  const root = modal.querySelector('.wire-nim-host'), win = modal.querySelector('.nimiq-payment-window');
  const row = modal.querySelector('.wire-nim-assets');
@@ -112,12 +118,14 @@ function openNimWindow() {
  }
  const back = modal.querySelector('.wire-window-back'); back.textContent = '← ' + t('back');
  let flow;
- const dismiss = () => { flow?.destroy(); modal.remove(); document.removeEventListener('keydown', escape); nimView = null; $('pay').focus(); };
+ // Keep the authenticated NIM tracker alive when the window is closed or another coin is selected.
+ const dismiss = () => { closeWalletChoice();modal.remove(); document.removeEventListener('keydown', escape); nimView = null; $('pay').focus(); };
  const escape = e => { if (e.key === 'Escape') { e.preventDefault(); dismiss(); } };
  back.onclick = dismiss; modal.querySelector('.wire-nim-close').onclick = dismiss;
  document.addEventListener('keydown', escape);
  document.body.append(modal); nimView = { root: modal, dismiss };
- paintNim(modal); flow = mountNimFlow(root, { embedded: true, chooseWallet });
+ paintNim(modal);flow=mountNimFlow(root,{embedded:true,chooseWallet,onStatus:(_p,message)=>say(message),onClose:()=>{const message=root.querySelector('#nim-progress-message').textContent;dismiss();say(message);}});
+ nimCache={modal,flow,escape,view:nimView};
  back.focus();
 }
 function setLanguage(value) {
@@ -203,6 +211,7 @@ function mountPayments() {
 }
 
 function showSender(verified, who) {
+ if(!verified&&nimCache){nimView?.dismiss();nimCache.flow.destroy();nimCache.modal.remove();nimCache=null;resumed=false;}
  email = verified ? who : '';
  $('wire-sender').hidden = verified || !enabled; $('wire-ready').hidden = !verified || !enabled;
  $('wire-who').textContent = email;

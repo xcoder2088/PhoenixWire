@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/pm/app.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/nimiq-payments.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/theme-light.css?v=0.4.0">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.4">
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.5">
 </head>
 <body class="wire-body">
   <main class="wire-shell">
@@ -46,6 +46,11 @@
         <div class="nimiq-payment-head"><button type="button" class="secondary-btn wire-window-back"></button><h3>Nimiq · <span data-nim-text="pay"></span></h3><button type="button" class="wire-nim-close">×</button></div>
         <div class="nimiq-payment-controls nimiq-payment-assets wire-nim-assets"></div>
         <div class="wire-nim-host">
+          <section id="nim-progress" class="wire-nim-progress" hidden>
+            <p id="nim-progress-message" role="status" aria-live="polite" aria-atomic="true"></p>
+            <button id="nim-progress-close" type="button" class="secondary-btn" hidden></button>
+            <button id="nim-progress-resend" type="button" class="secondary-btn" hidden></button>
+          </section>
           <p id="notice" class="nimiq-payment-how" role="status"></p>
           <div class="workspace">
             <section class="panel nimiq-payment-panel">
@@ -96,6 +101,6 @@
   <script src="/pm/usdt-cashlink.js?v=0.4.0"></script>
   <script src="/pm/usdt-payments.js?v=0.4.0"></script>
   <script src="/pm/nimiq-payments.js?v=0.4.0"></script>
-  <script type="module" src="/wire-pay.js?v=0.4.4"></script>
+  <script type="module" src="/wire-pay.js?v=0.4.5"></script>
 </body>
 </html>

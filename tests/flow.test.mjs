@@ -70,7 +70,7 @@ test('real DOM sender verification and checkout use the same immutable public ad
  assert.equal(s.checkouts[0].value,250000);
  assert.deepEqual(Array.from(s.checkouts[0].extraData),[0,130,128,146,135]);
  assert.equal(s.checkouts[0].seed,undefined);
- assert.equal(s.$('feedback').textContent,'Card sent');
+ assert.equal(s.$('feedback').textContent,'Card sent to recipient@example.test. It stays yours until it is claimed.');
  assert.equal(s.$('recipient').readOnly,true);
  assert.equal(s.$('coin').querySelector('img').alt,'Nimiq Nimicon');
  await s.submit();assert.equal(s.checkouts.length,1,'repeated send cannot fund again');
@@ -133,7 +133,7 @@ test('iPhone return restores the original form and confirms without a second che
  assert.equal(s.$('amount').value,'2.5');assert.equal(s.$('message').value,'Hi');
  assert.equal(s.checkouts.length,0);assert.equal(s.calls.filter(([p])=>p.endsWith('/start')).length,0);
  assert.ok(s.calls.some(([p])=>p.endsWith('/confirm')));
- assert.equal(s.$('feedback').textContent,'Card sent');s.dom.window.close();
+ assert.equal(s.$('feedback').textContent,'Card sent to recipient@example.test. It stays yours until it is claimed.');s.dom.window.close();
 });
 test('expired claim keeps its explanation visible while disabling code actions',async()=>{
  const s=await start({claim:true,expired:true});
