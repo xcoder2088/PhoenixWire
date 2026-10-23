@@ -24,7 +24,7 @@ func TestProtectedInvitationParityAndNoBearerSecret(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(subject, "Phoenix Wire") || !strings.Contains(plain, c.ClaimURL) || !strings.Contains(h, "&lt;script&gt;") || !strings.Contains(h, "margin:18px auto 0") || !strings.Contains(h, `alt="Phoenix Wire"`) {
+		if !strings.Contains(subject, "Phoenix Wire") || !strings.Contains(plain, c.ClaimURL) || !strings.Contains(h, "&lt;script&gt;") || !strings.Contains(h, "margin:18px auto 0") || !strings.Contains(h, `alt="Phoenix Wire"`) || !strings.Contains(h, `<meta name="color-scheme" content="light only">`) {
 			t.Fatal("card parity")
 		}
 		visible := regexp.MustCompile(`data:image/png;base64,[^"]+`).ReplaceAllString(h, "")

@@ -16,7 +16,7 @@ func TestUSDTInvitationInFiveLanguages(t *testing.T) {
 		if err != nil {
 			t.Fatal(lang, err)
 		}
-		for _, must := range []string{c.ClaimURL, "data:image/png;base64,", "USDC · Polygon", "2.5", "Phoenix Wire", "&lt;b&gt;"} {
+		for _, must := range []string{c.ClaimURL, "data:image/png;base64,", "USDC · Polygon", "2.5", "Phoenix Wire", "&lt;b&gt;", `<meta name="color-scheme" content="light only">`} { // the card keeps its colours in a mail app's dark mode
 			if !strings.Contains(body, must) {
 				t.Fatalf("%s: missing %q", lang, must)
 			}

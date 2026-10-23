@@ -151,6 +151,6 @@ func Invitation(sender string, c ProtectedCashlinkCard, lang, nimicon string) (s
 	w := Words(lang)
 	intro := fmt.Sprintf(w.Intro, sender, c.Amount)
 	plain := intro + "\n" + c.Message + "\n" + w.Instructions + "\n" + c.ClaimURL + "\nPowered by Phoenix Mail — https://phoenixmail.ca"
-	body := `<!doctype html><html lang="` + Language(lang) + `"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#fff;color:#20242b;font-family:Arial,Helvetica,sans-serif"><div style="padding:20px 24px;font-size:15px;line-height:1.6">` + html.EscapeString(intro) + `<br>` + html.EscapeString(w.Instructions) + `</div>` + card + Footer(lang) + `</body></html>`
+	body := `<!doctype html><html lang="` + Language(lang) + `"><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only"><style>:root{color-scheme:light only;supported-color-schemes:light only}</style></head><body style="margin:0;background:#fff;color:#20242b;font-family:Arial,Helvetica,sans-serif"><div style="padding:20px 24px;font-size:15px;line-height:1.6">` + html.EscapeString(intro) + `<br>` + html.EscapeString(w.Instructions) + `</div>` + card + Footer(lang) + `</body></html>`
 	return w.Subject, plain, body, nil
 }
