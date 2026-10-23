@@ -97,6 +97,11 @@ func (a *API) usdtServe(w http.ResponseWriter, r *http.Request, s session) {
 	switch {
 	case path == "/api/usdt/create" && r.Method == "POST":
 		a.usdtCreate(w, r, s, engine)
+	case path == "/api/usdt/status" && r.Method == "GET":
+		// What PhoenixMail's payment window asks before it offers a card: Wire sends protected cards, and pays no gas for the sender.
+		respond(w, 200, map[string]any{"requests": false, "send": true, "protected": true, "cashlink": true, "gas": false, "assets": []string{"usdt_ethereum", "usdc_polygon", "usdt_polygon"}, "max_send": 1000})
+	case strings.HasPrefix(path, "/api/usdt/cashlink/") && r.Method == "POST":
+		a.usdtCompat(w, r, s, engine)
 	case path == "/api/usdt/cards" && r.Method == "GET":
 		list := []map[string]any{}
 		for _, c := range a.db.state.USDT {

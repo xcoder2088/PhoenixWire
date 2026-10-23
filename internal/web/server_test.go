@@ -55,7 +55,7 @@ func TestRoutesAndHeaders(t *testing.T) {
 func TestPageBrandingAndNoClaimableContent(t *testing.T) {
 	r := httptest.NewRecorder()
 	NewHandler().ServeHTTP(r, httptest.NewRequest("GET", "/", nil))
-	for _, text := range []string{"Powered by", "Phoenix Mail", "Phoenix Wire", "type=\"email\"", "Protégé"} {
+	for _, text := range []string{"Powered by", "Phoenix Mail", "Phoenix Wire", "type=\"email\"", "/pm/nimiq-payments.js"} {
 		if !strings.Contains(r.Body.String(), text) {
 			t.Fatalf("missing %q", text)
 		}
@@ -64,6 +64,35 @@ func TestPageBrandingAndNoClaimableContent(t *testing.T) {
 		if strings.Contains(r.Body.String(), text) {
 			t.Fatalf("unexpected claim material %q", text)
 		}
+	}
+}
+
+func TestTheNimClaimLinkStillOpensTheEarlierPage(t *testing.T) {
+	h := NewHandler()
+	get := func(path string) string {
+		r := httptest.NewRecorder()
+		h.ServeHTTP(r, httptest.NewRequest("GET", path, nil))
+		return r.Body.String()
+	}
+	if claim := get("/?claim=" + strings.Repeat("a", 48)); !strings.Contains(claim, "Protégé") || strings.Contains(claim, "/pm/nimiq-payments.js") {
+		t.Fatal("a NIM claim link must open the page that knows how to claim")
+	}
+	if !strings.Contains(get("/classic.html"), "Protégé") {
+		t.Fatal("the earlier page is kept for NIM")
+	}
+}
+
+func TestPaymentWindowFilesAreMirroredAndServed(t *testing.T) {
+	h := NewHandler()
+	for path := range payFiles {
+		r := httptest.NewRecorder()
+		h.ServeHTTP(r, httptest.NewRequest("GET", "/pm/"+path, nil))
+		if r.Code != 200 || r.Body.Len() < 100 {
+			t.Fatalf("/pm/%s: %d", path, r.Code)
+		}
+	}
+	if r := httptest.NewRecorder(); func() int { h.ServeHTTP(r, httptest.NewRequest("GET", "/pm/LICENSE-NIMIQ-MODULE", nil)); return r.Code }() == 200 {
+		t.Fatal("only the window's own files are served")
 	}
 }
 

@@ -6,7 +6,7 @@ import { JSDOM } from 'jsdom';
 import { assets,previewAmount,resolveLanguage,cardPresentation,paintCard } from '../internal/web/static/model.js';
 
 test('window opens empty, then shows the pastel card shell and correct token artwork',()=>{
- const dom=new JSDOM(fs.readFileSync(new URL('../internal/web/static/index.html',import.meta.url),'utf8'),{url:'http://localhost:8790',runScripts:'outside-only'});
+ const dom=new JSDOM(fs.readFileSync(new URL('../internal/web/static/classic.html',import.meta.url),'utf8'),{url:'http://localhost:8790',runScripts:'outside-only'});
  Object.assign(dom.getInternalVMContext(),{assets,previewAmount,resolveLanguage,cardPresentation,paintCard});
  const source=fs.readFileSync(new URL('../internal/web/static/app.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'');vm.runInContext(source,dom.getInternalVMContext());
  const d=dom.window.document,$=id=>d.getElementById(id);

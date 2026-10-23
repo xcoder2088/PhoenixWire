@@ -11,7 +11,7 @@ const address='NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function settle(){for(let i=0;i<12;i++)await tick();}
 async function start({claim=false,verified=true,pending=false,mobile=false,returning=false,expired=false}={}){
- const dom=new JSDOM(fs.readFileSync(new URL('../internal/web/static/index.html',import.meta.url),'utf8'),{url:'https://wire.example.test/'+(claim?'?claim='+id:''),runScripts:'outside-only'});
+ const dom=new JSDOM(fs.readFileSync(new URL('../internal/web/static/classic.html',import.meta.url),'utf8'),{url:'https://wire.example.test/'+(claim?'?claim='+id:''),runScripts:'outside-only'});
  const {window}=dom;window.document.documentElement.lang='en';
  if(returning){window.sessionStorage.setItem('wire-pending-payment',id);window.sessionStorage.setItem('wire-form',JSON.stringify({payment:id,message:'Hi',amount:'2.5',recipient:'recipient@example.test'}));}
  if(mobile)Object.defineProperty(window.navigator,'userAgent',{value:'iPhone'});

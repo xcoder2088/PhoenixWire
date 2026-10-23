@@ -19,7 +19,10 @@ const cardLabels = {
  de:{emptyPreview:'Erstelle eine Karte für die Vorschau.',cardHeading:'Geschützte Zahlung',cardAction:'Code bestätigen',locked:'Ein E-Mail-Code gibt diese Zahlung frei.'},
  zh:{emptyPreview:'创建卡片以查看预览。',cardHeading:'受保护的付款',cardAction:'验证我的验证码',locked:'使用邮件验证码解锁此付款。'}
 };
-function t(key) { const c=cardPresentation(lang);return ({cardHeading:'Nimiq · '+c.heading,cardAction:c.action,locked:c.locked,protected:c.protected})[key]||cardLabels[lang][key] || (key === 'subtitle' ? slogans[lang] : key === 'automatic' ? automaticLabels[lang] : messages[lang][keys.indexOf(key)]); }
+// The card words come from PhoenixMail and name the NIM; the coin on the card decides the unit shown.
+function cardUnit() { return assets[$('currency')?.value]?.unit || 'NIM'; }
+const emailExamples = {fr:['vous@exemple.com','destinataire@exemple.com'],en:['you@example.com','recipient@example.com'],es:['tu@ejemplo.com','destinatario@ejemplo.com'],de:['du@beispiel.de','empfaenger@beispiel.de'],zh:['you@example.com','recipient@example.com']};
+function t(key) { const c=cardPresentation(lang);return ({cardHeading:c.heading,cardAction:c.action,locked:c.locked.replace(/NIM/g,cardUnit()),protected:c.protected})[key]||cardLabels[lang][key] || (key === 'subtitle' ? slogans[lang] : key === 'automatic' ? automaticLabels[lang] : messages[lang][keys.indexOf(key)]); }
 function readPreference(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function savePreference(key, value) { try { localStorage.setItem(key, value); } catch { /* Storage may be unavailable in embedded browsers. */ } }
 let languagePreference = readPreference('wire-language', 'auto');
@@ -30,6 +33,8 @@ function translate(value) {
   document.documentElement.lang = lang;
   $('language').value = languagePreference;
   document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  $('sender').placeholder = emailExamples[lang][0];
+  $('recipient').placeholder = emailExamples[lang][1];
   $('feedback').textContent = '';
   globalThis.dispatchEvent?.(new CustomEvent('wire-language'));
 }
@@ -58,11 +63,13 @@ $('theme').addEventListener('click', () => {
   savePreference('wire-theme', value);
 });
 $('accent').addEventListener('change', e => { applyPalette(e.target.value); savePreference('wire-palette', document.documentElement.dataset.palette); });
+// Like a real card, the preview wears a colour taken from an id; a new one for each page load, kept while the sender edits.
+const previewId = Math.floor(Math.random()*256).toString(16).padStart(2,'0');
 function renderCard(amount) {
   const id = $('currency').value;
   const asset = assets[id];
   $('payment-card').dataset.currency = id;
-  paintCard($('payment-card'),lang,'00');
+  paintCard($('payment-card'),lang,previewId);
   $('coin').textContent = '';
   const image=document.createElement('img');image.width=image.height=80;
   image.src=id==='NIM'?'/brand/nimiq-logo.svg?v=0.3.0':id==='USDC_POLYGON'?'/brand/usdc-coin.png?v=0.3.0':'/brand/usdt.svg?v=0.3.0';
@@ -71,7 +78,8 @@ function renderCard(amount) {
   if(id==='NIM')globalThis.PhoenixNimiqIdenticons?.paint(image,'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');
   $('card-unit').textContent = asset.unit;
   $('card-network').textContent = asset.network;
-  $('card-network').hidden = id==='NIM';
+  $('card-network').hidden = false;
+  $('card-lock').textContent = t('locked');
   $('card-amount').textContent = amount;
   // User content is text only. Emails and messages are never stored or transmitted.
   $('card-recipient').textContent = $('recipient').value;

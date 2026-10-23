@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr" data-theme="dark" data-accent="phoenixfire" data-palette="phoenixfire">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phoenix Wire</title>
+  <meta name="referrer" content="no-referrer">
+  <link rel="stylesheet" href="/style.css?v=0.3.0">
+  <link rel="stylesheet" href="/flow.css?v=0.3.0">
+  <link rel="stylesheet" href="/design.css?v=0.3.0">
+  <script src="/hub.js?v=0.3.0" defer></script>
+  <script src="/iqons.js?v=0.3.0" defer></script>
+  <script type="module" src="/app.js?v=0.3.0"></script>
+  <script type="module" src="/flow.js?v=0.3.0"></script>
+  <script type="module" src="/usdt-flow.js?v=0.3.0"></script>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <img class="brand" src="/brand/phoenix-wire.webp?v=0.3.0" alt="Phoenix Wire">
+      <div class="preferences">
+        <select id="language" aria-label="Language"><option value="auto" data-i18n="automatic">Automatique</option><option value="fr">Français</option><option value="en">English</option><option value="es">Español</option><option value="de">Deutsch</option><option value="zh">中文</option></select>
+        <select id="accent" aria-label="Theme"><option value="aurora">Aurora</option><option value="phoenixfire">PhoenixFire</option><option value="ocean">Ocean</option></select>
+        <button id="theme" type="button" data-i18n="theme">Clair / sombre</button>
+      </div>
+    </header>
+    <main class="app-window">
+      <section class="intro"><span class="window-mark" aria-hidden="true">↗</span><div><h1 data-i18n="title">Un paiement. Un courriel.</h1><p data-i18n="subtitle">Rapide. Simple. Sécuritaire.</p></div></section>
+      <p id="notice" class="notice" role="status" data-i18n="notice">Aperçu local : aucun paiement ni courriel n’est envoyé.</p>
+      <div class="workspace">
+        <section class="panel">
+          <h2 data-i18n="create">Votre carte de paiement</h2>
+          <form id="card-form">
+            <label><span data-i18n="sender">Votre courriel</span><input id="sender" type="email" autocomplete="off" required maxlength="254" placeholder="vous@exemple.com"></label>
+            <div id="sender-auth" hidden>
+              <button id="send-sender-code" type="button" data-wire="verifyEmail">Vérifier mon courriel</button>
+              <div id="sender-code-box" hidden><label><span data-wire="code">Code à six chiffres</span><input id="sender-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6"></label><button id="verify-sender-code" type="button" data-wire="verify">Confirmer le code</button></div>
+              <button id="logout" type="button" hidden data-wire="changeSender">Changer d’expéditeur</button>
+              <p id="sender-status" role="status" aria-live="polite"></p>
+            </div>
+            <label><span data-i18n="recipient">Courriel du destinataire</span><input id="recipient" type="email" autocomplete="off" required maxlength="254" placeholder="destinataire@exemple.com"></label>
+            <div class="fields"><label><span data-i18n="currency">Monnaie</span><select id="currency"><option value="NIM">NIM · Nimiq</option><option value="USDT_ETHEREUM">USDT · Ethereum</option><option value="USDC_POLYGON">USDC · Polygon</option><option value="USDT_POLYGON">USDT · Polygon</option></select></label><label><span data-i18n="amount">Montant</span><input id="amount" type="text" inputmode="decimal" required maxlength="24" placeholder="25.00" value="25"></label></div>
+            <label><span data-i18n="message">Petit mot (facultatif)</span><textarea id="message" maxlength="160" rows="2"></textarea></label>
+            <p class="security" data-i18n="security">Le parcours prévu déverrouillera le paiement après vérification du courriel par code à six chiffres.</p>
+            <button id="preview-submit" class="primary" type="submit" data-i18n="preview">Prévisualiser la carte</button>
+            <p id="feedback" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+        <section class="preview-area" aria-labelledby="preview-title">
+          <div id="preview-empty" class="preview-empty"><span class="empty-cards" aria-hidden="true"></span><p data-i18n="emptyPreview">Créez une carte pour la prévisualiser.</p></div>
+          <h2 id="preview-title" data-i18n="previewTitle" hidden>Aperçu de la carte</h2>
+          <article class="payment-card" id="payment-card" data-currency="NIM" hidden>
+            <div class="card-top"><span class="card-brand"><img src="/brand/phoenix-wire.webp?v=0.3.0" width="215" height="57" alt="Phoenix Wire"></span><span class="sample" data-i18n="protected">Protégé</span></div>
+            <p class="card-heading" id="card-heading" data-i18n="cardHeading">Paiement sécurisé</p>
+            <p id="card-network" class="card-network">Nimiq</p>
+            <div class="sum"><span id="card-amount">25</span> <span id="card-unit">NIM</span></div>
+            <div class="card-content">
+              <div class="coin" id="coin"><img src="/brand/nimiq-logo.svg?v=0.3.0" width="80" height="80" alt="Nimiq"></div>
+              <p class="lock" id="card-lock" data-i18n="locked">Un code envoyé par courriel permet de déverrouiller le paiement.</p>
+              <p id="card-message"></p>
+              <div class="card-recipient" id="card-recipient"></div>
+              <div id="usdt-panel" class="usdt-panel" hidden aria-live="polite">
+                <p id="usdt-title" class="usdt-title"></p>
+                <div id="usdt-qr" class="usdt-qr" role="img" aria-label="QR"></div>
+                <p class="usdt-address-row"><code id="usdt-address"></code> <button id="usdt-copy" type="button"></button></p>
+                <a id="usdt-wallet" class="wallet-link" rel="noopener noreferrer" hidden></a>
+                <p id="usdt-status" class="usdt-status" role="status"></p>
+                <p id="usdt-help" class="usdt-help"></p>
+                <p id="usdt-warning" class="usdt-warning"></p>
+              </div>
+            </div>
+            <button type="button" class="card-action" disabled data-i18n="cardAction">Vérifier mon code</button>
+          </article>
+          <p class="preview-note" data-i18n="previewNote" id="preview-note" hidden>Pas de QR réclamable, de clé ou de fonds dans cet aperçu.</p>
+        </section>
+      </div>
+      <section id="usdt-history" class="panel" hidden><h2 id="usdt-history-title"></h2><div id="usdt-list"></div></section>
+      <section id="my-payments" class="panel" hidden><h2 data-wire="history">Mes envois et récupération</h2><div id="payment-list"></div><button id="new-card" type="button" data-wire="newCard">Nouvelle carte</button></section>
+      <section id="claim-panel" class="panel claim-panel" hidden>
+        <article id="claim-card" class="payment-card" data-currency="NIM">
+          <div class="card-top"><span class="card-brand"><img src="/brand/phoenix-wire.webp?v=0.3.0" width="215" height="57" alt="Phoenix Wire"></span><span class="sample" data-i18n="protected">Protégé</span></div>
+          <h2 class="card-heading" data-i18n="cardHeading">Nimiq · Paiement protégé</h2><p id="claim-info" class="card-recipient"></p>
+          <p id="claim-amount" class="sum"></p>
+          <form id="claim-form">
+            <div class="card-content">
+              <img id="claim-iqon" width="80" height="80" alt="Nimiq Nimicon" hidden>
+              <p id="claim-message"></p>
+              <button id="request-claim-code" type="button" data-wire="requestCode">Recevoir mon code par courriel</button>
+              <p id="claim-status" role="status" aria-live="polite"></p>
+              <label><span data-wire="code">Code à six chiffres</span><input id="claim-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+            </div>
+            <button id="release-claim" class="primary" type="submit" disabled data-wire="unlock">Déverrouiller le paiement</button>
+          </form>
+        </article>
+        <a id="wallet-link" class="wallet-link" target="_blank" rel="noopener noreferrer" hidden data-wire="receive">Recevoir dans mon portefeuille</a>
+      </section>
+    </main>
+    <footer>Powered by <a href="https://phoenixmail.ca" target="_blank" rel="noopener noreferrer">Phoenix Mail</a></footer>
+  </div>
+</body>
+</html>

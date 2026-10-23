@@ -1,0 +1,79 @@
+/* Theme-aware identity: original Phoenix emblem, readable live wordmark. */
+.pm-light-identity{display:none}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .pm-hero-horizontal-frame,
+html:is([data-theme="system-light"],[data-theme^="light-"]) .reader-empty .pm-hero-main{display:none!important}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .pm-light-identity{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;color:var(--text)}
+.app-shell .brand .pm-light-header img{width:70px!important;height:70px!important;object-fit:contain!important}
+.pm-light-copy{display:flex;flex-direction:column;min-width:0;text-align:left}
+.app-shell .pm-light-copy strong{font-size:28px;line-height:1.15;letter-spacing:-1px;color:var(--text);font-weight:850;white-space:nowrap}
+.app-shell .pm-light-copy strong span{color:var(--accent)}
+.app-shell .pm-light-copy small{display:block;color:var(--muted);font-size:9px;line-height:1.5;margin-top:6px;letter-spacing:0;text-transform:none}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .pm-light-reader{flex-direction:column;gap:10px}
+.app-shell .reader-empty .pm-light-reader img{display:block;width:min(220px,65%);height:auto;object-fit:contain}
+.app-shell .reader-empty .pm-light-reader .pm-light-copy{text-align:center}
+.app-shell .reader-empty .pm-light-reader strong{font-size:clamp(30px,4vw,48px)}
+.app-shell .reader-empty .pm-light-reader small{font-size:12px}
+
+/* Finish the light appearance on controls that previously kept dark colors. */
+html:is([data-theme="system-light"],[data-theme^="light-"]){color-scheme:light}
+html:is([data-theme="system-light"],[data-theme^="light-"]) :is(.section-title,.reader-toolbar,.reader-subject,.mail-subject,.mail-from,.folder-header,.theme-card,.settings-tabs button,.settings-content h3,.settings-content label){color:var(--text)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) :is(.search-wrap input,.search-wrap input::placeholder){color:var(--muted)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) :is(.filter,.refresh-mail,.sidebar-toggle,.settings,.add-account,.secondary-btn,.formatbar button,.reader-actions button,.icon-btn){color:var(--text)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) :is(.secondary-btn,.theme-card,.settings-tabs,.formatbar,.reader-toolbar,.reader-actions button,.sidebar-toggle,.context-menu,.account-card,.attachment-card){background:var(--panel);border-color:var(--line)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) :is(dialog,.composer,.ai-result,.settings-modal,.account-dialog){background:var(--panel);color:var(--text);border-color:var(--line)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) :is(select,textarea,.settings-modal input,.account-dialog input){background:var(--panel2);color:var(--text);border-color:var(--line)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .nav button b{background:var(--badge-bg);color:var(--muted)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .nav button.active b{background:var(--accent);color:white}
+html:is([data-theme="system-light"],[data-theme^="light-"]) :is(.mail-row,.mail){border-color:var(--line)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) :is(.mail-row:hover,.mail:hover,.theme-card:hover){background:var(--panel2)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) :is(.welcome-guide,.welcome-guide details,.ai-turn){background:var(--panel2);color:var(--text);border-color:var(--line)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .theme-card.selected{border-color:var(--accent);background:var(--accent-soft)}
+
+/* Phoenix Papier: QuickProof-like whites and spacing, Phoenix brand accents. */
+:root[data-theme="light-paper"]{
+--bg:#f3f4f6;--panel:#fff;--panel2:#f9fafb;--panel3:#f0f2f5;
+--line:#dce1e8;--text:#202938;--muted:#596579;
+--accent:#bc4c11;--accent2:#bf2a5c;--purple:#8053aa;
+--accent-soft:#fff0e8;--icon-accent:#bc4c11;--badge-bg:#edf0f4;
+--selected-bg:#fff0e8;--selected-bg2:#fff8f4;
+--pm-sidebar-bg:#fff;--pm-list-bg:#fff;--pm-reader-bg:#f9fafb;
+}
+html[data-theme="light-paper"] body{background:#f3f4f6}
+html[data-theme="light-paper"] .sidebar{background:#fff}
+html[data-theme="light-paper"] .mail-list-panel{background:#fff}
+html[data-theme="light-paper"] .reader{background:#f9fafb}
+html[data-theme="light-paper"] :is(.search-wrap,.welcome-guide,dialog,.attachment-card){border-radius:14px;box-shadow:0 4px 18px #24324608}
+html[data-theme="light-paper"] :is(.compose-btn,.send-btn){background:linear-gradient(110deg,#bc4c11,#bf2a5c);color:white;box-shadow:0 4px 14px #bc4c111c}
+html[data-theme="light-paper"] .nav button.active{background:#fff0e8;color:#202938}
+.theme-swatch.paper{background:linear-gradient(135deg,#fff 0 65%,#f3f4f6 65%);border:1px solid #dce1e8;position:relative}
+.theme-swatch.paper:after{content:"";position:absolute;bottom:8px;left:8px;right:8px;height:7px;border-radius:4px;background:linear-gradient(90deg,#bc4c11,#bf2a5c)}
+@media(max-width:900px){.app-shell .brand .pm-light-header img{width:62px!important;height:62px!important}.app-shell .pm-light-header .pm-light-copy strong{font-size:clamp(23px,5vw,28px)}}
+
+/* Light identity sits in a softly embossed badge, rather than on bare white. */
+html:is([data-theme="system-light"],[data-theme^="light-"]) .pm-light-identity{
+background:linear-gradient(145deg,#fff 0%,#f8f9fb 65%,#eef1f5 100%);
+border:1px solid #dce1e8;
+box-shadow:inset 0 1px 0 #fff,inset 0 -1px 2px #25334d09,0 5px 14px #25334d0d;
+}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .pm-light-header{
+padding:12px 10px;border-radius:20px;gap:9px;
+}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .app-shell .brand .pm-light-header img{
+width:52px!important;height:58px!important;filter:drop-shadow(0 2px 2px #8b381e24);
+}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .app-shell .pm-light-header .pm-light-copy strong{font-size:25px;letter-spacing:-.8px}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .app-shell .pm-light-header .pm-light-copy small{font-size:8.5px;max-width:178px;line-height:1.5}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .pm-light-reader{
+width:min(330px,100%);padding:26px 20px;border-radius:32px;
+box-shadow:inset 0 2px 0 #fff,inset 0 -2px 3px #25334d08,0 14px 30px #25334d10;
+}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .app-shell .reader-empty .pm-light-reader img{
+width:min(170px,72%);filter:drop-shadow(0 5px 5px #8b381e20);
+}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .app-shell .reader-empty .pm-light-reader strong{font-size:clamp(28px,3vw,40px)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .app-shell .reader-empty .pm-light-reader small{font-size:11px;line-height:1.6}
+
+/* Provider connection cards share the active light palette. */
+html:is([data-theme="system-light"],[data-theme^="light-"]) .oauth-connect-box{background:var(--panel2);border-color:var(--line)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .oauth-connect-box strong{color:var(--text)}
+html:is([data-theme="system-light"],[data-theme^="light-"]) .oauth-connect-box span{color:var(--muted)}

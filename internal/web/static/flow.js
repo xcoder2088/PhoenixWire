@@ -34,7 +34,7 @@ async function task(run,target='feedback',cleanup){
  try{await run();}catch(error){$(target).textContent=explain(error);}finally{busy=false;cleanup?.();}
 }
 let usdtAssets=[];
-function senderUI(email){verified=Boolean(email);window.WireUSDT?.configure({assets:usdtAssets,isVerified:verified});$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');}
+function senderUI(email){verified=Boolean(email);window.wireUsdtState={assets:usdtAssets,isVerified:verified};window.WireUSDT?.configure(window.wireUsdtState);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');}
 function showPayment(p){
  $('preview-empty').hidden=true;$('payment-card').hidden=false;$('preview-title').hidden=false;
  $('recipient').value=p.recipient;$('amount').value=p.amount;$('message').value=p.message;$('currency').value='NIM';

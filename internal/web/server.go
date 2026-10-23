@@ -75,8 +75,23 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 			return
 		}
 		// An explicit allowlist prevents directory listings and SPA fallbacks on unknown APIs.
+		// The NIM claim link (/?claim=…) still opens the earlier page, which knows how to claim; every other visit gets PhoenixMail's payment window.
+		if r.URL.Path == "/" && r.URL.Query().Has("claim") {
+			page, err := fs.ReadFile(files, "classic.html")
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write(page)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/pm/") && payFiles[strings.TrimPrefix(r.URL.Path, "/pm/")] {
+			static.ServeHTTP(w, r)
+			return
+		}
 		switch r.URL.Path {
-		case "/", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/card-mirror.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/design.css", "/usdt-flow.js", "/usdt-text.js", "/qrcode.js", "/brand/phoenix-wire.webp", "/brand/phoenix-emblem.webp", "/brand/nimiq-logo.svg", "/brand/usdt.svg", "/brand/usdc-coin.png":
+		case "/", "/classic.html", "/wire-pay.js", "/wire-pay.css", "/brand/usdt-coin.png", "/brand/phoenixmail-approved-icon-transparent.webp", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/card-mirror.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/design.css", "/usdt-flow.js", "/usdt-text.js", "/qrcode.js", "/brand/phoenix-wire.webp", "/brand/phoenix-emblem.webp", "/brand/nimiq-logo.svg", "/brand/usdt.svg", "/brand/usdc-coin.png":
 			static.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
@@ -93,6 +108,9 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 		mux.ServeHTTP(w, r)
 	})
 }
+
+// payFiles are PhoenixMail's payment window, mirrored unchanged under /pm/.
+var payFiles = map[string]bool{"app.css": true, "nimiq-payments.css": true, "theme-light.css": true, "nimiq-hub.js": true, "phoenix-nimiq.js": true, "nimiq-iqons.js": true, "usdt-cashlink.js": true, "usdt-payments.js": true, "nimiq-payments.js": true}
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

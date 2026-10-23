@@ -6,7 +6,7 @@ import { assets, previewAmount, resolveLanguage,cardPresentation,paintCard } fro
 
 // Dependency-free DOM contract harness. Real browser visual QA remains a release task.
 function start({ storageUnavailable = false, languages = ['fr-CA'], language = 'fr-CA', savedLanguage } = {}) {
-  const html = readFileSync(new URL('../internal/web/static/index.html', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../internal/web/static/classic.html', import.meta.url), 'utf8');
   const nodes = new Map();
   const translations = [];
   for (const match of html.matchAll(/data-i18n="([^"]+)"/g)) translations.push({ dataset: { i18n: match[1] }, textContent: '' });
@@ -86,4 +86,16 @@ test('manual choice persists, takes precedence, and can return to automatic', ()
 test('corrupt preferences or unavailable storage do not block device language detection', () => {
   assert.equal(start({ savedLanguage: '__proto__', languages: ['zh-CN'] }).document.documentElement.lang, 'zh');
   assert.equal(start({ storageUnavailable: true, languages: ['en-GB'] }).document.documentElement.lang, 'en');
+});
+test('the card never names the NIM for another coin, and the heading carries no network prefix', () => {
+  const ui = start({ languages: ['en'], language: 'en' });
+  for (const [currency, unit] of [['NIM', 'NIM'], ['USDC_POLYGON', 'USDC'], ['USDT_ETHEREUM', 'USDT']]) {
+    ui.nodes.get('currency').value = currency;
+    ui.event('card-form', 'submit');
+    assert.ok(ui.nodes.get('card-lock').textContent.includes(unit), currency);
+    if (unit !== 'NIM') assert.ok(!ui.nodes.get('card-lock').textContent.includes('NIM'), currency);
+    assert.equal(ui.nodes.get('card-network').hidden, false);
+  }
+  const heading = ui.translations.find(n => n.dataset.i18n === 'cardHeading');
+  assert.ok(!/nimiq/i.test(heading.textContent));
 });

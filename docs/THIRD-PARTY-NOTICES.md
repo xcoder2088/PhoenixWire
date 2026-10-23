@@ -23,3 +23,6 @@ The Phoenix emblem and official Nimiq mark reuse the existing project assets.
 - `engine/secureclaim/web/jsqr.js` — jsQR 1.4.0 by Cosmo Wolfe, Apache-2.0, license kept in `engine/secureclaim/web/LICENSE-JSQR`.
   It reads a wallet address from the camera on the claim page and is loaded only when the recipient asks for it.
 - USDC and USDT marks in `engine/secureclaim/web/usdc-coin.png` and `usdt-coin.png` identify the tokens; they belong to Circle and Tether.
+
+- internal/qrcode: skip2/go-qrcode, BSD-3-Clause (internal/qrcode/LICENSE), copied from PhoenixMail's vendored copy with only the module import paths changed. It draws the QR of a payment link on the server.
+- internal/web/static/pm/nimiq-hub.js: the same official @nimiq/hub-api bundle as hub.js (see LICENSE-HUB-API); pm/nimiq-iqons.js: Iqons (see LICENSE-IQONS); pm/LICENSE-NIMIQ-MODULE: the Nimiq module notice that goes with them.

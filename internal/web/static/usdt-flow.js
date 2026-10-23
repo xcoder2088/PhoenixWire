@@ -1,6 +1,7 @@
 // The sender's side of a USDC / USDT card. The browser makes the card id and the link key and KEEPS them: they are what lets the sender
 // take the money back. Wire's server never stores the claim link; the browser hands it over once, to be e-mailed, after the card is funded.
 import { usdtText } from './usdt-text.js?v=0.3.0';
+import { paintCard } from './model.js?v=0.3.0';
 
 const $ = id => document.getElementById(id);
 const STORE = 'wire-usdt-cards';
@@ -12,7 +13,7 @@ const ASSETS = {
 const byId = Object.fromEntries(Object.values(ASSETS).map(a => [a.id, a]));
 const FLAT_GAS_FEE = { usdt_ethereum: 750000, usdc_polygon: 100000, usdt_polygon: 100000 }; // what a refund pays the relayer (an older card without a stored value)
 
-let enabledAssets = [], verified = false, lib = null, timers = new Map(), busy = false;
+let enabledAssets = [], verified = false, lib = null, timers = new Map(), busy = false, current = null;
 
 const words = () => usdtText[document.documentElement.lang] || usdtText.en;
 const fill = (text, values) => text.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? ''));
@@ -71,8 +72,25 @@ function claimURL(entry) { return location.origin + '/usdt.html?lang=' + documen
 // ---- showing it, and watching the money ----
 function setStatus(text, kind) { const el = $('usdt-status'); el.textContent = text; el.dataset.kind = kind || ''; }
 
+// The funding step IS the card: same look as the card the recipient will get (its colour comes from its id), with the QR where the coin was.
+function fundingCard(entry) {
+ const card = $('payment-card');
+ card.dataset.mode = 'fund'; card.dataset.currency = entry.asset.toUpperCase();
+ paintCard(card, document.documentElement.lang, entry.id);
+ $('preview-empty').hidden = true; $('preview-note').hidden = true; card.hidden = false;
+ $('card-amount').textContent = entry.payAmount; $('card-unit').textContent = entry.symbol;
+ $('card-network').textContent = entry.chain; $('card-network').hidden = false;
+ $('card-heading').textContent = words().fundHeading;
+ $('card-message').textContent = entry.message || '';
+ // the coin of this card
+ const coin = $('coin'); coin.textContent = ''; const img = document.createElement('img'); img.width = img.height = 80; img.alt = entry.symbol;
+ img.src = entry.asset === 'usdc_polygon' ? '/brand/usdc-coin.png?v=0.3.0' : '/brand/usdt.svg?v=0.3.0'; coin.append(img);
+}
+
 async function showPay(entry) {
  const t = words();
+ fundingCard(entry);
+ current = entry;
  $('usdt-panel').hidden = false;
  $('usdt-title').textContent = fill(t.payTitle, { amount: entry.payAmount, symbol: entry.symbol, chain: entry.chain });
  $('usdt-help').textContent = fill(t.payHelp, { fee: unitsText(entry.feeUnits), symbol: entry.symbol });
@@ -196,3 +214,5 @@ window.WireUSDT = {
 };
 $('usdt-copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('usdt-address').textContent); $('usdt-copy').textContent = words().copied; setTimeout(refreshText, 1400); } catch { /* the address is on screen */ } });
 window.addEventListener('wire-language', refreshText);
+// flow.js may have learned the server's offer before this module ran: take it from where it left it.
+if (window.wireUsdtState) window.WireUSDT.configure(window.wireUsdtState);

@@ -1,0 +1,265 @@
+/* MIT. Copyright (c) 2026 xcoder2088. */
+.nimiq-payment-card{position:relative;box-sizing:border-box;max-width:360px;width:100%;padding:22px;border:1px solid #9fc9eb;border-radius:16px;background:#deefff;color:#243047;text-align:center;margin:18px 0;font-family:Inter,system-ui,sans-serif;white-space:normal}
+.nimiq-payment-card h3{font-size:15px;line-height:1.5;margin:0 22px 8px}
+.nimiq-payment-logo{position:absolute;right:16px;top:20px;width:28px;height:28px}
+.nimiq-payment-amount{display:block;font-size:32px;font-weight:700;line-height:1.4;margin:10px 0}
+.nimiq-payment-network{display:inline-block;font-size:11px;padding:5px 10px;background:#352e20;color:#f3ce79;border-radius:7px}
+.nimiq-payment-qr{display:block;margin:16px auto;width:180px;height:180px;padding:8px;box-sizing:content-box;background:#fff;border-radius:10px}
+.nimiq-payment-card p{overflow-wrap:anywhere;font-size:12px;line-height:1.65;margin:10px 0;color:#c4cbdc}
+.nimiq-payment-card small{display:block;line-height:1.5;font-size:11px;color:#b7bed0}
+.nimiq-payment-card output{display:block;margin:14px 0;font-size:12px;color:#f3ce79}
+.nimiq-payment-card[data-confirmed="true"] output{color:#8edfbd}
+.nimiq-payment-card button{min-height:44px;background:#2d3450;border:1px solid #596487;border-radius:9px;color:#fff;padding:10px 16px;white-space:normal}
+.nimiq-payment-modal{position:fixed;inset:0;background:#0009;display:flex;align-items:center;justify-content:center;z-index:5000;padding:12px;box-sizing:border-box}
+.nimiq-payment-panel{box-sizing:border-box;width:420px;max-width:100%;max-height:calc(100dvh - 24px);overflow:auto;padding:20px;border:1px solid #454e68;border-radius:15px;background:#141925;color:#e9edf5;font-family:Inter,system-ui,sans-serif}
+.nimiq-payment-panel h3{font-size:18px;margin:0 0 14px}
+.nimiq-payment-panel label{display:block;font-size:12px;line-height:1.6;margin:12px 0}
+.nimiq-payment-panel input,.nimiq-payment-panel select{box-sizing:border-box;width:100%;min-width:0;padding:11px;font-size:16px;margin-top:5px;background:#202637;border:1px solid #4a536e;border-radius:8px;color:#fff}
+.nimiq-payment-panel>button,.nimiq-payment-controls button{min-height:44px;padding:10px 12px;background:#2d3450;border:1px solid #596487;border-radius:8px;color:#fff}
+.nimiq-payment-controls{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+.nimiq-payment-controls button{flex:1}
+.nimiq-payment-panel>output{font-size:12px;line-height:1.5;display:block;color:#f3ce79}
+#nimiq-payment-request{min-height:42px;white-space:nowrap}
+@media(max-width:420px){.nimiq-payment-card{padding:18px 12px}.nimiq-payment-card h3{font-size:14px}.nimiq-payment-panel{padding:16px}.encryption-actions{gap:8px}.encryption-actions span{flex-basis:100%}}
+
+#nimiq-payment-request{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--accent,#ff8a1f);background:var(--panel,#141925);color:var(--text,#edf0f7);font:inherit;font-size:12px;border-radius:8px;padding:8px 10px}
+#nimiq-payment-request img{width:22px;height:22px;flex-shrink:0}
+#nimiq-payment-request span{flex:0 1 auto;min-width:0;color:inherit;font:inherit}
+.nimiq-payment-controls button[aria-pressed="true"]{border-color:var(--accent,#f3ce79);color:var(--accent,#f3ce79);background:var(--accent-soft,#352e20)}
+.nimiq-payment-panel>button[hidden]{display:none}
+
+#nimiq-payment-request{max-width:100%}#nimiq-payment-request span{white-space:normal;text-align:center;overflow-wrap:anywhere}
+
+.nimiq-payment-modal{pointer-events:none;background:transparent;padding:0;display:block}
+.nimiq-payment-window{pointer-events:auto;position:fixed;inset:0;margin:auto;width:min(860px,calc(100vw - 24px));height:fit-content;max-height:calc(100dvh - 24px);display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line,#454e68);border-radius:16px;background:var(--panel,#141925);color:var(--text,#edf0f7);box-shadow:0 22px 70px #0009;font-family:Inter,system-ui,sans-serif}
+.nimiq-payment-head{display:flex;align-items:center;gap:12px;padding:12px 18px;flex-shrink:0;border-bottom:1px solid var(--line,#454e68);cursor:grab;touch-action:none;user-select:none}.nimiq-payment-head h3{flex:1;margin:0;font-size:16px}.nimiq-payment-head button{width:40px;min-height:40px;background:none;border:0;color:inherit;font-size:24px;cursor:pointer}
+.nimiq-payment-body{display:grid;grid-template-columns:1fr 1fr;min-height:0;overflow:auto;overscroll-behavior:contain}
+.nimiq-payment-window .nimiq-payment-panel{width:auto;max-height:none;border:0;border-radius:0;background:transparent;color:inherit;overflow:visible}
+.nimiq-payment-preview{padding:20px;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--panel2,#202637);border-left:1px solid var(--line,#454e68)}.nimiq-payment-preview>p{color:var(--muted,#b7bed0);text-align:center;font-size:13px}.nimiq-payment-preview .nimiq-payment-card{margin:0 auto 12px}.nimiq-payment-preview button{cursor:pointer}
+.nimiq-payment-tabs{display:none}.nimiq-payment-edit{min-height:44px;padding:8px 16px;border-radius:8px}
+.nimiq-payment-card{background:var(--card-bg,#deefff);border-color:var(--card-accent,#9fc9eb);color:#243047}.nimiq-payment-card h3,.nimiq-payment-card .nimiq-payment-amount,.nimiq-payment-card p{color:#243047}.nimiq-payment-card small{color:#3d4d64}.nimiq-payment-card .nimiq-payment-network{background:#ffffff80;color:#243047}.nimiq-payment-card output{color:#3d4d64}.nimiq-payment-card[data-confirmed="true"] output{color:#17634b}.nimiq-payment-card button{background:var(--card-accent,#9fc9eb);border-color:var(--card-accent,#9fc9eb);color:#243047}.nimiq-payment-card button:hover{background:#ffffffa0;color:#243047}
+@media(max-width:680px){.nimiq-payment-window{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);border-radius:12px}.nimiq-payment-tabs{display:flex;gap:6px;padding:8px 12px;flex-shrink:0;border-bottom:1px solid var(--line)}.nimiq-payment-tabs button{flex:1;min-height:40px;padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--text)}.nimiq-payment-tabs button[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}.nimiq-payment-tabs button:disabled{opacity:.5}.nimiq-payment-body{display:block}.nimiq-payment-preview{border-left:0;padding:14px}.nimiq-payment-window[data-view="form"] .nimiq-payment-preview,.nimiq-payment-window[data-view="preview"] .nimiq-payment-panel{display:none}.nimiq-payment-head{padding:8px 12px}}
+
+.nimiq-address-field{display:flex;align-items:center;gap:10px;min-width:0}.nimiq-address-field input{flex:1;width:0;min-width:0}.nimiq-address-iqon{display:block;width:52px;height:52px;flex:0 0 52px;object-fit:contain}.nimiq-address-iqon[hidden]{display:none}.nimiq-card-iqon{width:64px;height:64px;margin:14px auto 4px}
+
+/* Settings → My wallet, and the saved-address chooser of the payment window */
+.nimiq-wallet-list{display:flex;flex-direction:column;gap:8px;margin:14px 0;max-width:560px}
+.nimiq-wallet-empty{font-size:13px;opacity:.75;margin:0}
+.nimiq-wallet-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border,#454e68);border-radius:12px;background:var(--panel,#141925)}
+.nimiq-wallet-row .nimiq-wallet-iqon{width:44px;height:44px;flex-shrink:0}
+.nimiq-wallet-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.nimiq-wallet-info input{box-sizing:border-box;width:100%;padding:6px 8px;font-size:14px;font-weight:600;background:transparent;border:1px solid transparent;border-radius:6px;color:inherit}
+.nimiq-wallet-info input:hover,.nimiq-wallet-info input:focus{border-color:var(--border,#4a536e);background:var(--field,#202637)}
+.nimiq-wallet-info small{font-size:11px;opacity:.7;overflow-wrap:anywhere;padding:0 8px}
+.nimiq-wallet-row .secondary-btn{min-height:36px;padding:6px 10px}
+.nimiq-wallet-add{display:flex;flex-wrap:wrap;gap:8px;align-items:center;max-width:560px;margin-top:18px}
+.nimiq-wallet-add strong{flex-basis:100%;font-size:14px}
+.nimiq-wallet-add input,.nimiq-wallet-add select{box-sizing:border-box;flex:1 1 220px;min-width:0;padding:10px;font-size:16px;background:var(--field,#202637);border:1px solid var(--border,#4a536e);border-radius:8px;color:inherit}
+.nimiq-wallet-add output{flex-basis:100%;font-size:12px;color:#f3ce79}
+.nimiq-address-picker{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.nimiq-address-picker[hidden]{display:none}
+.nimiq-address-option{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 12px;text-align:left;background:#202637;border:1px solid #4a536e;border-radius:10px;color:#fff;font:inherit}
+.nimiq-address-option .nimiq-wallet-iqon{width:36px;height:36px;flex-shrink:0}
+.nimiq-address-option span{display:flex;flex-direction:column;min-width:0}
+.nimiq-address-option small{font-size:11px;opacity:.7}
+.nimiq-address-option.nimiq-address-other{justify-content:center;border-style:dashed}
+
+.nimiq-sent{max-width:560px;margin-top:26px}
+.nimiq-sent-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.nimiq-sent-head h3{margin:0;font-size:16px}
+.nimiq-sent>p{font-size:13px;line-height:1.5;opacity:.8}
+.nimiq-sent-row{align-items:flex-start;flex-wrap:wrap}
+.nimiq-sent-row .nimiq-wallet-info{gap:4px}
+.nimiq-sent-row .nimiq-wallet-info small{padding:0}
+.nimiq-sent-state{align-self:flex-start;margin-top:2px}
+.nimiq-sent-actions{display:flex;gap:6px;flex-wrap:wrap;margin-left:56px;flex-basis:100%}
+.nimiq-sent-row[data-late="true"]{border-color:#f3ce79}
+.nimiq-sent-late{color:#f3ce79}
+
+/* Approved PhoenixMail / NimiqSecureClaim visual system — payment previews.
+ * Scoped to cards: no changes to the composer form, wallet authorization or app theme.
+ * All twelve palettes stay pastel; legacy cards keep the six original selections.
+ */
+.nimiq-payment-card{
+ position:relative;isolation:isolate;overflow:hidden;box-sizing:border-box;
+ width:100%;max-width:414px;padding:18px 16px 20px;
+ border:1px solid var(--card-accent,#c7b1ee);border-radius:26px;
+ background:var(--card-bg,#ece3ff);
+ background-image:radial-gradient(ellipse at 2% 9%,#ffe4f4a8,transparent 45%),radial-gradient(ellipse at 99% 15%,#d7e8ffb8,transparent 50%),radial-gradient(ellipse at 10% 96%,#d7f9f3a8,transparent 40%),linear-gradient(135deg,var(--card-bg,#ece3ff),#e8e8ff 52%,#ffe7f2);
+ color:#211d49;text-align:center;font-family:Inter,system-ui,sans-serif;
+ box-shadow:0 0 0 2px #ffffffa3,inset 0 0 0 1px #ffffffa8,0 13px 36px #7778b331;
+}
+.nimiq-payment-card::before{
+ content:"";position:absolute;inset:-30% -55%;z-index:0;pointer-events:none;
+ border:1px solid #ffffffb0;border-radius:46%;transform:rotate(-28deg);
+}
+.nimiq-payment-card>*{position:relative;z-index:1}
+.nimiq-card-head{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:16px}
+.nimiq-card-brand{display:flex;align-items:center;min-width:0;gap:6px;text-align:left}
+.nimiq-card-brand img{width:41px;height:41px;flex:none;object-fit:contain}
+.nimiq-card-name{white-space:nowrap;font-size:20px;font-weight:850;letter-spacing:-.7px;color:#211a4c}
+.nimiq-card-name strong{color:#ed9347}
+.nimiq-payment-card .nimiq-payment-network{
+ padding:7px 9px;border-radius:999px;white-space:nowrap;
+ background:#ffffffe3;border:1px solid var(--card-accent,#c7b1ee);
+ color:#6247a2;font-size:10px;font-weight:750;letter-spacing:.1px
+}
+.nimiq-payment-card h3{
+ margin:6px 0 12px;line-height:1.4;letter-spacing:1.3px;
+ font-size:12px;font-weight:850;text-transform:uppercase;color:#7361ad
+}
+.nimiq-payment-card .nimiq-payment-amount{
+ margin:6px 0 15px;font-size:39px;line-height:1.24;font-weight:800;
+ letter-spacing:-1px;color:#211c49
+}
+.nimiq-card-content{
+ position:relative;padding:15px 13px 17px;border:1px solid #fff;
+ border-radius:20px;background:#fffffff0;
+ box-shadow:0 8px 24px #7a78bb21;
+}
+.nimiq-payment-card .nimiq-payment-qr{
+ display:block;width:176px;height:176px;box-sizing:content-box;
+ margin:3px auto 12px;padding:6px;border-radius:12px;background:#fff;
+ max-width:calc(100% - 20px)
+}
+.nimiq-payment-card .nimiq-card-iqon,.nimiq-payment-card .nimiq-card-content .nimiq-card-iqon{
+ width:60px;height:60px;margin:8px auto
+}
+.nimiq-payment-card .nimiq-card-iqon[hidden],.nimiq-payment-card .nimiq-card-content img[hidden]{display:none}
+.nimiq-payment-card .nimiq-card-content p,.nimiq-payment-card .nimiq-card-content small{
+ color:#586182;font-size:12px;line-height:1.55;overflow-wrap:anywhere;word-break:break-word
+}
+.nimiq-payment-card .nimiq-card-content small{margin:9px 0;display:block}
+.nimiq-payment-card .nimiq-card-content output{color:#544aa0}
+.nimiq-payment-card .nimiq-card-content button{
+ margin:8px auto 0;border:0;border-radius:12px;padding:12px 16px;min-height:44px;
+ background:linear-gradient(105deg,#7777f8,#a15cea,#7755f5);color:#fff;
+ font-weight:700;box-shadow:0 7px 15px #8773df4b
+}
+.nimiq-payment-card .nimiq-card-content button:hover{filter:brightness(1.06);color:#fff}
+@media(max-width:420px){
+ .nimiq-payment-card{padding:15px 11px;border-radius:22px}
+ .nimiq-card-name{font-size:17px}.nimiq-card-brand img{width:36px;height:36px}
+ .nimiq-payment-card .nimiq-payment-network{font-size:9px;padding:6px}
+ .nimiq-card-content{padding:13px 10px 16px}
+}
+
+/* SecureClaim selection: PhoenixMail theme-matched payment method tiles.
+   Keep the security checkboxes and their validation behaviour unchanged. */
+.nimiq-payment-panel .nimiq-otp-option{
+ display:flex;align-items:center;gap:12px;box-sizing:border-box;width:100%;
+ margin:8px 0;padding:13px 14px;min-height:58px;border-radius:13px;
+ border:1px solid var(--line,#454e68);background:var(--panel2,#202637);
+ color:var(--text,#edf0f7);font-size:13px;line-height:1.45;font-weight:600;
+ cursor:pointer;transition:border-color .15s ease,background .15s ease,box-shadow .15s ease;
+}
+.nimiq-payment-panel .nimiq-otp-option:has(input:checked){
+ border-color:var(--accent,#ff8a1f);
+ background:var(--accent-soft,#352e20);
+ box-shadow:inset 3px 0 0 var(--accent,#ff8a1f);
+}
+.nimiq-payment-panel .nimiq-otp-option:has(input:disabled){
+ opacity:.58;cursor:not-allowed;
+}
+.nimiq-payment-panel .nimiq-otp-option input[type="radio"]{
+ appearance:none;-webkit-appearance:none;flex:none;width:21px;height:21px;
+ margin:0;border-radius:50%;border:2px solid var(--muted,#9da5b8);
+ background:var(--panel,#141925);position:relative;cursor:inherit;
+}
+.nimiq-payment-panel .nimiq-otp-option input[type="radio"]:checked{
+ border-color:var(--accent,#ff8a1f);background:var(--accent,#ff8a1f);
+ box-shadow:inset 0 0 0 4px var(--panel,#141925);
+}
+.nimiq-payment-panel .nimiq-otp-option:focus-within{
+ outline:2px solid var(--accent,#ff8a1f);outline-offset:2px;
+}
+.nimiq-payment-panel .nimiq-otp-option + .nimiq-payment-how{
+ margin:4px 0 10px;color:var(--muted,#b7bed0);font-size:12px;
+}
+
+.nimiq-payment-panel .nimiq-otp-option span{display:grid;gap:4px;min-width:0}.nimiq-payment-panel .nimiq-otp-option strong{font-size:inherit;font-weight:600}.nimiq-payment-panel .nimiq-otp-option small{font-size:12px;line-height:1.45;color:var(--muted);font-weight:400}
+
+/* Honor hidden fields even when their normal layout uses display:block/flex. */
+.nimiq-payment-window [hidden]{display:none!important}
+
+/* In-app cards follow the theme chosen in PhoenixMail: the label's outline and every card button use the theme's accent colour. */
+.nimiq-payment-card .nimiq-payment-network{border:1.5px solid var(--accent,#c7b1ee);color:#3d2f78}
+.nimiq-payment-card.nimiq-payment-card>button,.nimiq-payment-card .nimiq-card-content button{
+ display:block;margin:18px auto 0;min-height:44px;padding:12px 20px;border:1.5px solid var(--accent,#ff8a1f);border-radius:12px;
+ background:color-mix(in srgb,var(--accent,#ff8a1f) 18%,#ffffff);color:#211c49;font-weight:700;box-shadow:none;cursor:pointer;transition:background .15s,transform .08s
+}
+.nimiq-payment-card.nimiq-payment-card>button:hover,.nimiq-payment-card .nimiq-card-content button:hover{background:color-mix(in srgb,var(--accent,#ff8a1f) 32%,#ffffff);color:#211c49;filter:none}
+.nimiq-payment-card.nimiq-payment-card>button:active,.nimiq-payment-card .nimiq-card-content button:active{transform:translateY(1px)}
+.nimiq-payment-card.nimiq-payment-card>button:focus-visible,.nimiq-payment-card .nimiq-card-content button:focus-visible{outline:3px solid var(--accent,#ff8a1f);outline-offset:2px}
+
+/* Same look as the Nimiq Auth / Sign buttons of the composer: the fill may stay grey, the outline follows the theme's accent colour. */
+.nimiq-payment-window .nimiq-payment-panel button,
+.nimiq-payment-window .nimiq-payment-tabs button,
+.nimiq-payment-window .nimiq-payment-edit,
+.nimiq-payment-window .nimiq-address-option{border:1px solid var(--accent,#ff8a1f)}
+.nimiq-payment-window .nimiq-payment-panel button:hover,
+.nimiq-payment-window .nimiq-payment-tabs button:hover,
+.nimiq-payment-window .nimiq-payment-edit:hover,
+.nimiq-payment-window .nimiq-address-option:hover{background:color-mix(in srgb,var(--accent,#ff8a1f) 14%,#2d3450)}
+.nimiq-payment-window .nimiq-payment-panel .nimiq-otp-option:not(:has(input:checked)){border-color:color-mix(in srgb,var(--accent,#ff8a1f) 55%,transparent)}
+
+/* USDT cards (Ethereum, Polygon): same window and cards as Nimiq. */
+.nimiq-payment-assets{margin:0 0 4px}
+.usdt-coin{display:block;width:64px;height:64px;margin:12px auto 6px;border-radius:50%}
+.usdt-coin-small{width:40px;height:40px;margin:0;flex-shrink:0}
+.usdt-address{display:block;font:600 12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere;word-break:break-all;text-align:center}
+.nimiq-wallet-info .usdt-address{text-align:left;font-size:11px;color:var(--muted,#b7bed0)}
+.usdt-only{font-weight:700;margin:0 0 8px}
+.usdt-addressrow{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px;padding:6px 8px 6px 12px;background:#fff;border:1px solid #e3e6f0;border-radius:12px}
+.usdt-addressrow .usdt-address{margin:0;text-align:left;color:#243047}
+.usdt-addressrow .secondary-btn,.usdt-actions .secondary-btn{min-height:36px;padding:6px 12px;font-size:12px}
+.usdt-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:6px 0 0}
+.usdt-open-wallet{display:inline-flex;align-items:center;text-decoration:none;border:1.5px solid var(--accent,#8170ed);border-radius:12px;background:color-mix(in srgb,var(--accent,#8170ed) 14%,#fff);color:#211c49}
+.nimiq-payment-card .usdt-note{display:block;margin:12px 0 0;font-size:12px;line-height:1.5;color:#243047}
+.usdt-pay{flex-basis:100%;margin:8px 0 0;padding:14px 12px;border:1.5px solid var(--accent,#8170ed);border-radius:14px;background:color-mix(in srgb,var(--accent,#8170ed) 8%,transparent);text-align:center}
+.usdt-pay h4{margin:0 0 6px;font-size:14px}
+.usdt-pay p{margin:0 0 8px;font-size:12px;line-height:1.5;color:var(--muted,#b7bed0)}
+.usdt-pay .nimiq-payment-qr{width:170px;height:170px;margin:8px auto}
+.usdt-pay small{display:block;margin:6px 0;font-size:11px;color:var(--muted,#b7bed0)}
+.usdt-pay .usdt-addressrow{background:var(--panel,#141925);border-color:var(--border,#454e68)}
+.usdt-pay .usdt-addressrow .usdt-address{color:var(--text,#edf0f7)}
+.nimiq-sent-state[data-state="paid"]{border-color:#7fd0a8;color:#8edfbd}
+.nimiq-sent-state[data-state="cancelled"],.nimiq-sent-state[data-state="expired"]{opacity:.7}
+.nimiq-sent-state[data-state="ready"]{border-color:var(--accent,#8170ed)}
+
+/* The gas light of the payment screen: green, PhoenixWire pays the gas; red, the sender does. */
+.usdt-ledrow{display:flex;align-items:center;gap:8px;margin:6px 0}
+.usdt-led{flex:none;width:12px;height:12px;border-radius:50%;background:#aab1c5}
+.usdt-led.green{background:#2ecc71;box-shadow:0 0 0 0 rgba(46,204,113,.55);animation:usdt-led-pulse 1.8s infinite}
+.usdt-led.red{background:#e5484d;box-shadow:0 0 6px rgba(229,72,77,.65)}
+@keyframes usdt-led-pulse{0%{box-shadow:0 0 0 0 rgba(46,204,113,.55)}70%{box-shadow:0 0 0 8px rgba(46,204,113,0)}100%{box-shadow:0 0 0 0 rgba(46,204,113,0)}}
+@media (prefers-reduced-motion:reduce){.usdt-led.green{animation:none}}
+.usdt-own{display:flex;align-items:center;gap:8px;margin:6px 0;cursor:pointer}
+.usdt-gasaddr{display:grid;gap:6px;margin:6px 0}
+.usdt-funded{margin:8px 0;padding:10px 12px;border-radius:12px;background:rgba(46,204,113,.14);border:1px solid rgba(46,204,113,.45);font-weight:650}
+/* The funding screen lives INSIDE the pastel card (same model as a Nimiq cashlink), on its light inner panel. */
+.usdt-pay.usdt-pay-card{flex-basis:auto;margin:0;padding:0;border:0;background:none}
+.usdt-pay-card h4{color:#243047;font-size:15px}
+.usdt-pay-card p,.usdt-pay-card small{color:#5a5f86}
+.usdt-pay-card .usdt-addressrow{background:#fff;border:1px solid #e3e6f0}
+.usdt-pay-card .usdt-addressrow .usdt-address{color:#243047}
+.usdt-pay-card .usdt-ledrow strong,.usdt-pay-card .usdt-own{color:#243047}
+.usdt-pay-card .usdt-funded{color:#1b6b43;background:#e6f8ee;border-color:#a8e0c0}
+.usdt-panel-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch}
+.usdt-panel-actions .usdt-open-wallet{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.usdt-pay-card .usdt-addressrow{flex-direction:column;align-items:stretch;gap:6px;padding:10px 12px;text-align:center}
+.usdt-pay-card .usdt-addressrow .usdt-address{text-align:center;font-size:11px;word-break:break-all}
+.usdt-pay-card .usdt-addressrow button{margin:2px auto 0}
+.usdt-pay-card .usdt-waiting:empty{display:none}
+.nimiq-wallet-add .usdt-wallet-net{flex:1 1 100%;display:flex;flex-direction:column;gap:4px;font-size:13px}.nimiq-wallet-add .usdt-wallet-net select{flex:none;width:100%}
+
+/* USDC/USDT cards: the colour of the card must SHOW. The overlays are made from the card's own palette (not a fixed pink and blue),
+   so each of the twelve families gives a visibly different card; the buttons follow the app theme (dark panel, accent outline). */
+.nimiq-payment-card.usdt-card{
+ background-image:radial-gradient(ellipse at 2% 9%,color-mix(in srgb,var(--card-accent,#c7b1ee) 42%,transparent),transparent 50%),radial-gradient(ellipse at 99% 14%,color-mix(in srgb,var(--card-bg,#ece3ff) 55%,#ffffff),transparent 52%),radial-gradient(ellipse at 8% 98%,color-mix(in srgb,var(--card-accent,#c7b1ee) 26%,transparent),transparent 42%),linear-gradient(135deg,var(--card-bg,#ece3ff),color-mix(in srgb,var(--card-bg,#ece3ff) 60%,#ffffff) 55%,color-mix(in srgb,var(--card-accent,#c7b1ee) 38%,#ffffff))
+}
+.nimiq-payment-card.usdt-card .nimiq-card-content button,.nimiq-payment-card.usdt-card .nimiq-card-content .usdt-copy,.usdt-open-wallet{
+ background:var(--panel2,#1f2535);color:var(--text,#f4f5f7);border:1.5px solid var(--accent,#8170ed);border-radius:12px;font-weight:700;box-shadow:none
+}
+.nimiq-payment-card.usdt-card .nimiq-card-content button:hover,.usdt-open-wallet:hover{background:color-mix(in srgb,var(--accent,#8170ed) 30%,var(--panel2,#1f2535));color:var(--text,#f4f5f7);filter:none}
+.nimiq-payment-card.usdt-card .nimiq-card-content button:focus-visible,.usdt-open-wallet:focus-visible{outline:3px solid var(--accent,#8170ed);outline-offset:2px}

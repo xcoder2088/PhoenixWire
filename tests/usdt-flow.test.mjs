@@ -18,7 +18,7 @@ const PROXY = claimPage.match(/PROXY_CREATION_CODE='(0x[0-9a-f]+)'/)[1];
 const doms = [];
 test.after(() => doms.forEach(d => d.window.close()));
 async function start({ answer = x => x, status = () => ({ state: 'awaiting_funds', balance_units: 0 }), invite = () => ({ invited: true }), refundAnswer } = {}) {
-  const dom = new JSDOM(read('../internal/web/static/index.html'), { url: 'https://wire.example.test/', runScripts: 'outside-only' });
+  const dom = new JSDOM(read('../internal/web/static/classic.html'), { url: 'https://wire.example.test/', runScripts: 'outside-only' });
   const { window } = dom;
   doms.push(dom);
   window.open = () => null;
@@ -83,6 +83,11 @@ test('a USDC card: made in the browser, checked against the service, paid by QR,
   assert.ok(!JSON.stringify(create[1]).includes('#c='), 'the link key never goes to the service at creation');
   assert.equal(t.$('usdt-panel').hidden, false);
   assert.equal(t.$('usdt-title').textContent, 'Pay 2.65 USDC on Polygon');
+  // the funding step is the card itself, in the colour its e-mail will have, with the QR inside it
+  assert.equal(t.$('payment-card').dataset.mode, 'fund');
+  assert.ok(t.$('payment-card').contains(t.$('usdt-panel')));
+  assert.equal(t.$('card-amount').textContent, '2.65');
+  assert.equal(t.$('card-unit').textContent, 'USDC');
   assert.equal(t.$('usdt-address').textContent, t.made.card.safe);
   assert.ok(t.$('usdt-wallet').href.startsWith('ethereum:0x'));
   assert.ok(t.$('usdt-qr').innerHTML.includes('<svg'));
