@@ -857,7 +857,7 @@ test('sign out keeps its outlined lock icon and PhoenixMail-sized rounded square
  assert.equal(rule.style.getPropertyValue('color'),'var(--accent)');assert.equal(rule.style.getPropertyValue('border'),'1px solid var(--accent)');
  const nim=await start({nimOnly:true});nim.$('pay').click();await settle();
  const ns=nim.doc.createElement('style');ns.textContent=style.textContent;nim.doc.head.append(ns);
- const close=nim.doc.querySelector('.wire-nim-close');assert.equal(nim.window.getComputedStyle(close).borderRadius,'10px');
+ const close=nim.doc.querySelector('.wire-nim-close');assert.equal(nim.window.getComputedStyle(close).borderRadius,'9px');assert.ok(close.querySelector('svg'));
 });
 
 test('signing out from the completed NIM window closes it and stops its cached flow cleanly',async()=>{
@@ -952,7 +952,7 @@ test('navigation has no decorative arrows, the close control is a large rounded 
  assert.ok(!/[←↗⤢]/.test(t.doc.querySelector('.nimiq-payment-head').textContent));
  const css=read('../internal/web/static/wire-pay.css'),style=t.doc.createElement('style');style.textContent=css;t.doc.head.append(style);
  const close=t.doc.querySelector('.nimiq-payment-head>button:last-child'),computed=t.window.getComputedStyle(close);
- assert.equal(computed.borderRadius,'10px');assert.equal(computed.width,'48px');assert.equal(computed.height,'48px');
+ assert.equal(computed.borderRadius,'9px');assert.equal(computed.width,'44px');assert.equal(computed.height,'44px');assert.ok(close.querySelector('svg'));
  assert.equal(t.window.getComputedStyle(t.$('wire-email')).fontSize,'16px');
  assert.equal(t.doc.querySelector('.nimiq-payment-head').onpointerdown,null);
  assert.ok(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*1/.test(t.doc.querySelector('meta[name="viewport"]').content));

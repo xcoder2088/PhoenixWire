@@ -95,7 +95,8 @@ is retained so the existing sender-bound server idempotency prevents a second ca
 already awaiting funding confirmation is monitored instead of paid again. Once wallet tracking has been saved, the draft
 is cleared. Real iPhone/Android verification of the custom-scheme fragment and native app return remains necessary.
 
-Wire's host also removes the copied title's decorative arrow, styles the close control as a 48 px rounded square, and supplies the
+Wire's host also removes the copied title's decorative arrow, styles the close control like PhoenixMail's lock (44 px square,
+9 px corners, theme-accent border and 20 px outlined icon), and supplies the
 existing `PhoenixViewport.center` hook for keyboard/viewport resizing. CSS keeps narrow forms within the viewport and
 uses at least 16 px text in editable controls to avoid Safari focus zoom, without disabling manual pinch zoom. No `pm/`
 file, Go code or CSP is changed for these adaptations.

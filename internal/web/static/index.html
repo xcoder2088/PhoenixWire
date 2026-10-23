@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/pm/app.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/nimiq-payments.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/theme-light.css?v=0.4.0">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.10">
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.11">
 </head>
 <body class="wire-body">
   <main class="wire-shell">
@@ -34,7 +34,7 @@
       </div>
       <div id="wire-ready" hidden>
         <p class="wire-who"><span id="wire-as"></span> <strong id="wire-who"></strong> <span id="wire-session-confirmed" class="wire-session-confirmed"></span></p>
-        <div class="wire-session-actions"><button id="wire-logout" type="button" class="secondary-btn web-lock wire-session-lock"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path><path d="M12 14v3"></path></svg></button></div>
+        <div class="wire-session-actions"><button id="wire-logout" type="button" class="secondary-btn web-lock wire-session-lock"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></button></div>
         <button id="pay" type="button" class="secondary-btn wire-pay-button"><img src="/brand/nimiq-logo.svg?v=0.3.0" alt="" width="24" height="24"><img src="/brand/usdc-coin.png?v=0.3.0" alt="" width="24" height="24"><img src="/brand/usdt-coin.png?v=0.4.0" alt="" width="24" height="24"><span id="wire-pay-label"></span></button>
       </div>
       <p id="wire-status" role="status" aria-live="polite"></p>
@@ -48,6 +48,7 @@
     </section>
     <footer class="wire-foot">Powered by <a href="https://phoenixmail.ca" rel="noopener">Phoenix Mail</a></footer>
   </main>
+  <template id="wire-close-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"></path></svg></template>
   <template id="wire-nim-template">
     <div class="nimiq-payment-modal">
       <section class="nimiq-payment-window wire-nim-window" role="dialog" aria-modal="true" aria-label="Nimiq">
@@ -109,6 +110,6 @@
   <script src="/pm/usdt-cashlink.js?v=0.4.6"></script>
   <script src="/pm/usdt-payments.js?v=0.4.6"></script>
   <script src="/pm/nimiq-payments.js?v=0.4.0"></script>
-  <script type="module" src="/wire-pay.js?v=0.4.10"></script>
+  <script type="module" src="/wire-pay.js?v=0.4.11"></script>
 </body>
 </html>

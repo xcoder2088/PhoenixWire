@@ -145,9 +145,11 @@ function applyTheme(value) {
  document.documentElement.dataset.theme = value === 'light' || value === 'light-paper' ? 'light-paper' : 'dark';
  paintTheme();
 }
+function styleClose(button){button.replaceChildren($('wire-close-icon').content.cloneNode(true));}
 function paintNim(root) {
  root.querySelectorAll('[data-nim-text]').forEach(el => { el.textContent = t(el.dataset.nimText); });
  root.querySelector('.wire-nim-close').setAttribute('aria-label', t('back'));
+ styleClose(root.querySelector('.wire-nim-close'));
 }
 function closePaymentWindow() {
  document.querySelector('.nimiq-payment-head button:last-child')?.click();
@@ -386,6 +388,7 @@ function mountPayments() {
   const nim = win.querySelector('.nimiq-payment-assets button:first-child');
   if (nim) { nim.disabled = !nimOn; nim.onclick = openNimWindow; }
   const close = head.querySelector('button');
+  styleClose(close);
   const back = document.createElement('button'); back.type = 'button'; back.className = 'secondary-btn wire-window-back';
   back.textContent = t('back');
   // Let the copied window remove its own listeners and observers through its close control.
