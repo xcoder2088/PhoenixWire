@@ -587,3 +587,71 @@ func TestListSaysWhereACardsCoinsAre(t *testing.T) {
 		t.Fatal("coins cannot come back to a card, but it reads", got)
 	}
 }
+
+func TestSenderCanGiveUpACardThatWasNeverPaid(t *testing.T) {
+	f := newFixture(t)
+	f.verifySender("sender@example.test")
+	p := f.create()
+	good(f.call("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t)
+	// A payment that has already reached the card is not cancelled.
+	f.rpcMu.Lock()
+	f.funded = true
+	f.rpcMu.Unlock()
+	if w := f.call("POST", "/api/payments/"+p.ID+"/cancel", map[string]string{}); w.Code != 409 {
+		t.Fatal("a funded card was cancelled", w.Code)
+	}
+	f.rpcMu.Lock()
+	f.funded = false
+	f.rpcMu.Unlock()
+	good(f.call("POST", "/api/payments/"+p.ID+"/cancel", map[string]string{}), t)
+	good(f.call("POST", "/api/payments/"+p.ID+"/cancel", map[string]string{}), t) // again: the same answer
+	if f.api.db.state.Payments[p.ID].Payment.Stage != "cancelled" {
+		t.Fatal("not cancelled")
+	}
+	// It can no longer be funded, followed to delivery or opened by a recipient.
+	for _, action := range []string{"start", "checkout", "confirm", "resend"} {
+		if w := f.call("POST", "/api/payments/"+p.ID+"/"+action, map[string]string{}); w.Code < 400 {
+			t.Fatal(action, "worked on a cancelled card", w.Code)
+		}
+	}
+	if w := f.call("GET", "/api/claims/"+p.ID, nil); w.Code != 404 {
+		t.Fatal("a cancelled card can be opened", w.Code)
+	}
+	if f.mail.invites != 0 {
+		t.Fatal("an invitation went out for a cancelled card")
+	}
+	// A payment that was still on its way shows up afterwards: the list says the card holds money again, so it can be taken back.
+	f.rpcMu.Lock()
+	f.funded = true
+	f.rpcMu.Unlock()
+	state := func() string {
+		w := f.call("GET", "/api/payments", nil)
+		var out struct {
+			Payments []payment `json:"payments"`
+		}
+		json.Unmarshal(w.Body.Bytes(), &out)
+		return out.Payments[0].ClaimState
+	}
+	f.api.lookCardState(p.ID, time.Now())
+	state()
+	f.api.stateMu.Lock()
+	e := f.api.cardStates[p.ID]
+	e.Cancelled, e.Looking = true, false
+	f.api.cardStates[p.ID] = e
+	f.api.stateMu.Unlock()
+	f.api.lookCardState(p.ID, time.Now())
+	if got := state(); got != "unclaimed" {
+		t.Fatal("late money on a cancelled card reads", got)
+	}
+	// And an empty cancelled card is never "received".
+	f.rpcMu.Lock()
+	f.funded = false
+	f.rpcMu.Unlock()
+	f.api.lookCardState(p.ID, time.Now())
+	if got := state(); got == "claimed" {
+		t.Fatal("an unpaid cancelled card reads as received")
+	}
+	if w := f.call("POST", "/api/payments/"+p.ID+"/recovery", map[string]string{}); w.Code != 200 {
+		t.Fatal("a cancelled card lost its recovery", w.Code)
+	}
+}

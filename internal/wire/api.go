@@ -378,6 +378,33 @@ func (a *API) paymentAction(w http.ResponseWriter, r *http.Request, s session, p
 			return
 		}
 		respond(w, 200, map[string]any{"payment": p, "checkout": checkoutOf(p)})
+	case "cancel":
+		// Give up a card that was never paid. Never one whose money is on the card (the sender follows it, or recovers it); a payment that is
+		// still on its way and shows up later stays reachable: the card keeps its recovery, and the list says so (nimstate.go).
+		switch p.Stage {
+		case "cancelled":
+			respond(w, 200, map[string]any{"payment": p})
+			return
+		case "preparing", "ready":
+		case "funding_started":
+			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+			defer cancel()
+			if ok, err := a.engine.Confirm(ctx, p.ID); err != nil {
+				failure(w, 503, "chain_unavailable")
+				return
+			} else if ok {
+				failure(w, 409, "already_funded")
+				return
+			}
+		default:
+			failure(w, 409, "cannot_cancel")
+			return
+		}
+		p.Stage = "cancelled"
+		if !a.savePayment(w, p) {
+			return
+		}
+		respond(w, 200, map[string]any{"payment": p})
 	case "confirm":
 		a.confirm(w, r, p, false)
 	case "resend":
