@@ -32,7 +32,11 @@ footer{display:flex;align-items:center;gap:15px;margin:28px 0 0;font-size:15px;c
 .status.ok:not(:empty){background:#e6f8ee;border-color:#a8e0c0;color:#1b6b43!important}
 .status.error:not(:empty){background:#ffecef;border-color:#f3b4c0;color:#a3203f!important}
 .status{margin:0 0 14px!important}
-</style></head><body><main class="shell"><header><div class="logo"><img src="/phoenixmail-official-emblem.webp" alt="PhoenixMail phoenix emblem" class="brand-emblem"><span class="brand-name">Phoenix<strong>Mail</strong></span></div></header><section class="card"><div class="eyebrow">Secure NIM Claim</div><div class="amount">— <small>NIM</small></div><div class="sub">A payment is waiting for you</div><div class="avatar" id="nimicon" hidden><img id="cashlink-iqon" alt="Nimiq Cashlink Nimicon" class="center-emblem"></div><div class="sub" id="wallet-note"></div><div class="inner"><h2>Verify your email</h2><p>Request a six-digit code to verify your email before continuing to your wallet.</p><button class="btn secondary" id="send" disabled>Send verification code</button><p id="status" class="status" role="status" aria-live="polite"></p><label for="otp" style="font-size:12px;font-weight:750">Verification code</label><div class="digits" id="digits"><div class="digit-visual" aria-hidden="true"><span>•</span><span>•</span><span>•</span><span>•</span><span>•</span><span>•</span></div><input id="otp" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" aria-label="Six digit verification code"></div><button class="btn" id="verify" disabled>Verify code & claim NIM →</button></div><footer><span>Powered by <strong>PhoenixMail</strong> · NimiqSecureClaim</span></footer></section></main><script src="/nimiq-iqons.js?v=sha256-5decdff4dc5c93fa95832b9ad7a9b7b1c7fe601464615d9bf80b80942bc66377"></script><script>
+.addr{width:100%;margin:0 0 16px;padding:15px 14px;border:1px solid #c5bdf0;border-radius:14px;background:#ffffffa8;color:#191747;font:600 15px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.2px}.addr:focus{outline:3px solid #6540bc;outline-offset:2px}#evm-confirm-address{display:block;margin:0 0 16px;padding:14px;border:1px solid #c5bdf0;border-radius:14px;background:#ffffffa8;font:700 14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere;word-break:break-all;text-align:center;color:#191747}#evm-tx{display:block;margin:14px 0 0;text-align:center;font-size:15px;font-weight:700;color:#6631d0}
+</style></head><body><main class="shell"><header><div class="logo"><img src="/phoenixmail-official-emblem.webp" alt="PhoenixMail phoenix emblem" class="brand-emblem"><span class="brand-name">Phoenix<strong>Mail</strong></span></div></header><section class="card"><div class="eyebrow">Secure NIM Claim</div><div class="amount">— <small>NIM</small></div><div class="sub">A payment is waiting for you</div><div class="avatar" id="nimicon" hidden><img id="cashlink-iqon" alt="Nimiq Cashlink Nimicon" class="center-emblem"></div><div class="sub" id="wallet-note"></div><div class="inner"><h2>Verify your email</h2><p>Request a six-digit code to verify your email before continuing to your wallet.</p><button class="btn secondary" id="send" disabled>Send verification code</button><p id="status" class="status" role="status" aria-live="polite"></p><label for="otp" style="font-size:12px;font-weight:750">Verification code</label><div class="digits" id="digits"><div class="digit-visual" aria-hidden="true"><span>•</span><span>•</span><span>•</span><span>•</span><span>•</span><span>•</span></div><input id="otp" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" aria-label="Six digit verification code"></div><button class="btn" id="verify" disabled>Verify code & claim NIM →</button><div id="evm-step" hidden><label for="evm-address" id="evm-label" style="font-size:12px;font-weight:750"></label><input id="evm-address" class="addr" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0x…" maxlength="42"><button class="btn" id="evm-claim">Continue →</button><div id="evm-confirm" hidden><p id="evm-confirm-help"></p><code id="evm-confirm-address" class="usdt-address"></code><button class="btn" id="evm-confirm-yes"></button><button class="btn secondary" id="evm-confirm-back"></button></div><a id="evm-tx" hidden target="_blank" rel="noopener noreferrer"></a></div></div><footer><span>Powered by <strong>PhoenixMail</strong> · NimiqSecureClaim</span></footer></section></main><script src="/nimiq-iqons.js?v=sha256-5decdff4dc5c93fa95832b9ad7a9b7b1c7fe601464615d9bf80b80942bc66377"></script><script>
+// USDT cashlink links carry their key in the fragment: they are handled by their own page (the fragment never reaches a server).
+if(/^#c=/.test(location.hash)){location.replace("/usdt.html"+location.search+location.hash)}
+
 const status=document.getElementById('status'),send=document.getElementById('send'),verify=document.getElementById('verify');
 const locale=(new URLSearchParams(location.search).get('lang')||navigator.language||'en').slice(0,2);
 const translations={
@@ -72,12 +76,82 @@ let previewPalette=1;
 function showPalette(index){const p=palettes[index%palettes.length],root=document.documentElement.style;root.setProperty('--card-start',p[0]);root.setProperty('--card-end',p[1]);root.setProperty('--card-border',p[2]);root.setProperty('--card-action',p[3]);}
 function paletteForClaimId(id){const prefix=String(id||'').slice(0,2);return /^[0-9a-f]{2}$/i.test(prefix)?parseInt(prefix,16)%palettes.length:1;}
 showPalette(previewPalette);
+
+// ---- USDT (Ethereum / Polygon) cards ---------------------------------------------------------------------
+// Nothing is held here. The recipient gives HIS address (after the emailed code for a protected card); the sender pays it directly.
+const usdtWords={
+ en:{waitTitle:'Waiting for your sender',eyebrow:'Secure USDT Claim',waiting:'A payment is waiting for you',protectedLabel:'Protected payment',title:'Where should we send your USDT?',help:'Enter the address of your {chain} wallet. The sender pays it directly. Check it carefully: a payment sent to a wrong address cannot be recovered.',label:'Your {chain} address',next:'Continue',confirmTitle:'Is this your address?',confirmHelp:'Your sender will pay exactly this address. It cannot be changed afterwards.',confirmYes:'Yes, receive my USDT here',back:'Change the address',ready:'Your sender has been told. Keep this page or come back later: it shows the payment as soon as it arrives.',paid:'Payment received. The USDT are on their way to your wallet.',view:'View the transaction',cancelled:'The sender cancelled this payment.',expired:'This link has expired.',badAddress:'This address is not valid. Check it and try again.',same:'This is the sender’s own address. Enter your own wallet address.',chain:'The network is not reachable right now. Try again shortly.',already:'An address was already given for this payment.',notVerified:'Verify your email code first.',verified:'Code accepted. Enter your wallet address to receive your USDT.'},
+ fr:{waitTitle:'En attente de votre expéditeur',eyebrow:'Recevoir des USDT en sécurité',waiting:'Un paiement vous attend',protectedLabel:'Paiement protégé',title:'Où envoyer vos USDT ?',help:'Entrez l’adresse de votre portefeuille {chain}. L’expéditeur la paiera directement. Vérifiez-la bien : un paiement envoyé à une mauvaise adresse ne peut pas être récupéré.',label:'Votre adresse {chain}',next:'Continuer',confirmTitle:'Est-ce bien votre adresse ?',confirmHelp:'Votre expéditeur paiera exactement cette adresse. Elle ne pourra plus être modifiée.',confirmYes:'Oui, recevoir mes USDT ici',back:'Modifier l’adresse',ready:'Votre expéditeur a été prévenu. Gardez cette page ou revenez plus tard : elle affiche le paiement dès son arrivée.',paid:'Paiement reçu. Les USDT sont en route vers votre portefeuille.',view:'Voir la transaction',cancelled:'L’expéditeur a annulé ce paiement.',expired:'Ce lien a expiré.',badAddress:'Cette adresse n’est pas valide. Vérifiez-la et réessayez.',same:'C’est l’adresse de l’expéditeur. Entrez l’adresse de votre propre portefeuille.',chain:'Le réseau est inaccessible pour le moment. Réessayez bientôt.',already:'Une adresse a déjà été donnée pour ce paiement.',notVerified:'Vérifiez d’abord votre code reçu par courriel.',verified:'Code accepté. Entrez l’adresse de votre portefeuille pour recevoir vos USDT.'},
+ es:{waitTitle:'Esperando a tu remitente',eyebrow:'Recibir USDT de forma segura',waiting:'Hay un pago esperándote',protectedLabel:'Pago protegido',title:'¿Dónde enviamos tus USDT?',help:'Introduce la dirección de tu monedero {chain}. El remitente la pagará directamente. Compruébala bien: un pago enviado a una dirección equivocada no se puede recuperar.',label:'Tu dirección {chain}',next:'Continuar',confirmTitle:'¿Es esta tu dirección?',confirmHelp:'Tu remitente pagará exactamente esta dirección. No se podrá cambiar después.',confirmYes:'Sí, recibir mis USDT aquí',back:'Cambiar la dirección',ready:'Tu remitente ha sido avisado. Conserva esta página o vuelve más tarde: muestra el pago en cuanto llegue.',paid:'Pago recibido. Los USDT van de camino a tu monedero.',view:'Ver la transacción',cancelled:'El remitente canceló este pago.',expired:'Este enlace ha caducado.',badAddress:'Esta dirección no es válida. Compruébala e inténtalo de nuevo.',same:'Es la dirección del remitente. Introduce la dirección de tu propio monedero.',chain:'La red no está disponible ahora. Inténtalo en un momento.',already:'Ya se dio una dirección para este pago.',notVerified:'Primero verifica tu código del correo.',verified:'Código aceptado. Introduce la dirección de tu monedero para recibir tus USDT.'},
+ de:{waitTitle:'Warte auf deinen Absender',eyebrow:'USDT sicher empfangen',waiting:'Eine Zahlung wartet auf dich',protectedLabel:'Geschützte Zahlung',title:'Wohin sollen wir deine USDT senden?',help:'Gib die Adresse deiner {chain}-Wallet ein. Der Absender bezahlt sie direkt. Prüfe sie genau: Eine Zahlung an eine falsche Adresse kann nicht zurückgeholt werden.',label:'Deine {chain}-Adresse',next:'Weiter',confirmTitle:'Ist das deine Adresse?',confirmHelp:'Dein Absender bezahlt genau diese Adresse. Sie kann danach nicht mehr geändert werden.',confirmYes:'Ja, meine USDT hierhin senden',back:'Adresse ändern',ready:'Dein Absender wurde benachrichtigt. Behalte diese Seite oder komm später zurück: Sie zeigt die Zahlung, sobald sie eintrifft.',paid:'Zahlung erhalten. Die USDT sind auf dem Weg in deine Wallet.',view:'Transaktion ansehen',cancelled:'Der Absender hat diese Zahlung abgebrochen.',expired:'Dieser Link ist abgelaufen.',badAddress:'Diese Adresse ist ungültig. Prüfe sie und versuche es erneut.',same:'Das ist die Adresse des Absenders. Gib die Adresse deiner eigenen Wallet ein.',chain:'Das Netzwerk ist gerade nicht erreichbar. Versuche es gleich noch einmal.',already:'Für diese Zahlung wurde bereits eine Adresse angegeben.',notVerified:'Bestätige zuerst deinen E-Mail-Code.',verified:'Code bestätigt. Gib deine Wallet-Adresse ein, um deine USDT zu empfangen.'},
+ zh:{waitTitle:'等待发送方',eyebrow:'安全领取 USDT',waiting:'有一笔付款在等你',protectedLabel:'受保护的付款',title:'你的 USDT 要发送到哪里？',help:'输入你的 {chain} 钱包地址。发送方会直接向它付款。请仔细核对：发送到错误地址的款项无法找回。',label:'你的 {chain} 地址',next:'继续',confirmTitle:'这是你的地址吗？',confirmHelp:'发送方将向这个地址付款，之后无法更改。',confirmYes:'是的，把 USDT 发到这里',back:'修改地址',ready:'已通知发送方。请保留此页面或稍后回来：付款到账后这里会显示。',paid:'已收到付款。USDT 正在发往你的钱包。',view:'查看交易',cancelled:'发送方已取消此付款。',expired:'此链接已过期。',badAddress:'此地址无效。请检查后重试。',same:'这是发送方自己的地址。请输入你自己的钱包地址。',chain:'网络暂时无法访问。请稍后重试。',already:'此付款已提供过地址。',notVerified:'请先验证邮件验证码。',verified:'验证成功。请输入你的钱包地址以领取 USDT。'}
+}[locale]||null;
+const U=usdtWords||{eyebrow:'Secure USDT Claim'},chainName={ethereum:'Ethereum',polygon:'Polygon'};
+let evm=null,evmPoll=null;
+const evmStep=document.getElementById('evm-step'),evmAddress=document.getElementById('evm-address'),evmClaim=document.getElementById('evm-claim'),evmTx=document.getElementById('evm-tx'),evmConfirm=document.getElementById('evm-confirm');
+const explorerOK=u=>typeof u==='string'&&/^https:\/\/(etherscan\.io|polygonscan\.com)\/tx\/0x[0-9a-fA-F]{64}$/.test(u);
+const addressOK=a=>/^0x[0-9a-fA-F]{40}$/.test(a);
+function evmPaletteFor(v){const even=(parseInt(String(v.id).slice(2,4),16)||0)%2===0;return v.chain==='ethereum'?(even?2:11):(even?1:8)}
+const hideCode=()=>{canVerify=false;send.hidden=true;verify.hidden=true;document.getElementById('digits').hidden=true;document.querySelector('label[for="otp"]').hidden=true};
+function showAddressStep(note){
+ hideCode();const chain=chainName[evm.chain]||'';
+ document.querySelector('.inner h2').textContent=U.title;document.querySelector('.inner p').textContent=U.help.replace('{chain}',chain);
+ document.getElementById('evm-label').textContent=U.label.replace('{chain}',chain);evmClaim.textContent=U.next+' →';
+ evmStep.hidden=false;evmConfirm.hidden=true;evmAddress.hidden=false;evmClaim.hidden=false;document.getElementById('evm-label').hidden=false;if(note)setStatus(note,'ok');updateControls();
+}
+function showConfirmStep(address){
+ document.querySelector('.inner h2').textContent=U.confirmTitle;document.querySelector('.inner p').textContent='';
+ evmAddress.hidden=true;evmClaim.hidden=true;document.getElementById('evm-label').hidden=true;
+ document.getElementById('evm-confirm-help').textContent=U.confirmHelp;document.getElementById('evm-confirm-address').textContent=address;
+ document.getElementById('evm-confirm-yes').textContent=U.confirmYes+' →';document.getElementById('evm-confirm-back').textContent=U.back;
+ evmConfirm.hidden=false;setStatus('','');
+}
+// After the address is given: waiting for the sender, then paid / cancelled / expired.
+function showFinal(v){
+ hideCode();evmStep.hidden=false;evmConfirm.hidden=true;evmAddress.hidden=true;evmClaim.hidden=true;document.getElementById('evm-label').hidden=true;
+ document.querySelector('.inner h2').textContent=v.state==='ready'?U.waitTitle:'';document.querySelector('.inner p').textContent='';
+ if(explorerOK(v.tx_url)){evmTx.href=v.tx_url;evmTx.textContent=U.view+' →';evmTx.hidden=false}
+ if(v.state==='paid')setStatus(U.paid,'ok');else if(v.state==='cancelled')setStatus(U.cancelled,'error');else if(v.state==='expired')setStatus(U.expired,'error');else setStatus(U.ready,'ok');
+}
+async function pollEvm(){
+ clearTimeout(evmPoll);
+ try{const r=await fetch('/api/v1/claims/'+encodeURIComponent(claimId),{cache:'no-store'});const v=await r.json();
+  if(r.ok){evm=Object.assign(evm,v);showFinal(v);if(v.state==='ready')evmPoll=setTimeout(pollEvm,8000)}
+ }catch{evmPoll=setTimeout(pollEvm,10000)}
+}
+function evmErrorText(code){return {invalid_address:U.badAddress,same_address:U.same,chain_unavailable:U.chain,claim_expired:U.expired,card_cancelled:U.cancelled,address_already_given:U.already,email_not_verified:U.notVerified}[code]||feedback[3]}
+function loadEVM(v){
+ evm=v;if(v.symbol&&v.symbol!=='USDT')for(const k of Object.keys(U))if(typeof U[k]==='string')U[k]=U[k].replace(/USDT/g,v.symbol);document.title='PhoenixMail · '+U.eyebrow;document.querySelector('.eyebrow').textContent=U.eyebrow;
+ amountNode.firstChild.textContent=v.amount+' ';const small=amountNode.querySelector&&amountNode.querySelector('small');if(small)small.textContent=v.symbol||'USDT';
+ showPalette(evmPaletteFor(v));
+ const chain=chainName[v.chain]||'';
+ descriptionNode.textContent=(v.protected?U.protectedLabel:U.waiting)+(chain?' · '+chain:'');
+ const coin=document.getElementById('cashlink-iqon');coin.src=v.symbol==='USDC'?'/usdc-coin.png':'/usdt-coin.png';coin.alt=v.symbol==='USDC'?'USD Coin USDC':'Tether USDT';document.getElementById('nimicon').hidden=false;
+ document.getElementById('wallet-note').textContent=v.message||'';
+ if(v.state!=='awaiting_address'){showFinal(v);if(v.state==='ready')pollEvm();return}
+ if(!v.protected||v.email_verified){showAddressStep(v.protected?U.verified:'');return}
+ canVerify=true;updateControls();
+}
+evmClaim.onclick=()=>{const to=evmAddress.value.trim();if(!addressOK(to)){setStatus(U.badAddress,'error');return}showConfirmStep(to)};
+document.getElementById('evm-confirm-back').onclick=()=>showAddressStep('');
+document.getElementById('evm-confirm-yes').onclick=async()=>{
+ if(requestBusy)return;const to=document.getElementById('evm-confirm-address').textContent;
+ requestBusy=true;const yes=document.getElementById('evm-confirm-yes');yes.setAttribute('aria-busy','true');yes.disabled=true;setStatus('','');
+ try{
+  const r=await fetch('/api/v1/claims/'+encodeURIComponent(claimId)+'?action=address',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({to})});
+  const v=await r.json().catch(()=>({}));
+  if(!r.ok){setStatus(evmErrorText(v.error),'error');if(v.error==='invalid_address'||v.error==='same_address')showAddressStep('');return}
+  evm=Object.assign(evm,v);showFinal(v);pollEvm();
+ }catch{setStatus(feedback[3],'error')}
+ finally{requestBusy=false;yes.removeAttribute('aria-busy');yes.disabled=false}
+};
 async function loadClaim(){
  if(!claimId){status.textContent='Invalid claim identifier';send.disabled=verify.disabled=true;return;}
  try{
   const r=await fetch('/api/v1/claims/'+encodeURIComponent(claimId),{cache:'no-store'});
   const v=await r.json();
   if(!r.ok)throw Error(v.error||'Claim unavailable');
+  if(typeof v.asset==='string'&&v.asset.startsWith('usdt_')){loadEVM(v);return}
   amountNode.firstChild.textContent=v.amount+' ';
   showPalette(previewMode?previewPalette:paletteForClaimId(v.id));
   descriptionNode.textContent=previewMode?text.preview:text.protected;
@@ -122,6 +196,7 @@ async function action(name,data={}){
    return;
   }
   if(name==='request'){ok=true;setStatus(text.sent,'ok');otpInput.value='';otpBoxes.forEach(box=>box.textContent='•');otpInput.focus();startCooldown(60);}
+  else if(name==='release' && evm && v.status==='otp_verified'){ok=true;showAddressStep(U.verified)}
   else if(name==='release' && typeof v.cashlink==='string' && /^https:\/\/hub\.nimiq\.com\/cashlink\/#/.test(v.cashlink)){
    // The same button that verified the code becomes the one that opens the wallet: nothing else is left to press.
    canVerify=false;receiveUrl=v.cashlink;setStatus(text.accepted,'ok');
@@ -132,5 +207,5 @@ async function action(name,data={}){
  }catch(e){setStatus(feedback[3],'error')}
  finally{requestBusy=false;button.removeAttribute('aria-busy');if(name==='request'&&cooling>0){send.textContent=more.again+' '+cooling+more.sec}else{button.textContent=label}updateControls();}
 }
-send.onclick=()=>action('request');verify.onclick=()=>{if(receiveUrl){window.open(receiveUrl,'_blank','noopener,noreferrer');return}return action('release',{code:document.getElementById('otp').value.trim()})};
+send.onclick=()=>action('request',{lang:locale});verify.onclick=()=>{if(receiveUrl){window.open(receiveUrl,'_blank','noopener,noreferrer');return}return action('release',{code:document.getElementById('otp').value.trim()})};
 </script></body></html>

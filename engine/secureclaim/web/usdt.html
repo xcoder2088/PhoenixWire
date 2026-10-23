@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>PhoenixMail · Protected USDT</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#191747;--card-start:#efddff;--card-mid:#e4f0ff;--card-end:#d8f5fa;--card-border:#cba5fb}
+*{box-sizing:border-box}[hidden]{display:none!important}html{min-height:100%}body{min-height:100vh;margin:0;padding:24px 16px 40px;display:flex;justify-content:center;align-items:flex-start;background:radial-gradient(ellipse 45% 65% at 12% 65%,#ffe4f5 0%,transparent 100%),radial-gradient(ellipse 42% 75% at 90% 30%,#c7d7ff 0%,transparent 100%),#f2f2ff}
+.shell{width:min(700px,100%);padding:28px 36px 26px;position:relative;isolation:isolate;border-radius:37px;border:1px solid #c3bbf5;background:linear-gradient(130deg,#f6eafa9c,#e5f1ffbb 50%,#f9e1f6a1);box-shadow:0 18px 50px #7778b329}
+header{height:84px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:0 17px 10px}.logo{display:flex;align-items:center;gap:11px}.brand-emblem{width:79px;height:79px;object-fit:contain;}.brand-name{font-size:36px;letter-spacing:-1.2px;font-weight:850;color:#1a164d;white-space:nowrap}.brand-name strong{color:#f39043}.tag{white-space:nowrap;margin-top:16px;border:1px solid #aa9ff1;border-radius:999px;padding:9px 20px;font-weight:800;font-size:14px;color:#6540bc;background:#f6f5ff8c}
+.card{position:relative;isolation:isolate;overflow:hidden;border:1px solid var(--card-border);border-radius:33px;padding:34px 31px 26px;text-align:center;background:radial-gradient(ellipse at 4% 8%,color-mix(in srgb,var(--card-border) 42%,transparent),transparent 50%),radial-gradient(ellipse at 98% 15%,color-mix(in srgb,var(--card-start) 55%,#fff),transparent 52%),radial-gradient(ellipse at 10% 98%,color-mix(in srgb,var(--card-border) 26%,transparent),transparent 40%),linear-gradient(130deg,var(--card-start),var(--card-mid,var(--card-start)) 55%,var(--card-end));box-shadow:0 0 0 3px #ffffffaf,0 8px 25px #b0a0d45c,inset 0 0 0 1px #ffffffad}
+.card:before{content:"";position:absolute;inset:-22% -60%;border:1px solid #ffffffaf;border-radius:47%;transform:rotate(-29deg);pointer-events:none;z-index:0}.card:after{content:"";position:absolute;inset:8% -35% -20%;border:1px solid #ffffff80;border-radius:49%;transform:rotate(24deg);pointer-events:none;z-index:0}.card>*{position:relative;z-index:1}
+.eyebrow{font-size:18px;letter-spacing:2.1px;text-transform:uppercase;font-weight:800;color:#7861b7}.amount{font-size:86px;letter-spacing:-4px;font-weight:850;line-height:1.1;margin:21px 0 8px}.amount small{font-size:37px;letter-spacing:0}.sub{font-size:18px;color:#7579a7}.avatar{height:103px;width:103px;margin:23px auto 20px;border:5px solid #ffffffed;border-radius:26px;display:grid;place-items:center;background:linear-gradient(125deg,#e2f4ff,#cbb9ff,#ffe3ef);box-shadow:0 0 0 2px #c7f8ff,0 0 19px #ffaaf0a8,0 10px 25px #8d89d641}.center-emblem{width:91px;height:91px;object-fit:contain;}
+.inner{margin:0;padding:28px 31px 28px;text-align:left;background:#fffffff0;border:1px solid #fff;border-radius:27px;box-shadow:0 9px 23px #8586bb2c}.inner h2{font-size:26px;margin:0 0 9px}.inner p{font-size:17px;line-height:1.48;color:#777ba6;margin:0 0 15px}
+.btn{width:100%;border:0;border-radius:16px;padding:17px;font-size:20px;font-weight:750;cursor:pointer;color:#fff;background:linear-gradient(100deg,#7775fb,#a359ed,#7556fa);box-shadow:0 10px 21px #9079e74d}.btn.secondary{background:transparent;color:#6631d0;box-shadow:none;font-size:16px;margin:17px 0 9px;padding:16px 0}.btn:focus-visible{outline:3px solid #6540bc;outline-offset:3px}
+a.btn{display:block;text-align:center;text-decoration:none}.btn:disabled{opacity:.55;cursor:default;box-shadow:none}
+.inner label{display:block;margin:0 0 10px;font-size:16px!important}.digits{position:relative;margin:0 0 18px}.digit-visual{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:11px}.digit-visual span{height:65px;display:grid;place-items:center;border:1px solid #c5bdf0;border-radius:14px;background:#ffffffa8;color:#aaa3ce;font-size:23px}.digits input{position:absolute;inset:0;width:100%;height:65px;opacity:.01;z-index:2;cursor:text}.digits:focus-within .digit-visual span{border-color:#7e64e5}.status{min-height:18px!important;margin:9px 0 0!important;font-size:13px!important;text-align:center;color:#6144a8!important}
+footer{display:flex;align-items:center;gap:15px;margin:28px 0 0;font-size:15px;color:#777aa7;white-space:nowrap}footer:before,footer:after{content:"";height:1px;flex:1;background:#8eaff3}footer strong{color:#6534cf}
+/* Keep the approved design intact: scale the entire desktop card uniformly, rather than modifying proportions, colors, logos or typography. */
+@media(min-width:701px){.shell{zoom:.78}}
+@media(max-width:700px){.shell{padding:17px 18px 20px;border-radius:27px}header{padding:0 3px 8px;height:73px}.brand-emblem{width:62px;height:62px}.brand-name{font-size:clamp(21px,5vw,31px)}.tag{font-size:10px;padding:8px 10px}.card{padding:28px 21px 23px}.eyebrow{font-size:14px}.amount{font-size:70px}.amount small{font-size:29px}.sub{font-size:14px}.inner{padding:23px 20px}.inner h2{font-size:23px}.inner p{font-size:14px}.btn.secondary{font-size:14px}.digit-visual{gap:6px}.digit-visual span,.digits input{height:53px}footer{font-size:11px;gap:8px}}
+@media(max-width:410px){body{padding:10px 7px}.shell{padding:10px}.brand-emblem{width:47px;height:47px}.brand-name{font-size:20px}.tag{font-size:9px}.card{padding:21px 12px 17px}.inner{padding:20px 14px}.digit-visual{gap:4px}.digit-visual span,.digits input{height:44px}.btn:disabled{opacity:.55;cursor:default;box-shadow:none}
+.inner label{font-size:13px!important}footer{font-size:9px}.amount{font-size:61px}.avatar{width:90px;height:90px}.center-emblem{width:80px;height:80px}}
+/* Feedback on every action: hover, press, busy, and a clearly visible message next to the buttons. */
+.btn{transition:transform .08s,box-shadow .15s,filter .15s,background .15s,border-color .15s}
+.btn:hover:not(:disabled){filter:brightness(1.07);box-shadow:0 12px 26px #9079e766}
+.btn:active:not(:disabled){transform:translateY(1px) scale(.99);filter:brightness(.95)}
+.btn.secondary{border:1.5px solid #bdaef0;background:#f6f2ff;border-radius:14px;margin:14px 0 12px;padding:14px 0}
+.btn.secondary:hover:not(:disabled){background:#ebe3ff;border-color:#9a83e6;box-shadow:none;filter:none}
+.btn.secondary:active:not(:disabled){background:#ddd0ff}
+.btn[aria-busy=true]{cursor:progress}
+.btn[aria-busy=true]::after{content:"";display:inline-block;width:15px;height:15px;margin-left:10px;vertical-align:-2px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:claim-spin .7s linear infinite}
+@keyframes claim-spin{to{transform:rotate(360deg)}}
+.status:not(:empty){padding:11px 14px;border-radius:12px;background:#efe9ff;border:1px solid #c9bcf3;font-size:15px!important;font-weight:650;line-height:1.4;color:#4b2f9c!important}
+.status.ok:not(:empty){background:#e6f8ee;border-color:#a8e0c0;color:#1b6b43!important}
+.status.error:not(:empty){background:#ffecef;border-color:#f3b4c0;color:#a3203f!important}
+.status{margin:0 0 14px!important}
+.addr{width:100%;margin:0 0 16px;padding:15px 14px;border:1px solid #c5bdf0;border-radius:14px;background:#ffffffa8;color:#191747;font:600 15px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.2px}.addr:focus{outline:3px solid #6540bc;outline-offset:2px}#evm-confirm-address{display:block;margin:0 0 16px;padding:14px;border:1px solid #c5bdf0;border-radius:14px;background:#ffffffa8;font:700 14px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow-wrap:anywhere;word-break:break-all;text-align:center;color:#191747}#evm-tx{display:block;margin:14px 0 0;text-align:center;font-size:15px;font-weight:700;color:#6631d0}
+</style>
+<style>.msg{font-size:17px;line-height:1.48;overflow-wrap:anywhere}#step-address[hidden],#step-code[hidden],#step-done[hidden]{display:none!important}</style></head>
+<body><main class="shell"><header><div class="logo"><img src="/phoenixmail-official-emblem.webp" alt="PhoenixMail" class="brand-emblem"><span class="brand-name">Phoenix<strong>Mail</strong></span></div></header>
+<section class="card"><div class="eyebrow" id="eyebrow"></div><div class="amount" id="amount">&nbsp;</div><div class="sub" id="sub"></div>
+<div class="inner" id="panel"><p class="msg" id="cardMsg"></p><p class="msg" id="msg"></p><p class="msg" id="whereMoney"></p>
+<div id="step-email" hidden><h2 id="emailTitle"></h2><p id="emailHelp"></p><p class="status" id="status0" role="status"></p><button class="btn" id="sendCode" type="button"></button></div>
+<div id="step-code" hidden><p id="codeSent"></p><label for="code" id="codeLabel"></label><input class="addr" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••"><p class="status" id="status2" role="status"></p><button class="btn secondary" id="pasteCode" type="button" hidden></button><button class="btn" id="verify" type="button"></button><button class="btn secondary" id="resend" type="button"></button></div>
+<div id="step-address" hidden><h2 id="where"></h2><label for="to" id="toLabel"></label><input class="addr" id="to" autocomplete="off" spellcheck="false" placeholder="0x…"><div id="addrTools"><button class="btn secondary" id="useWallet" type="button" hidden></button><button class="btn secondary" id="scanBtn" type="button" hidden></button><button class="btn secondary" id="pasteBtn" type="button" hidden></button><div id="appLinks"></div></div><div id="scanBox" hidden><video id="scanVideo" playsinline muted style="width:100%;border-radius:14px;background:#000"></video><p id="scanHelp" class="msg"></p><button class="btn secondary" id="scanStop" type="button"></button></div><p id="addrHelp"></p><p id="recap" class="msg"></p><p class="status" id="status1" role="status"></p><button class="btn" id="next" type="button"></button></div>
+<div id="step-done" hidden><p class="status ok" id="doneMsg"></p><p><a id="txLink" target="_blank" rel="noopener noreferrer"></a></p></div></div></section></main>
+<script src="/cashlink.js"></script>
+<script>
+(function(){'use strict';
+const PROXY_CREATION_CODE='0x608060405234801561001057600080fd5b506040516101e63803806101e68339818101604052602081101561003357600080fd5b8101908080519060200190929190505050600073ffffffffffffffffffffffffffffffffffffffff168173ffffffffffffffffffffffffffffffffffffffff1614156100ca576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260228152602001806101c46022913960400191505060405180910390fd5b806000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505060ab806101196000396000f3fe608060405273ffffffffffffffffffffffffffffffffffffffff600054167fa619486e0000000000000000000000000000000000000000000000000000000060003514156050578060005260206000f35b3660008037600080366000845af43d6000803e60008114156070573d6000fd5b3d6000f3fea264697066735822122003d1488ee65e08fa41e58e888a9865554c535f2c77126a82cb4c0f917f31441364736f6c63430007060033496e76616c69642073696e676c65746f6e20616464726573732070726f7669646564';
+const WORDS={"en": {"eyebrow": "PROTECTED USDT", "loading": "Checking the card…", "notFound": "This card was not found.", "waitFunds": "The sender has not paid this card yet. This page updates by itself.", "noFee": "You pay nothing: no fee, no gas.", "where": "Where do you want to receive your USDT?", "addr": "Your wallet address (0x…) on {chain}", "addrHelp": "Paste it, scan it or use your wallet: only an address you control (the payment cannot be undone).", "next": "Continue", "codeSent": "A six-digit code was sent to the email this card was made for.", "code": "Code received by email", "verify": "Verify and receive my USDT", "working": "Working…", "paid": "Your USDT are on their way to your wallet.", "verifying": "The payment was sent and is being verified. You can close this page.", "tx": "View the transaction", "expired": "This card has expired.", "cancelled": "This card was cancelled by the sender.", "already": "This card was already claimed.", "withdrawn": "The sender took this money back.", "other": "This card was spent elsewhere.", "badLink": "This link is not valid.", "errors": {"invalid_address": "Invalid address.", "invalid_link_proof": "This link does not match the card.", "invalid_or_expired_code": "This code is wrong or expired. Start again to request a new one.", "rate_limited": "Too many attempts. Try again later.", "session_required": "Your session expired. Reload the page.", "card_not_funded": "The sender has not paid this card yet.", "quote_changed": "The card changed. Reload the page.", "destination_already_bound": "Another address was already chosen for this card.", "payment_in_progress": "A payment is being verified.", "expired": "This card has expired.", "card_cancelled": "This card was cancelled.", "already_paid": "This card was already claimed.", "chain_unavailable": "The network is not reachable. Try again shortly.", "usdt_unavailable": "The service is not available. Try again later.", "forbidden": "Not allowed.", "conflict": "Not possible in the card’s current state.", "durable_email_otp_required": "Email codes are not available right now. Try again later.", "generic": "Something went wrong. Try again.", "email_check_required": "Confirm your emailed code first. Reload the page to start again."}, "recap": "You will receive {amount} USDT at {to}. You pay nothing: the fees were paid by the sender.", "whereMoney": "The money of this card sits on the card’s own address, like a paper wallet, not in anyone’s account. It can leave only for you, after your emailed code.", "useWallet": "Use my wallet", "scan": "Scan with the camera", "scanHelp": "On your phone, open your wallet’s “Receive” screen and show its QR code to the camera.", "scanStop": "Cancel", "scanDenied": "The camera is not available. Paste your address instead.", "scanNone": "No address found yet: hold the QR code steady in front of the camera.", "walletNone": "No wallet found in this browser. Paste your address or scan it.", "paste": "Paste from clipboard", "pasteNone": "Nothing to paste: copy your address first.", "openApp": "Open in {app}", "failedRetry": "The payment did not go through. Nothing was lost: reload this page to try again.", "emailTitle": "First, confirm your email", "emailHelp": "We send a six-digit code to the email this card was made for. Then you choose where to receive.", "sendCode": "Send me the code", "confirmCode": "Confirm the code", "resend": "Send the code again", "codeResent": "A new code was sent.", "receive": "Receive my USDT", "pasteCodeNone": "No six-digit code in the clipboard: copy the code from the email first."}, "fr": {"eyebrow": "USDT PROTÉGÉS", "loading": "Vérification de la carte…", "notFound": "Cette carte est introuvable.", "waitFunds": "L’expéditeur n’a pas encore payé cette carte. Cette page se met à jour toute seule.", "noFee": "Tu ne paies rien : ni frais, ni gaz.", "where": "Où veux-tu recevoir tes USDT ?", "addr": "L’adresse de ton portefeuille (0x…) sur {chain}", "addrHelp": "Colle-la, scanne-la ou utilise ton portefeuille : seulement une adresse que tu contrôles (le paiement ne peut pas être annulé).", "next": "Continuer", "codeSent": "Un code à six chiffres a été envoyé au courriel pour lequel cette carte a été faite.", "code": "Code reçu par courriel", "verify": "Vérifier et recevoir mes USDT", "working": "En cours…", "paid": "Tes USDT sont en route vers ton portefeuille.", "verifying": "Le paiement a été envoyé et il est en cours de vérification. Tu peux fermer cette page.", "tx": "Voir la transaction", "expired": "Cette carte a expiré.", "cancelled": "Cette carte a été annulée par l’expéditeur.", "already": "Cette carte a déjà été réclamée.", "withdrawn": "L’expéditeur a repris cet argent.", "other": "Cette carte a été dépensée ailleurs.", "badLink": "Ce lien n’est pas valide.", "errors": {"invalid_address": "Adresse invalide.", "invalid_link_proof": "Ce lien ne correspond pas à la carte.", "invalid_or_expired_code": "Ce code est incorrect ou expiré. Recommence pour en demander un nouveau.", "rate_limited": "Trop de tentatives. Réessaie plus tard.", "session_required": "Ta session a expiré. Recharge la page.", "card_not_funded": "L’expéditeur n’a pas encore payé cette carte.", "quote_changed": "La carte a changé. Recharge la page.", "destination_already_bound": "Une autre adresse a déjà été choisie pour cette carte.", "payment_in_progress": "Un paiement est en cours de vérification.", "expired": "Cette carte a expiré.", "card_cancelled": "Cette carte a été annulée.", "already_paid": "Cette carte a déjà été réclamée.", "chain_unavailable": "Le réseau est inaccessible. Réessaie bientôt.", "usdt_unavailable": "Le service est indisponible. Réessaie plus tard.", "forbidden": "Non autorisé.", "conflict": "Impossible dans l’état actuel de la carte.", "durable_email_otp_required": "Les codes par courriel sont indisponibles pour le moment. Réessaie plus tard.", "generic": "Une erreur est survenue. Réessaie.", "email_check_required": "Confirme d’abord ton code reçu par courriel. Recharge la page pour recommencer."}, "recap": "Tu vas recevoir {amount} USDT à l’adresse {to}. Tu ne paies rien : les frais ont été payés par l’expéditeur.", "whereMoney": "L’argent de cette carte est sur l’adresse de la carte elle-même, comme un paper wallet, pas dans le compte de quelqu’un. Il ne peut sortir que pour toi, après ton code reçu par courriel.", "useWallet": "Utiliser mon portefeuille", "scan": "Scanner avec la caméra", "scanHelp": "Sur ton téléphone, ouvre l’écran « Recevoir » de ton portefeuille et montre son QR code à la caméra.", "scanStop": "Annuler", "scanDenied": "La caméra n’est pas disponible. Colle plutôt ton adresse.", "scanNone": "Aucune adresse trouvée pour l’instant : tiens le QR code bien en face de la caméra.", "walletNone": "Aucun portefeuille trouvé dans ce navigateur. Colle ton adresse ou scanne-la.", "paste": "Coller depuis le presse-papiers", "pasteNone": "Rien à coller : copie d’abord ton adresse.", "openApp": "Ouvrir dans {app}", "failedRetry": "Le paiement n’a pas abouti. Rien n’est perdu : recharge cette page pour réessayer.", "emailTitle": "D’abord, confirme ton courriel", "emailHelp": "Nous envoyons un code à six chiffres au courriel pour lequel cette carte a été faite. Ensuite, tu choisis où recevoir.", "sendCode": "M’envoyer le code", "confirmCode": "Confirmer le code", "resend": "Renvoyer le code", "codeResent": "Un nouveau code a été envoyé.", "receive": "Recevoir mes USDT", "pasteCodeNone": "Aucun code à six chiffres dans le presse-papiers : copie d’abord le code du courriel."}, "es": {"eyebrow": "USDT PROTEGIDOS", "loading": "Comprobando la tarjeta…", "notFound": "No se encuentra esta tarjeta.", "waitFunds": "El remitente aún no ha pagado esta tarjeta. Esta página se actualiza sola.", "noFee": "No pagas nada: ni comisión ni gas.", "where": "¿Dónde quieres recibir tus USDT?", "addr": "La dirección de tu monedero (0x…) en {chain}", "addrHelp": "Pégala, escanéala o usa tu monedero: solo una dirección que controles (el pago no se puede deshacer).", "next": "Continuar", "codeSent": "Se envió un código de seis dígitos al correo para el que se hizo esta tarjeta.", "code": "Código recibido por correo", "verify": "Verificar y recibir mis USDT", "working": "En curso…", "paid": "Tus USDT van de camino a tu monedero.", "verifying": "El pago se envió y se está verificando. Puedes cerrar esta página.", "tx": "Ver la transacción", "expired": "Esta tarjeta ha caducado.", "cancelled": "El remitente canceló esta tarjeta.", "already": "Esta tarjeta ya fue reclamada.", "withdrawn": "El remitente recuperó este dinero.", "other": "Esta tarjeta se gastó en otro lugar.", "badLink": "Este enlace no es válido.", "errors": {"invalid_address": "Dirección no válida.", "invalid_link_proof": "Este enlace no corresponde a la tarjeta.", "invalid_or_expired_code": "El código es incorrecto o ha caducado. Empieza de nuevo para pedir otro.", "rate_limited": "Demasiados intentos. Inténtalo más tarde.", "session_required": "Tu sesión caducó. Recarga la página.", "card_not_funded": "El remitente aún no ha pagado esta tarjeta.", "quote_changed": "La tarjeta cambió. Recarga la página.", "destination_already_bound": "Ya se eligió otra dirección para esta tarjeta.", "payment_in_progress": "Hay un pago en verificación.", "expired": "Esta tarjeta ha caducado.", "card_cancelled": "Esta tarjeta fue cancelada.", "already_paid": "Esta tarjeta ya fue reclamada.", "chain_unavailable": "La red no es accesible. Inténtalo en breve.", "usdt_unavailable": "El servicio no está disponible. Inténtalo más tarde.", "forbidden": "No permitido.", "conflict": "No es posible en el estado actual de la tarjeta.", "durable_email_otp_required": "Los códigos por correo no están disponibles ahora. Inténtalo más tarde.", "generic": "Algo salió mal. Inténtalo de nuevo.", "email_check_required": "Confirma primero tu código recibido por correo. Recarga la página para empezar de nuevo."}, "recap": "Vas a recibir {amount} USDT en la dirección {to}. No pagas nada: las comisiones las pagó el remitente.", "whereMoney": "El dinero de esta tarjeta está en la dirección de la propia tarjeta, como un paper wallet, no en la cuenta de nadie. Solo puede salir hacia ti, tras tu código por correo.", "useWallet": "Usar mi monedero", "scan": "Escanear con la cámara", "scanHelp": "En tu teléfono, abre la pantalla «Recibir» de tu monedero y muestra su código QR a la cámara.", "scanStop": "Cancelar", "scanDenied": "La cámara no está disponible. Pega tu dirección.", "scanNone": "Aún no se encontró ninguna dirección: mantén el código QR firme frente a la cámara.", "walletNone": "No se encontró ningún monedero en este navegador. Pega tu dirección o escanéala.", "paste": "Pegar del portapapeles", "pasteNone": "Nada que pegar: copia primero tu dirección.", "openApp": "Abrir en {app}", "failedRetry": "El pago no se completó. No se ha perdido nada: recarga esta página para intentarlo de nuevo.", "emailTitle": "Primero, confirma tu correo", "emailHelp": "Enviamos un código de seis dígitos al correo para el que se hizo esta tarjeta. Después eliges dónde recibir.", "sendCode": "Enviarme el código", "confirmCode": "Confirmar el código", "resend": "Reenviar el código", "codeResent": "Se envió un código nuevo.", "receive": "Recibir mis USDT", "pasteCodeNone": "No hay ningún código de seis dígitos en el portapapeles: copia primero el código del correo."}, "de": {"eyebrow": "GESCHÜTZTE USDT", "loading": "Karte wird geprüft…", "notFound": "Diese Karte wurde nicht gefunden.", "waitFunds": "Der Absender hat diese Karte noch nicht bezahlt. Diese Seite aktualisiert sich selbst.", "noFee": "Du zahlst nichts: keine Gebühr, kein Gas.", "where": "Wo möchtest du deine USDT empfangen?", "addr": "Die Adresse deiner Wallet (0x…) auf {chain}", "addrHelp": "Einfügen, scannen oder deine Wallet verwenden: nur eine Adresse, die du kontrollierst (die Zahlung kann nicht rückgängig gemacht werden).", "next": "Weiter", "codeSent": "Ein sechsstelliger Code wurde an die E-Mail gesendet, für die diese Karte erstellt wurde.", "code": "Per E-Mail erhaltener Code", "verify": "Bestätigen und meine USDT empfangen", "working": "Läuft…", "paid": "Deine USDT sind auf dem Weg zu deiner Wallet.", "verifying": "Die Zahlung wurde gesendet und wird geprüft. Du kannst diese Seite schließen.", "tx": "Transaktion ansehen", "expired": "Diese Karte ist abgelaufen.", "cancelled": "Der Absender hat diese Karte storniert.", "already": "Diese Karte wurde bereits eingelöst.", "withdrawn": "Der Absender hat dieses Geld zurückgeholt.", "other": "Diese Karte wurde anderswo ausgegeben.", "badLink": "Dieser Link ist ungültig.", "errors": {"invalid_address": "Ungültige Adresse.", "invalid_link_proof": "Dieser Link passt nicht zur Karte.", "invalid_or_expired_code": "Der Code ist falsch oder abgelaufen. Beginne neu, um einen neuen anzufordern.", "rate_limited": "Zu viele Versuche. Versuche es später erneut.", "session_required": "Deine Sitzung ist abgelaufen. Lade die Seite neu.", "card_not_funded": "Der Absender hat diese Karte noch nicht bezahlt.", "quote_changed": "Die Karte hat sich geändert. Lade die Seite neu.", "destination_already_bound": "Für diese Karte wurde bereits eine andere Adresse gewählt.", "payment_in_progress": "Eine Zahlung wird geprüft.", "expired": "Diese Karte ist abgelaufen.", "card_cancelled": "Diese Karte wurde storniert.", "already_paid": "Diese Karte wurde bereits eingelöst.", "chain_unavailable": "Das Netzwerk ist nicht erreichbar. Versuche es gleich erneut.", "usdt_unavailable": "Der Dienst ist nicht verfügbar. Versuche es später erneut.", "forbidden": "Nicht erlaubt.", "conflict": "Im aktuellen Zustand der Karte nicht möglich.", "durable_email_otp_required": "E-Mail-Codes sind gerade nicht verfügbar. Versuche es später erneut.", "generic": "Etwas ist schiefgelaufen. Versuche es erneut.", "email_check_required": "Bestätige zuerst deinen per E-Mail erhaltenen Code. Lade die Seite neu, um von vorn zu beginnen."}, "recap": "Du erhältst {amount} USDT an die Adresse {to}. Du zahlst nichts: Die Gebühren hat der Absender bezahlt.", "whereMoney": "Das Geld dieser Karte liegt auf der Adresse der Karte selbst, wie bei einem Paper Wallet, nicht auf dem Konto von jemandem. Es kann nur zu dir gehen, nach deinem E-Mail-Code.", "useWallet": "Meine Wallet verwenden", "scan": "Mit der Kamera scannen", "scanHelp": "Öffne auf deinem Telefon den Bildschirm „Empfangen“ deiner Wallet und zeige der Kamera den QR-Code.", "scanStop": "Abbrechen", "scanDenied": "Die Kamera ist nicht verfügbar. Füge stattdessen deine Adresse ein.", "scanNone": "Noch keine Adresse gefunden: Halte den QR-Code ruhig vor die Kamera.", "walletNone": "In diesem Browser wurde keine Wallet gefunden. Füge deine Adresse ein oder scanne sie.", "paste": "Aus der Zwischenablage einfügen", "pasteNone": "Nichts zum Einfügen: Kopiere zuerst deine Adresse.", "openApp": "In {app} öffnen", "failedRetry": "Die Zahlung ist nicht zustande gekommen. Es ist nichts verloren: Lade die Seite neu und versuche es erneut.", "emailTitle": "Zuerst: Bestätige deine E-Mail", "emailHelp": "Wir senden einen sechsstelligen Code an die E-Mail, für die diese Karte erstellt wurde. Danach wählst du, wo du empfangen willst.", "sendCode": "Code senden", "confirmCode": "Code bestätigen", "resend": "Code erneut senden", "codeResent": "Ein neuer Code wurde gesendet.", "receive": "Meine USDT empfangen", "pasteCodeNone": "Kein sechsstelliger Code in der Zwischenablage: Kopiere zuerst den Code aus der E-Mail."}, "zh": {"eyebrow": "受保护的 USDT", "loading": "正在检查卡片…", "notFound": "找不到这张卡片。", "waitFunds": "发送者尚未为这张卡片付款。此页面会自动更新。", "noFee": "你无需支付任何费用：没有手续费，也没有燃料费。", "where": "你想在哪里接收 USDT？", "addr": "你在 {chain} 上的钱包地址（0x…）", "addrHelp": "粘贴、扫描或使用你的钱包：只填你自己控制的地址（付款无法撤销）。", "next": "继续", "codeSent": "六位验证码已发送到这张卡片所指定的邮箱。", "code": "邮件中收到的验证码", "verify": "验证并领取我的 USDT", "working": "处理中…", "paid": "你的 USDT 正在发往你的钱包。", "verifying": "付款已发送，正在验证。你可以关闭此页面。", "tx": "查看交易", "expired": "这张卡片已过期。", "cancelled": "发送者已取消这张卡片。", "already": "这张卡片已被领取。", "withdrawn": "发送者已取回这笔钱。", "other": "这张卡片已在别处使用。", "badLink": "此链接无效。", "errors": {"invalid_address": "地址无效。", "invalid_link_proof": "此链接与卡片不匹配。", "invalid_or_expired_code": "验证码错误或已过期。请重新开始以获取新验证码。", "rate_limited": "尝试次数过多，请稍后再试。", "session_required": "会话已过期，请刷新页面。", "card_not_funded": "发送者尚未为这张卡片付款。", "quote_changed": "卡片已更改，请刷新页面。", "destination_already_bound": "这张卡片已经选定了另一个地址。", "payment_in_progress": "有一笔付款正在验证。", "expired": "这张卡片已过期。", "card_cancelled": "这张卡片已被取消。", "already_paid": "这张卡片已被领取。", "chain_unavailable": "网络暂时无法访问，请稍后再试。", "usdt_unavailable": "服务暂不可用，请稍后再试。", "forbidden": "不允许。", "conflict": "在卡片当前状态下无法执行。", "durable_email_otp_required": "邮件验证码暂时不可用，请稍后再试。", "generic": "出了点问题，请重试。", "email_check_required": "请先确认邮件中收到的验证码。刷新页面以重新开始。"}, "recap": "你将在地址 {to} 收到 {amount} USDT。你无需支付任何费用：费用已由发送者支付。", "whereMoney": "这张卡片的钱存放在卡片自己的地址上，就像纸钱包一样，而不是在任何人的账户里。它只能在你输入邮件验证码后转给你。", "useWallet": "使用我的钱包", "scan": "用摄像头扫描", "scanHelp": "在手机上打开钱包的“收款”页面，把它的二维码对准摄像头。", "scanStop": "取消", "scanDenied": "摄像头不可用。请改为粘贴你的地址。", "scanNone": "还没有找到地址：请把二维码稳稳对准摄像头。", "walletNone": "此浏览器中没有找到钱包。请粘贴或扫描你的地址。", "paste": "从剪贴板粘贴", "pasteNone": "没有可粘贴的内容：请先复制你的地址。", "openApp": "在 {app} 中打开", "failedRetry": "付款未能完成。没有任何损失：请刷新页面重试。", "emailTitle": "首先，确认你的邮箱", "emailHelp": "我们会向这张卡片所指定的邮箱发送六位验证码。之后你再选择接收地址。", "sendCode": "给我发送验证码", "confirmCode": "确认验证码", "resend": "重新发送验证码", "codeResent": "已发送新的验证码。", "receive": "领取我的 USDT", "pasteCodeNone": "剪贴板中没有六位验证码：请先复制邮件中的验证码。"}};
+const lang=((new URLSearchParams(location.search).get('lang')||navigator.language||'en')+'').slice(0,2),BASE=WORDS[lang]||WORDS.en;
+let W=BASE;
+// The stablecoin of the card (USDC on Polygon, USDT on Ethereum) is named in every text once the card is known.
+const withSymbol=(o,sym)=>typeof o==='string'?o.replace(/USDT/g,sym):Array.isArray(o)?o.map(x=>withSymbol(x,sym)):o&&typeof o==='object'?Object.fromEntries(Object.entries(o).map(([k,v])=>[k,withSymbol(v,sym)])):o;
+document.documentElement.lang=WORDS[lang]?lang:'en';
+const $=id=>document.getElementById(id),C=window.PhoenixCashlink;
+function labels(){$('useWallet').textContent=W.useWallet;$('scanBtn').textContent=W.scan;$('scanHelp').textContent=W.scanHelp;$('scanStop').textContent=W.scanStop;$('pasteBtn').textContent=W.paste;$('eyebrow').textContent=W.eyebrow;$('where').textContent=W.where;$('addrHelp').textContent=W.addrHelp;$('next').textContent=W.receive;$('emailTitle').textContent=W.emailTitle;$('emailHelp').textContent=W.emailHelp;$('sendCode').textContent=W.sendCode;$('resend').textContent=W.resend;$('pasteCode').textContent=W.paste;$('codeSent').textContent=W.codeSent;$('codeLabel').textContent=W.code;$('verify').textContent=W.confirmCode;$('whereMoney').textContent=W.whereMoney}
+labels();$('msg').textContent=W.loading;
+const say=(el,text,kind)=>{el.textContent=text||'';el.className='status'+(kind?' '+kind:'')};
+const err=e=>W.errors[e&&e.code]||W.errors.generic;
+async function api(method,path,body){
+ const res=await fetch(path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,credentials:'same-origin'});
+ let data={};try{data=await res.json()}catch{}
+ if(!res.ok){const e=Error(data.error||'generic');e.code=data.error||'generic';e.status=res.status;throw e}
+ data._status=res.status;return data}
+const fail=text=>{$('msg').textContent=text;$('amount').innerHTML='&nbsp;'};
+let link;try{link=C.parseFragment(location.hash)}catch{fail(W.badLink);return}
+C.setProxyCreationCode(PROXY_CREATION_CODE);
+const idHex=C.hex(link.id),linkOwner=C.checksum(C.addressOfKey(link.key));
+// The card wears the colour of its ID, like the Nimiq cards: one of twelve pastel families (the same table as PhoenixMail and the code e-mail).
+(function(){const P=[['#deefff','#9fc9eb'],['#ece3ff','#c7b1ee'],['#dcf5e9','#9bd8bc'],['#ffe2ee','#efaac7'],['#ffe7d8','#eeb999'],['#fff4cc','#e8d181'],['#e6ebff','#b0bdf4'],['#dcf6fa','#90d7e5'],['#f4e2fa','#d9afea'],['#ffe2dc','#edaea1'],['#ecf6d8','#bed89a'],['#e2f4ef','#9ed5c6']];
+ const p=P[link.id[0]%P.length],st=document.documentElement&&document.documentElement.style;
+ const mx=(a,b,k)=>{const h=x=>[1,3,5].map(i=>parseInt(x.slice(i,i+2),16)),A=h(a),B=h(b);return '#'+A.map((v,i)=>Math.round(v*(100-k)/100+B[i]*k/100).toString(16).padStart(2,'0')).join('')};
+ if(st&&st.setProperty){st.setProperty('--card-start',p[0]);st.setProperty('--card-border',p[1]);st.setProperty('--card-mid',mx(p[0],'#ffffff',40));st.setProperty('--card-end',mx(p[1],'#ffffff',62))}})();
+let card=null,timer=null,auth=null;
+// ---- giving the address without typing it: the wallet itself, the camera on a wallet's "Receive" QR code, or a paste ----
+function extractAddress(text){
+ const m=/0x[0-9a-fA-F]{40}/.exec(String(text||''));if(!m)return '';
+ const body=m[0].slice(2),mixed=/[a-f]/.test(body)&&/[A-F]/.test(body);
+ if(mixed&&C.checksum(C.unhex(body))!==m[0])return ''; // a mixed-case address must carry a valid EIP-55 checksum
+ return m[0]}
+// the card's own addresses (token contract, card, relayer) are never a place to receive: a payment-request QR code must not be taken for a wallet
+const forbidden=a=>!!card&&[card.token,card.safe,card.relayer].some(x=>String(x||'').toLowerCase()===String(a).toLowerCase());
+const pick=text=>{const a=extractAddress(text);return a&&!forbidden(a)?a:''};
+window.__phoenixAddressTools={extractAddress,pick};
+const toInput=$('to');
+function setTo(a){toInput.value=a;showRecap()}
+if(window.ethereum&&typeof window.ethereum.request==='function'){$('useWallet').hidden=false;
+ $('useWallet').onclick=async()=>{say($('status1'),'');try{const a=await window.ethereum.request({method:'eth_requestAccounts'}),addr=pick(a&&a[0]);if(addr){setTo(addr)}else say($('status1'),W.walletNone,'error')}catch{say($('status1'),W.walletNone,'error')}}}
+let scanStream=null,scanActive=false;
+function stopScan(){scanActive=false;if(scanStream){for(const t of scanStream.getTracks())t.stop();scanStream=null}$('scanBox').hidden=true}
+async function loadJsQR(){if(window.jsQR)return window.jsQR;await new Promise((ok,no)=>{const s=document.createElement('script');s.src='/jsqr.js';s.onload=ok;s.onerror=no;document.head.append(s)});return window.jsQR}
+if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){$('scanBtn').hidden=false;
+ $('scanBtn').onclick=async()=>{say($('status1'),'');
+  try{scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});}catch{say($('status1'),W.scanDenied,'error');return}
+  const video=$('scanVideo');video.srcObject=scanStream;await video.play();$('scanBox').hidden=false;scanActive=true;
+  const detector=window.BarcodeDetector?new window.BarcodeDetector({formats:['qr_code']}):null,canvas=detector?null:document.createElement('canvas'),ctx2=canvas&&canvas.getContext('2d');
+  let jsqr=null;if(!detector){try{jsqr=await loadJsQR()}catch{stopScan();say($('status1'),W.scanDenied,'error');return}}
+  const tick=async()=>{if(!scanActive)return;
+   try{let text='';
+    if(detector){const found=await detector.detect(video);text=found[0]&&found[0].rawValue||''}
+    else if(video.videoWidth){canvas.width=video.videoWidth;canvas.height=video.videoHeight;ctx2.drawImage(video,0,0);const img=ctx2.getImageData(0,0,canvas.width,canvas.height),r=jsqr(img.data,img.width,img.height);text=r&&r.data||''}
+    const addr=pick(text);if(addr){setTo(addr);stopScan();return}}catch{}
+   setTimeout(tick,250)};tick()};
+ $('scanStop').onclick=stopScan}
+// no wallet in this browser: paste in one tap, or (on a phone) open the wallet app through its own scheme: nothing goes through a third-party server
+if(navigator.clipboard&&typeof navigator.clipboard.readText==='function'){$('pasteBtn').hidden=false;
+ $('pasteBtn').onclick=async()=>{say($('status1'),'');try{const a=pick(await navigator.clipboard.readText());if(a)setTo(a);else say($('status1'),W.pasteNone,'error')}catch{say($('status1'),W.pasteNone,'error')}}}
+function walletTools(){
+ if(window.ethereum&&typeof window.ethereum.request==='function')return;
+ if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){
+  const box=$('appLinks');box.textContent='';
+  for(const [name,href] of [['Trust Wallet','trust://open_url?coin_id='+(card&&card.chain_id===1?60:966)+'&url='+encodeURIComponent(location.href)],['MetaMask','metamask://dapp/'+location.host+location.pathname+location.search+location.hash]]){
+   const a=document.createElement('a');a.className='btn secondary';a.href=href;a.textContent=W.openApp.replace('{app}',name);box.append(a)}
+  return}
+}
+const stateMessage=()=>({expired:W.expired,cancelled:W.cancelled,paid:W.already,withdrawn:W.withdrawn,settled_elsewhere:W.other});
+// The payout the service describes is checked against the card's own description and a short list of known tokens BEFORE anything
+// is signed: a service answer that is merely self-consistent is not enough (the hash check below proves only that the batch matches
+// the fields, not that the fields are right).
+const TOKENS={137:['0xc2132d05d31c914a87c6611c10748aeb04b58e8f','0x3c499c542cef5e3811e1192ce70d8cc03d5c3359'],1:['0xdac17f958d2ee523a2206206994597c13d831ec7']};
+const maxFee=units=>Math.max(10000000,Math.floor(units/10)); // the same ceiling as the service: 10 units or a tenth of the amount
+function quoteOk(s,to){
+ const lower=x=>String(x||'').toLowerCase();
+ return s&&s.chain_id===card.chain_id&&lower(s.safe)===lower(card.safe)&&(TOKENS[s.chain_id]||[]).includes(lower(s.token))&&lower(s.token)===lower(card.token)&&lower(s.relayer)===lower(card.relayer)&&
+  Number.isSafeInteger(s.amount_units)&&s.amount_units===card.units&&Number.isSafeInteger(s.fee_units)&&s.fee_units===card.fee_units&&s.fee_units>=0&&s.fee_units<=maxFee(card.units)&&s.safe_nonce===0&&/^0x[0-9a-f]{64}$/.test(s.safe_tx_hash)&&true}
+const unitsText=u=>(u/1e6).toFixed(6).replace(/0+$/,'').replace(/\.$/,'');
+const quoteChanged=()=>Object.assign(Error('quote_changed'),{code:'quote_changed'});
+const safeOf=()=>C.cardAddress({id:link.id,owners:card.owners,threshold:2},card.chain_id);
+function showCard(c){
+ $('amount').textContent=c.amount;const small=document.createElement('small');small.textContent=' '+(c.symbol||'USDT');$('amount').append(small);
+ $('sub').textContent=(c.chain||'').charAt(0).toUpperCase()+(c.chain||'').slice(1);
+ $('cardMsg').textContent=c.message||''}
+// where to pick the journey up again after a reload: a payment already sent, an authorized attempt, a confirmed e-mail check, a mailed code
+function resume(c){
+ if(saved.claimSent&&c.state==='verifying'){showStep('step-done');$('doneMsg').textContent=W.verifying;watchPayout();return}
+ if(saved.claimSent&&c.state==='paid'){showStep('step-done');$('doneMsg').textContent=W.paid;return}
+ const at=saved.attempt,ck=saved.check;
+ if(at&&Date.now()-at.at<5*MIN&&ck){check=ck;showStep('step-address');setTo(at.to);return}
+ if(ck&&ck.verifiedAt&&Date.now()-ck.verifiedAt<9*MIN){check=ck;showStep('step-address');return}
+ if(ck&&!ck.verifiedAt&&Date.now()-ck.at<9*MIN){check=ck;showStep('step-code');return}
+ $('step-email').hidden=false}
+async function load(){
+ let c;try{c=await api('GET','/api/v1/usdt/cards/'+idHex)}catch(e){fail(e.status===404?W.notFound:err(e));return}
+ // The card must be exactly what its owners say, and the link key must be one of them: never trust the server blindly.
+ const safe=C.checksum(C.cardAddress({id:link.id,owners:c.owners,threshold:2},c.chain_id));
+ if(safe!==c.safe||!c.owners.includes(linkOwner)||c.owners.length!==2){fail(W.badLink);return}
+ card=c;W=withSymbol(BASE,c.symbol||'USDT');labels();showCard(c);
+ if(saved.claimSent&&c.state==='paid'){resume(c);return}
+ if(stateMessage()[c.state]){$('msg').textContent=stateMessage()[c.state];return}
+ if(saved.claimSent&&(c.state==='verifying'||c.state==='paid')){resume(c);return}
+ if(c.state==='awaiting_funds'||c.state==='verifying'){$('msg').textContent=W.waitFunds;clearTimeout(timer);timer=setTimeout(load,15000);return}
+ if(!auth){$('msg').textContent=W.noFee;$('toLabel').textContent=W.addr.replace('{chain}',(c.chain||'').charAt(0).toUpperCase()+(c.chain||'').slice(1));resume(c)}}
+// What this browser tab already did survives a reload or a lost answer (session storage: this tab only, gone when it closes): the
+// e-mail check, the authorized attempt and its grant. The same operation is retried with the same identifiers, never restarted.
+const SKEY='phoenixclaim:'+idHex;
+const loadS=()=>{try{return JSON.parse(sessionStorage.getItem(SKEY)||'null')||{}}catch{return{}}};
+let saved=loadS();
+const saveS=()=>{try{sessionStorage.setItem(SKEY,JSON.stringify(saved))}catch{}};
+const MIN=60000;
+// ---- 1. the e-mail code comes first ----
+let check=null,haveSession=false;
+const hexBytes=x=>C.unhex(String(x).replace(/^0x/,''));
+async function ensureSession(){if(!haveSession){await api('POST','/api/v1/usdt/sessions');haveSession=true}}
+function showStep(id){for(const x of['step-email','step-code','step-address','step-done'])$(x).hidden=x!==id;if(id==='step-address')walletTools()}
+async function mailCode(){
+ const p=await api('POST','/api/v1/usdt/cards/'+idHex+'/email-checks',{idempotency_key:C.hex(crypto.getRandomValues(new Uint8Array(16)))});
+ const m={cardId:link.id,authorizationId:hexBytes(p.authorization_id),sessionBinding:hexBytes(p.session_binding),action:4,emailBinding:hexBytes(p.email_binding),destination:new Uint8Array(20),safeTxHash:new Uint8Array(32),challenge:hexBytes(p.challenge),deadline:p.deadline};
+ const sig='0x'+C.hex(await C.signLinkAuthorization(m,card.chain_id,safeOf(),link.key));
+ await api('POST','/api/v1/usdt/cards/'+idHex+'/email-checks/'+p.authorization_id+'/code',{signature:sig,lang});
+ check={id:p.authorization_id,sig,at:Date.now()};saved={check};saveS()}
+$('sendCode').onclick=async()=>{
+ const btn=$('sendCode');btn.disabled=true;say($('status0'),W.working);
+ try{await ensureSession();await mailCode();say($('status0'),'');showStep('step-code')}
+ catch(e){say($('status0'),err(e),'error');btn.disabled=false}};
+$('resend').onclick=async()=>{
+ const btn=$('resend');btn.disabled=true;say($('status2'),W.working);
+ try{await api('POST','/api/v1/usdt/cards/'+idHex+'/email-checks/'+check.id+'/code',{signature:check.sig,lang});say($('status2'),W.codeResent,'ok')}
+ catch(e){say($('status2'),err(e),'error')}finally{btn.disabled=false}};
+if(navigator.clipboard&&typeof navigator.clipboard.readText==='function'){$('pasteCode').hidden=false;
+ $('pasteCode').onclick=async()=>{say($('status2'),'');try{const m=/(?<![0-9])[0-9]{6}(?![0-9])/.exec(await navigator.clipboard.readText());if(m){$('code').value=m[0];await $('verify').onclick()}else say($('status2'),W.pasteCodeNone,'error')}catch{say($('status2'),W.pasteCodeNone,'error')}}}
+$('verify').onclick=async()=>{
+ const btn=$('verify'),code=$('code').value.trim();if(!/^[0-9]{6}$/.test(code)){say($('status2'),W.errors.invalid_or_expired_code,'error');return}
+ btn.disabled=true;say($('status2'),W.working);
+ try{await api('POST','/api/v1/usdt/email-checks/'+check.id+'/verify',{code});check.verifiedAt=Date.now();saved.check=check;saveS();say($('status2'),'');showStep('step-address')}
+ catch(e){say($('status2'),err(e),'error');btn.disabled=false}};
+// ---- 2. then where to receive: the one payment is made from here ----
+const showRecap=()=>{const to=toInput.value.trim();$('recap').textContent=/^0x[0-9a-fA-F]{40}$/.test(to)?W.recap.replace('{amount}',card.amount).replace('{to}',to).replace('{fee}',unitsText(card.fee_units)):''};
+toInput.addEventListener&&toInput.addEventListener('input',showRecap);
+// "sent, being verified" is not the end: the page keeps looking until the payment is confirmed, or says plainly that it did not go through
+function watchPayout(){let n=0;
+ const look=async()=>{
+  try{const c=await api('GET','/api/v1/usdt/cards/'+idHex);
+   if(c.state==='paid'){$('doneMsg').textContent=W.paid;$('doneMsg').className='status ok';if(c.tx_url){$('txLink').href=c.tx_url;$('txLink').textContent=W.tx}return}
+   if(c.state==='ready'||c.state==='awaiting_funds'){$('doneMsg').textContent=W.failedRetry;$('doneMsg').className='status error';return}
+  }catch{}
+  if(++n<90)setTimeout(look,4000)};
+ setTimeout(look,4000)}
+$('next').onclick=async()=>{
+ const btn=$('next'),to=toInput.value.trim();if(!/^0x[0-9a-fA-F]{40}$/.test(to)){say($('status1'),W.errors.invalid_address,'error');return}
+ btn.disabled=true;say($('status1'),W.working);
+ try{
+  const u=hexBytes;let s,grant;
+  const fresh=at=>at&&at.to===to&&Date.now()-at.at<5*MIN;
+  let prev=fresh(saved.attempt)?saved.attempt:null;
+  if(prev&&!prev.grant){ // the answer of /grant was lost: ask again with the SAME proof (the service answers a repeated call with the same grant)
+   try{grant=(await api('POST','/api/v1/usdt/authorizations/'+prev.id+'/grant',{signature:prev.sig})).grant;prev.grant=grant;saveS()}
+   catch(e){if(e&&['expired','conflict','email_check_required','forbidden','card_not_found'].includes(e.code)){delete saved.attempt;delete saved.prep;saveS();prev=null}else throw e}}
+  if(prev&&prev.grant){ // a lost answer or a reload: the SAME attempt and grant, nothing is restarted (the e-mail check is already consumed)
+   s=prev.snapshot;grant=prev.grant;if(!quoteOk(s,to))throw quoteChanged();auth={id:prev.id,snapshot:s,to}
+  }else{
+   // the idempotency key is kept BEFORE the request: a lost answer is retried with the same key and returns the same attempt
+   if(!saved.prep||saved.prep.to!==to||Date.now()-saved.prep.at>=5*MIN){saved.prep={to,idem:C.hex(crypto.getRandomValues(new Uint8Array(16))),at:Date.now()};saveS()}
+   const p=await api('POST','/api/v1/usdt/cards/'+idHex+'/authorizations',{destination:to,idempotency_key:saved.prep.idem,check_id:check.id});
+   s=p.snapshot;
+   if(!quoteOk(s,to))throw quoteChanged();
+   const m={cardId:link.id,authorizationId:u(p.authorization_id),sessionBinding:u(p.session_binding),action:1,emailBinding:u(p.email_binding),destination:u(to),safeTxHash:u(s.safe_tx_hash),challenge:u(p.challenge),deadline:p.deadline};
+   const sig='0x'+C.hex(await C.signLinkAuthorization(m,s.chain_id,safeOf(),link.key));
+   saved.attempt={id:p.authorization_id,to,snapshot:s,sig,at:Date.now()};saveS(); // the attempt and its proof are kept BEFORE /grant
+   grant=(await api('POST','/api/v1/usdt/authorizations/'+p.authorization_id+'/grant',{signature:sig})).grant;
+   saved.attempt.grant=grant;saveS();auth={id:p.authorization_id,snapshot:s,to}}
+  const cs=await api('POST','/api/v1/usdt/authorizations/'+auth.id+'/signature',{grant});
+  const safeBytes=safeOf();
+  const tx=C.payout({token:s.token,recipient:to,relayer:s.relayer,amount:BigInt(s.amount_units),fee:BigInt(s.fee_units),nonce:BigInt(s.safe_nonce)});
+  // We rebuild the payout ourselves and refuse to sign anything the service described differently.
+  if('0x'+C.hex(C.txHash(tx,card.chain_id,safeBytes))!==s.safe_tx_hash)throw Object.assign(Error('quote_changed'),{code:'quote_changed'});
+  const mine=await C.signTx(tx,card.chain_id,safeBytes,link.key),raw=C.unhex(cs.signature.replace(/^0x/,''));
+  const theirs={owner:C.unhex(cs.owner.replace(/^0x/,'')),sig:{r:raw.slice(0,32),s:raw.slice(32,64),v:raw[64]}};
+  const packed=C.packSignatures([mine,theirs]);
+  saved.claimSent=true;saveS(); // written BEFORE the request: if the answer is lost the page knows a payment may be on its way
+  let r;
+  try{r=await api('POST','/api/v1/usdt/authorizations/'+auth.id+'/claims',{grant,signatures:'0x'+C.hex(packed)})}
+  catch(e){if(e&&e.code==='payment_in_progress'){r={status:'verifying'}}else throw e}
+  showStep('step-done');$('doneMsg').textContent=r.status==='verifying'?W.verifying:W.paid;if(r.status==='verifying')watchPayout();
+  if(r.tx&&card.explorer){$('txLink').href=card.explorer+r.tx;$('txLink').textContent=W.tx}
+ }catch(e){say($('status1'),err(e),'error');btn.disabled=false}};
+load();
+})();
+</script></body></html>

@@ -12,6 +12,8 @@ The sender's original local recovery Cashlink remains in PhoenixMail My sends. A
 
 Automated verification uses fixtures, not real funded payments or actual MailerSend delivery. A real local email-and-wallet check still needs the real credentials and a user-approved payment.
 
+> **USDT cards (Ethereum / Polygon)**: see `docs/USDT-CARDS.md`.
+
 ---
 
 ## Historical design notes

@@ -94,3 +94,32 @@ func TestVerificationEmailBrandName(t *testing.T) {
 		t.Fatal("brand name must be escaped")
 	}
 }
+
+func TestCodeEmailWearsTheColourOfItsCard(t *testing.T) {
+	capture := &captureTransport{}
+	m := MailerSend{APIKey: "key", From: "no-reply@phoenixmail.ca", Client: &http.Client{Transport: capture}}
+	ctx := WithEmailAccent(context.Background(), "#dcf5e9", "#9bd8bc")
+	if err := m.Send(ctx, "someone@example.com", "123456"); err != nil {
+		t.Fatal(err)
+	}
+	var sent struct {
+		HTML string `json:"html"`
+	}
+	if err := json.Unmarshal(capture.body, &sent); err != nil {
+		t.Fatal(err)
+	}
+	for _, must := range []string{"background:#dcf5e9;", "#9bd8bc", "user-select:all", "123456"} {
+		if !strings.Contains(sent.HTML, must) {
+			t.Fatalf("missing %q", must)
+		}
+	}
+	if strings.Contains(sent.HTML, "#eee7ff") || strings.Contains(sent.HTML, "#ded8ec") {
+		t.Fatal("the default colours must be replaced")
+	}
+	// a malformed colour is ignored: the default e-mail is sent
+	capture2 := &captureTransport{}
+	m.Client = &http.Client{Transport: capture2}
+	if err := m.Send(WithEmailAccent(context.Background(), "red;x", "#9bd8bc"), "someone@example.com", "123456"); err != nil || !strings.Contains(string(capture2.body), "#eee7ff") {
+		t.Fatal("a malformed colour must leave the default e-mail untouched", err)
+	}
+}

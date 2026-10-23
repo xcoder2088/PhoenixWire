@@ -91,7 +91,7 @@ func NewPersistent(sender Sender, directory string, master []byte) (*Manager, er
 			return nil, ErrUnavailable
 		}
 		for id, c := range state.Challenges {
-			if id == "" || len(id) > 128 || c.Email == "" || len(c.Email) > 254 || c.Requests < 0 || c.Requests > 5 || c.Attempts < 0 || c.Attempts > 5 {
+			if id == "" || len(id) > 128 || c.Email == "" || len(c.Email) > 254 || c.Requests < 0 || c.Requests > maxRequests || c.Attempts < 0 || c.Attempts > 5 {
 				return nil, ErrUnavailable
 			}
 			m.challenges[id] = &challenge{email: c.Email, digest: c.Digest, expires: c.Expires, lastSent: c.LastSent, window: c.Window, requests: c.Requests, attempts: c.Attempts, verified: c.Verified}

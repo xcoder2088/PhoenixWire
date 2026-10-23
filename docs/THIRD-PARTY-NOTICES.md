@@ -16,3 +16,10 @@ https://github.com/nimiq/wallet/blob/master/src/components/swap/animation/usdt.s
 for identification of the token. Nimiq and Tether branding remain their respective
 owners' property; the software MIT license does not grant trademark rights.
 The Phoenix emblem and official Nimiq mark reuse the existing project assets.
+
+## Added with the USDC / USDT cashlink import (2026-10-23)
+
+- `github.com/decred/dcrd/dcrec/secp256k1/v4` v4.4.1 — ISC License (a Go module dependency; it is not copied into this repository).
+- `engine/secureclaim/web/jsqr.js` — jsQR 1.4.0 by Cosmo Wolfe, Apache-2.0, license kept in `engine/secureclaim/web/LICENSE-JSQR`.
+  It reads a wallet address from the camera on the claim page and is loaded only when the recipient asks for it.
+- USDC and USDT marks in `engine/secureclaim/web/usdc-coin.png` and `usdt-coin.png` identify the tokens; they belong to Circle and Tether.

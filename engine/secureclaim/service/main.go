@@ -14,12 +14,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/xcoder2088/NimiqSecureClaim/internal/claim"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/escrow"
+	"github.com/xcoder2088/NimiqSecureClaim/internal/evm"
+	"github.com/xcoder2088/NimiqSecureClaim/internal/evmcard"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/nimiq"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/otp"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/vault"
@@ -42,6 +45,8 @@ type server struct {
 	escrow        *escrow.Admission
 	cashlinkVault *vault.FileStore
 	chainReady    func(context.Context) bool
+	evm           *evmcard.Service
+	usdt          *usdtHTTP // USDT cashlinks (usdtlink_http.go); nil unless NIMIQ_CLAIM_USDTLINK_CHAINS is set
 }
 
 func newServer(sender otp.Sender, email string, devConsole bool) (*server, error) {
@@ -168,6 +173,8 @@ func (s *server) capability(w http.ResponseWriter, r *http.Request) {
 		"mainnet_enabled":       ready,
 		"chain_ready":           chainReady,
 		"otp_persistence_ready": s.otp.Durable(), "claims_persistence_ready": s.claims.Durable(),
+		"usdt_ready": s.evm != nil && len(s.creationKey) >= 32, "usdt_protected_ready": s.evm != nil && len(s.creationKey) >= 32 && s.otp.Durable() && !s.devConsole,
+		"usdt_assets": evm.Assets(), "usdt_cashlink_ready": s.usdt != nil, "usdt_cashlink_float_low": s.usdt != nil && anyTrue(s.usdt.svc.FloatStatus(r.Context())),
 	})
 }
 
@@ -186,6 +193,10 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := parts[3]
+	if s.evm != nil && s.evm.Has(id) {
+		s.evmClaim(w, r, id)
+		return
+	}
 	view, err := s.claims.Get(id)
 	if err != nil {
 		write(w, statusFromError(err), map[string]string{"error": err.Error()})
@@ -393,6 +404,33 @@ func LegacyMain() {
 		s.cashlinkVault = private
 		log.Print("Mainnet existing-Cashlink OTP admission and encrypted vault initialized")
 	}
+	// USDT cards hold no money and no key: a small state file is all they need.
+	if stateDir := os.Getenv("NIMIQ_CLAIM_STATE_DIR"); stateDir != "" && os.Getenv("NIMIQ_CLAIM_EVM") != "off" {
+		cards, err := evmcard.New(filepath.Join(stateDir, "evm"))
+		if err != nil {
+			log.Fatalf("USDT card state unavailable: %v", err)
+		}
+		if m, ok := sender.(otp.MailerSend); ok {
+			appURL := strings.TrimSpace(os.Getenv("NIMIQ_CLAIM_APP_URL"))
+			if appURL == "" {
+				appURL = "https://mail.phoenixmail.ca"
+			}
+			cards.OnReady = evmNotice(m, appURL)
+		}
+		s.evm = cards
+		go cards.Run(context.Background(), 30*time.Second)
+		log.Print("USDT (Ethereum, Polygon) cards initialized")
+	}
+	if stateDir := os.Getenv("NIMIQ_CLAIM_STATE_DIR"); stateDir != "" {
+		h, err := setupUSDTLink(s, stateDir)
+		if err != nil {
+			log.Fatalf("USDT cashlink unavailable: %v", err)
+		}
+		s.usdt = h
+		if h != nil {
+			log.Print("USDT cashlinks (relayed claim, protected cards) initialized")
+		}
+	}
 	s.creationKey = firstConfiguredEnv("NIMIQ_CLAIM_ISSUER_KEY", "NIMIQ_CLAIM_DEV_CREATE_KEY")
 	if s.creationKey != "" && len(s.creationKey) < 32 {
 		log.Fatal("NIMIQ_CLAIM_DEV_CREATE_KEY must be at least 32 characters")
@@ -401,6 +439,27 @@ func LegacyMain() {
 	mux.HandleFunc("/api/v1/health", s.handler)
 	mux.HandleFunc("/api/v1/claims", s.handler)
 	mux.HandleFunc("/api/v1/claims/", s.handler)
+	mux.HandleFunc("/api/v1/evm/cards", s.evmIssuer)
+	mux.HandleFunc("/api/v1/evm/cards/", s.evmIssuer)
+	mux.HandleFunc("/api/v1/usdt/", func(w http.ResponseWriter, r *http.Request) {
+		if s.usdt == nil {
+			write(w, 503, map[string]string{"error": "usdt_unavailable"})
+			return
+		}
+		if r.URL.Path == "/api/v1/usdt/issuer/relayers" || strings.HasPrefix(r.URL.Path, "/api/v1/usdt/issuer/relayers/") {
+			s.usdt.relayers(s, w, r)
+			return
+		}
+		if r.URL.Path == "/api/v1/usdt/issuer/gas-status" {
+			s.usdt.gasStatus(s, w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/v1/usdt/issuer/cards") {
+			s.usdt.issuer(s, w, r)
+			return
+		}
+		s.usdt.browser(w, r)
+	})
 	files := http.FileServer(http.Dir("./web"))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
