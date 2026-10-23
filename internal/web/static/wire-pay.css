@@ -3,8 +3,8 @@
 .wire-nim-progress p{flex:1 1 240px;margin:0;line-height:1.5;font-weight:650;overflow-wrap:anywhere}
 .wire-nim-progress button{min-height:48px;padding:12px 22px;border-radius:10px;font-weight:700}
 /* A sent NIM card has one completion screen, without a second form or floating notice. */
-.wire-nim-window:has(.wire-nim-complete){width:min(520px,calc(100vw - 24px));min-width:0;box-sizing:border-box}
-.wire-nim-window:has(.wire-nim-complete)>.nimiq-payment-head,.wire-nim-window:has(.wire-nim-complete)>.wire-nim-assets{display:none}
+.wire-body .wire-nim-window:has(.wire-nim-complete){width:min(520px,calc(100vw - 24px));min-width:0;box-sizing:border-box}
+.wire-nim-window:has(.wire-nim-complete)>.nimiq-payment-head,.wire-nim-window:has(.wire-nim-complete)>.wire-nim-assets{display:none!important}
 .wire-nim-host.wire-nim-complete{display:grid;place-items:center;box-sizing:border-box;min-width:0;padding:24px}
 .wire-nim-complete .wire-nim-progress{position:static;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;max-width:440px;box-sizing:border-box;margin:0;padding:24px;min-width:0}
 .wire-nim-complete .wire-nim-progress p{flex:0 1 auto;max-width:100%}
@@ -56,6 +56,26 @@ body.wire-body{background:var(--bg);color:var(--text)}
 .wire-body button:hover:not(:disabled),.wire-body .nimiq-payment-window button:hover:not(:disabled){background:var(--panel2);border-color:var(--accent);color:var(--text)}
 .wire-body button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .wire-body button:disabled{opacity:.5;cursor:not-allowed}
+/* Keep Safari from zooming into small form controls; retain the user's pinch zoom. */
+.wire-body input:not([type="radio"]):not([type="checkbox"]),.wire-body select,.wire-body textarea{font-size:16px}
+.wire-body .nimiq-payment-head>button:last-child{flex:0 0 48px;display:grid;place-items:center;width:48px;height:48px;min-width:48px;min-height:48px;padding:0;border-radius:50%;font-size:32px;line-height:1}
+.wire-body .nimiq-payment-window,.wire-body .wire-wallet-choice{box-sizing:border-box;min-width:0}
+.wire-body .nimiq-payment-window{width:min(860px,calc(100vw - 24px));max-width:calc(100vw - 24px)}
+.wire-body .nimiq-payment-body,.wire-body .nimiq-payment-panel,.wire-body .nimiq-payment-preview,.wire-body .wire-nim-host{min-width:0;max-width:100%;box-sizing:border-box}
+.wire-body .nimiq-payment-assets{display:flex;flex-wrap:wrap;min-width:0}
+.wire-body .nimiq-payment-assets button{flex:1 1 110px;min-width:0;white-space:normal;overflow-wrap:anywhere}
+.wire-body .wire-wallet-choice h2,.wire-body .wire-wallet-choice p,.wire-body .nimiq-payment-how{overflow-wrap:anywhere}
+@media(max-width:640px){
+ .wire-body .nimiq-payment-body{display:block}
+ .wire-body .nimiq-payment-head{display:grid;grid-template-columns:minmax(0,1fr) 48px}
+ .wire-body .nimiq-payment-head h3{grid-row:2;grid-column:1/-1;margin:0;font-size:18px;overflow-wrap:anywhere}
+ .wire-body .nimiq-payment-head .wire-window-back{max-width:100%;font-size:14px}
+ .wire-body .nimiq-payment-head>button:last-child{grid-row:1;grid-column:2}
+ .wire-body .wire-nim-host .workspace{grid-template-columns:minmax(0,1fr)}
+ .wire-body .wire-wallet-overlay{padding:12px}
+ .wire-body .wire-wallet-choice{padding:20px;max-height:calc(100dvh - 24px);width:100%}
+ .wire-body .wire-wallet-choice h2{font-size:22px}
+}
 .wire-body .nimiq-payment-controls button[aria-pressed="true"]{border-width:2px;font-weight:750;text-decoration:underline;text-underline-offset:4px}
 .wire-body .nimiq-payment-panel .nimiq-otp-option:has(input:checked){background:var(--panel2);border-color:var(--accent);box-shadow:none}
 .wire-body .nimiq-payment-panel,.wire-body .nimiq-payment-panel label,.wire-body .nimiq-payment-panel .nimiq-payment-how{color:var(--text)}

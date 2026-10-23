@@ -2,7 +2,7 @@ import { flowText } from './flow-text.js?v=0.3.0';
 import { addressValid,cardPresentation,paintCard } from './model.js?v=0.3.0';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
-export function mountNimFlow(root=document,{embedded=false,chooseWallet=null,onClose=null,onStatus=()=>{}}={}){
+export function mountNimFlow(root=document,{embedded=false,chooseWallet=null,onClose=null,onStatus=()=>{},initialDraft=null,onDraftUsed=()=>{}}={}){
 // The bundled official Iqons adapter validates public Nimiq addresses through this hook.
 if(!embedded)window.PhoenixNimiqPayments={addressValid};
 
@@ -32,6 +32,7 @@ let configured=false,ready=false,verified=false,busy=false,claimMode=false,activ
 let receiveURL='',cooling=0,coolTimer=null;
 let paymentList=[];
 let displayed=null;
+let editingTransferredDraft=Boolean(embedded&&initialDraft&&!initialDraft.payment_id);
 const completedForms=new Set();
 const monitors=new Map(),checks=new Map(),controllers=new Set();
 let progress=$('nim-progress');
@@ -107,9 +108,9 @@ async function loadHistory(){
   if(p.address){const recover=document.createElement('button');recover.type='button';recover.textContent=t('recover');recover.addEventListener('click',()=>task(async()=>{const result=await api(`/api/payments/${p.id}/recovery`,{});const link=document.createElement('a');link.href=validatedCashlink(result.cashlink);link.target='_blank';link.rel='noopener noreferrer';link.textContent=t('recover');recover.replaceWith(link);}));row.append(recover);}
   $('payment-list').append(row);
  }
- active=data.payments.find(p=>!['sent'].includes(p.stage))||null;
+ active=editingTransferredDraft?null:data.payments.find(p=>!['sent'].includes(p.stage))||null;
  const pending=read('wire-pending-payment');
- const shown=data.payments.find(p=>p.id===pending)||data.payments.find(p=>p.id===displayed?.id)||active||(!embedded?data.payments[0]:null);
+ const shown=editingTransferredDraft?null:data.payments.find(p=>p.id===pending)||data.payments.find(p=>p.id===displayed?.id)||active||(!embedded?data.payments[0]:null);
  for(const p of data.payments){const watch=monitors.get(p.id);if(watch){watch.payment=p;if(p.stage==='sent')stopMonitor(watch);}}
  if(shown)showPayment(shown);
  $('new-card').hidden=Boolean(active);refreshText();
@@ -141,7 +142,10 @@ function renderProgress(){
  const complete=embedded&&p?.stage==='sent';
  const newlyComplete=complete&&!root.classList.contains('wire-nim-complete');
  if(embedded)root.classList.toggle('wire-nim-complete',complete);
- if(embedded){root.querySelector('.workspace').hidden=complete;$('notice').hidden=complete;$('my-payments').hidden=complete;}
+ if(embedded){
+  root.querySelector('.workspace').hidden=complete;$('notice').hidden=complete;$('my-payments').hidden=complete;
+  root.closest('.wire-nim-window')?.querySelectorAll(':scope>.nimiq-payment-head,:scope>.wire-nim-assets').forEach(el=>el.hidden=complete);
+ }
  progress.hidden=!show;if(!claimMode)$('preview-submit').hidden=Boolean(show);if(!show)return;
  const text=progressText(p);$('nim-progress-message').textContent=text;
  $('nim-progress-close').textContent=pt('close');$('nim-progress-close').hidden=p.stage!=='sent'&&Date.now()<deadline(p);
@@ -208,7 +212,7 @@ async function poll(id){
 }
 function approve(p){save('wire-nim-approved:'+p.id,'yes');observe(p);$('feedback').textContent=progressText(p);}
 function resume(){
- if(destroyed||claimMode||document.hidden||!verified)return;
+ if(destroyed||claimMode||document.hidden||!verified||editingTransferredDraft)return;
  renderProgress();
  for(const p of paymentList){if(['funding_started','funded','delivery_pending','delivery_failed'].includes(p.stage))void runMonitor(monitor(p));}
 }
@@ -234,6 +238,7 @@ function nativeWallet(){return typeof window.nimiq?.sendBasicTransactionWithData
 function rememberPayment(p,wallet){
  save('wire-pending-payment',p.id);save('wire-pending-wallet',wallet);
  save('wire-form',JSON.stringify({sender:$('sender').value,recipient:p.recipient,amount:p.amount,message:p.message,currency:'NIM',payment:p.id}));
+ onDraftUsed();
 }
 async function hubCheckout(p,checkout){
  if(!window.HubApi)throw Error('wallet_unavailable');
@@ -267,6 +272,7 @@ function fundNim(forceHub=false){
   if(active&&active.stage!=='ready'){await poll(active.id);return;}
   let p=active;
   if(!p){const result=await api('/api/payments',{recipient:$('recipient').value,amount:$('amount').value.trim().replace(',','.'),currency:'NIM',message:$('message').value,request_id:requestID,language:document.documentElement.lang});p=result.payment;active=p;}
+  editingTransferredDraft=false;
   showPayment(p);
   await ensureArtwork(p);
   if(p.stage!=='ready'){await confirm(p.id);return;}
@@ -304,7 +310,7 @@ $('card-form').addEventListener('submit',event=>{
  if(configured&&window.WireUSDT?.enabled($('currency').value)){event.preventDefault();window.WireUSDT.submit();return;}
  if(!configured)return;event.preventDefault();
  if(busy)return;
- if(verified&&ready&&$('currency').value==='NIM'&&(!active||active.stage==='ready')&&!nativeWallet()&&!window.nimiqPay&&chooseWallet){chooseWallet(()=>{if(!destroyed)fundNim(true);});return;}
+ if(verified&&ready&&$('currency').value==='NIM'&&(!active||active.stage==='ready')&&!nativeWallet()&&!window.nimiqPay&&chooseWallet){chooseWallet(()=>{if(!destroyed)fundNim(true);},{recipient:$('recipient').value,amount:$('amount').value.trim().replace(',','.'),message:$('message').value,sender:$('sender').value,request_id:requestID,payment_id:active?.id||''});return;}
  fundNim();
 });
 function updateClaimControls(){
@@ -334,7 +340,17 @@ async function boot(){
  }
  try{const config=await api('/api/config');configured=config.mode==='integrated';ready=config.payments_enabled===true;usdtAssets=Array.isArray(config.assets)?config.assets:[];if(!configured)return;
   $('sender-auth').hidden=embedded;refreshText();const session=await api('/api/session');senderUI(session.verified?session.email:'');if(verified)await loadHistory();
-  try{const draft=JSON.parse(read('wire-form')||'null');if(draft&&active?.id===draft.payment)showPayment(active);}catch{}
+  if(embedded&&initialDraft){
+   if(initialDraft.payment_id){
+    const original=paymentList.find(p=>p.id===initialDraft.payment_id);
+    if(original){active=original;showPayment(original);}
+   }else{
+    active=null;displayed=null;
+    for(const id of ['recipient','amount','message']){$(id).value=initialDraft[id];$(id).readOnly=false;}
+    $('currency').disabled=false;$('preview-empty').hidden=false;$('payment-card').hidden=true;$('preview-title').hidden=true;
+    renderProgress();
+   }
+  }else try{const draft=JSON.parse(read('wire-form')||'null');if(draft&&active?.id===draft.payment)showPayment(active);}catch{}
   const pending=read('wire-pending-payment');
   if(pending&&/^[a-f0-9]{48}$/.test(pending)&&read('wire-pending-wallet')==='pay'){
    await poll(pending);resume();return;

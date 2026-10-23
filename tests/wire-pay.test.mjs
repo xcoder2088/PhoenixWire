@@ -30,10 +30,11 @@ function fakeClock(window){
 }
 
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
-async function start({ session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false } = {}) {
-  const dom = new JSDOM(read('../internal/web/static/index.html'), { url: 'https://wire.example.test/', runScripts: 'outside-only', pretendToBeVisual: true });
+async function start({ session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024 } = {}) {
+  const dom = new JSDOM(read('../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
+  Object.defineProperty(window,'innerWidth',{value:width,configurable:true});
   const clock=clocked?fakeClock(window):null;
   for(const[key,value]of Object.entries(saved))window.sessionStorage.setItem(key,value);
   for(const[key,value]of Object.entries(local))window.localStorage.setItem(key,value);
@@ -365,7 +366,9 @@ test('wallet choice precedes card creation, stays retryable after opening Pay an
   assert.ok(!t.calls.some(([p,b])=>p==='/api/payments'&&b));
   assert.equal(t.checkouts.length,0);
   const link=t.$('wire-choice-open');
-  assert.equal(link.href,'https://nimpay.app/miniapps/open/wire.phoenixmail.ca');
+  assert.equal(new URL(link.href).protocol,'nimiqpay:');
+  const destination=new URL(new URL(link.href).searchParams.get('url'));
+  assert.equal(destination.origin,'https://wire.phoenixmail.ca');assert.match(destination.hash,/^#wire-nim=/);
   assert.equal(link.target,'_blank');assert.match(link.rel,/noopener/);assert.match(link.rel,/noreferrer/);
   link.addEventListener('click',e=>e.preventDefault());link.click();link.click();
   assert.equal(t.$('wire-choice-status').hidden,false);
@@ -774,6 +777,82 @@ test('the page scrolls: PhoenixMail’s stylesheet locks html, Wire’s frame fr
   const css = read('../internal/web/static/wire-pay.css'), app = read('../internal/web/static/pm/app.css');
   assert.match(app, /html\{overflow:hidden/, 'the copied stylesheet does lock the page (its mail app scrolls inside itself)');
   assert.match(css, /html\{[^}]*height:auto!important[^}]*overflow-y:auto!important/, 'Wire’s page is a normal page: it must scroll on a phone');
+});
+
+test('Nimiq Pay receives the draft across isolated storage, restores after email confirmation and only pays on explicit approval',async()=>{
+ const browser=await start({nimOnly:true,mobile:true,clocked:true});await submitNim(browser);
+ browser.$('message').value='Bonjour 🐦';
+ browser.$('wire-choice-cancel').click();browser.$('card-form').dispatchEvent(new browser.window.Event('submit',{cancelable:true}));await settle();
+ const link=new URL(browser.$('wire-choice-open').href),destination=link.searchParams.get('url');
+ const transferred=JSON.parse(decodeURIComponent(new URL(destination).hash.slice(10)));
+ assert.equal(transferred.amount,'2.5');assert.equal(transferred.recipient,'friend@example.test');assert.equal(transferred.message,'Bonjour 🐦');
+ assert.equal(transferred.request_id,browser.window.sessionStorage.getItem('wire-request-id'));
+ assert.ok(!browser.calls.some(([p,b])=>p==='/api/payments'&&b),'opening the app neither creates nor funds a card');
+ const app=await start({nimOnly:true,nativeMode:'success',session:{verified:false},clocked:true,url:destination});
+ assert.equal(app.window.location.hash,'');assert.equal(app.$('wire-email').value,'sender@example.test');
+ assert.equal(app.doc.querySelector('.wire-nim-window'),null);assert.equal(app.nativeCalls.length,0);
+ assert.ok(app.window.sessionStorage.getItem('wire-nim-handoff'));
+ // A reload during first sign-in retains the draft in this context, without copying Safari's session.
+ const restored=await start({nimOnly:true,nativeMode:'success',session:{verified:false},clocked:true,saved:app.snapshot()});
+ restored.$('wire-code').value='123456';restored.$('wire-verify').click();await settle();
+ assert.ok(restored.doc.querySelector('.wire-nim-window'));
+ for(const k of ['recipient','amount','message'])assert.equal(restored.$(k).value,transferred[k]);
+ assert.equal(restored.nativeCalls.length,0);assert.equal(restored.checkouts.length,0);
+ restored.$('card-form').dispatchEvent(new restored.window.Event('submit',{cancelable:true}));await settle();
+ const creation=restored.calls.find(([p,b])=>p==='/api/payments'&&b)[1];
+ assert.equal(creation.request_id,transferred.request_id);assert.equal(creation.amount,'2.5');
+ assert.equal(restored.nativeCalls.length,1);assert.equal(restored.nativeCalls[0].request.value,250000);
+ assert.equal(restored.nativeCalls[0].request.recipient,'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');
+ assert.equal(restored.window.sessionStorage.getItem('wire-nim-handoff'),null);
+ assert.equal(restored.$('nim-progress-close').textContent,'Done');
+});
+
+test('handoff does not authenticate another sender, expires, rejects malformed values and never pays from a URL',async()=>{
+ const source=await start({nimOnly:true,mobile:true,clocked:true});await submitNim(source);
+ const destination=new URL(source.$('wire-choice-open').href).searchParams.get('url');
+ const d=JSON.parse(decodeURIComponent(new URL(destination).hash.slice(10)));
+ const wrong=await start({nimOnly:true,nativeMode:'success',clocked:true,url:destination,session:{verified:true,email:'other@example.test'}});
+ assert.equal(wrong.doc.querySelector('.wire-nim-window'),null);assert.equal(wrong.nativeCalls.length,0);
+ for(const patch of [{expires:0},{amount:'-1'},{amount:'2.500001'},{request_id:'invalid'},{recipient:'<script>'},{payment_id:'bad'}]){
+  const url='https://wire.phoenixmail.ca/#wire-nim='+encodeURIComponent(JSON.stringify({...d,...patch}));
+  const t=await start({nimOnly:true,nativeMode:'success',clocked:true,url});
+  assert.equal(t.doc.querySelector('.wire-nim-window'),null);assert.equal(t.nativeCalls.length,0);assert.equal(t.window.location.hash,'');
+ }
+});
+
+test('a transferred new draft is not replaced by a previous pending card, while an existing card resumes without paying twice',async()=>{
+ const source=await start({nimOnly:true,mobile:true,clocked:true});await submitNim(source);
+ const d=JSON.parse(decodeURIComponent(new URL(new URL(source.$('wire-choice-open').href).searchParams.get('url')).hash.slice(10)));
+ const url='https://wire.phoenixmail.ca/#wire-nim='+encodeURIComponent(JSON.stringify({...d,recipient:'new@example.test',message:'A new card'}));
+ const app=await start({nimOnly:true,nativeMode:'success',clocked:true,manualNim:true,nimPending:true,url,saved:{'wire-pending-payment':'a'.repeat(48),'wire-pending-wallet':'pay'}});
+ assert.equal(app.$('recipient').value,'new@example.test');assert.equal(app.$('message').value,'A new card');
+ await app.clock.advance(120000);app.window.dispatchEvent(new app.window.Event('pageshow'));await settle();
+ assert.equal(app.$('recipient').value,'new@example.test');assert.equal(app.nativeCalls.length,0);
+ const previous=await start({nimOnly:true,mobile:true,clocked:true,nimStage:'ready'});await submitNim(previous);
+ const existingURL=new URL(previous.$('wire-choice-open').href).searchParams.get('url');
+ const resumed=await start({nimOnly:true,nativeMode:'success',clocked:true,nimPending:true,url:existingURL});
+ assert.equal(resumed.nativeCalls.length,0);assert.equal(resumed.checkouts.length,0);
+ assert.ok(!resumed.calls.some(([p,b])=>p==='/api/payments'&&b));
+ resumed.$('card-form').dispatchEvent(new resumed.window.Event('submit',{cancelable:true}));await settle();
+ assert.equal(resumed.nativeCalls.length,0);assert.equal(resumed.checkouts.length,0);
+});
+
+test('navigation has no decorative arrows, the close control is large and round, and mobile controls avoid Safari focus zoom',async()=>{
+ const t=await start({width:375});t.$('pay').click();await settle();
+ assert.deepEqual([...t.doc.querySelectorAll('.wire-navigation a')].map(a=>a.textContent),['PhoenixWire','PhoenixMail']);
+ assert.ok(!/[←↗⤢]/.test(t.doc.querySelector('.nimiq-payment-head').textContent));
+ const css=read('../internal/web/static/wire-pay.css'),style=t.doc.createElement('style');style.textContent=css;t.doc.head.append(style);
+ const close=t.doc.querySelector('.nimiq-payment-head>button:last-child'),computed=t.window.getComputedStyle(close);
+ assert.equal(computed.borderRadius,'50%');assert.equal(computed.width,'48px');assert.equal(computed.height,'48px');
+ assert.equal(t.window.getComputedStyle(t.$('wire-email')).fontSize,'16px');
+ assert.equal(t.doc.querySelector('.nimiq-payment-head').onpointerdown,null);
+ assert.ok(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*1/.test(t.doc.querySelector('meta[name="viewport"]').content));
+ assert.match(css,/\.wire-body \.nimiq-payment-window\{[^}]*max-width:calc\(100vw - 24px\)/);
+ const win=t.doc.querySelector('.nimiq-payment-window');
+ win.getBoundingClientRect=()=>({width:351,height:400});
+ Object.defineProperty(t.window,'visualViewport',{value:{width:375,height:500,offsetTop:20,offsetLeft:0},configurable:true});
+ t.window.PhoenixViewport.center(win);
+ assert.equal(win.style.left,'12px');assert.equal(win.style.top,'70px');assert.equal(win.style.maxHeight,'484px');
 });
 
 test('sent NIM replaces the form with one completion screen, clears its draft and Done removes the entire window',async()=>{

@@ -1,7 +1,7 @@
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.3.0';
-import { mountNimFlow } from './flow.js?v=0.4.7';
+import { mountNimFlow } from './flow.js?v=0.4.8';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -35,6 +35,24 @@ function save(key, value) { try { localStorage.setItem(key, value); } catch { /*
 let preference = read('wire-language', 'auto'), lang = 'en', email = '', payments = null, usdtOn = false, nimOn = false, enabled = false, nimView = null, resumed = false;
 let nimCache=null;
 const t = key => (words[lang] || words.en)[key];
+// Only a payment draft crosses contexts. Never export cookies, grants, link keys or recovery URLs.
+function validNimDraft(d){
+ return d&&d.v===1&&Number.isFinite(d.expires)&&d.expires>Date.now()&&d.expires<=Date.now()+86400000&&
+ ['recipient','sender'].every(k=>typeof d[k]==='string'&&d[k].length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d[k]))&&
+ typeof d.amount==='string'&&/^\d{1,9}(?:\.\d{1,5})?$/.test(d.amount)&&Number(d.amount)>0&&
+ typeof d.message==='string'&&[...d.message].length<=160&&/^[a-f0-9]{32}$/.test(d.request_id)&&
+ (d.payment_id===''||/^[a-f0-9]{48}$/.test(d.payment_id))&&['fr','en','es','de','zh'].includes(d.language);
+}
+function readNimDraft(){try{const d=JSON.parse(sessionStorage.getItem('wire-nim-handoff')||'null');return validNimDraft(d)?d:null;}catch{return null;}}
+let handoff=readNimDraft();
+if(location.hash.startsWith('#wire-nim=')){
+ const encoded=location.hash.slice(10);
+ handoff=null;try{sessionStorage.removeItem('wire-nim-handoff');}catch{}
+ // Remove the transferred draft from the address bar before any network request.
+ history.replaceState(null,'',location.pathname+location.search);
+ try{if(encoded.length<=6000){const d=JSON.parse(decodeURIComponent(encoded));if(validNimDraft(d)){handoff=d;sessionStorage.setItem('wire-nim-handoff',JSON.stringify(d));}}}catch{}
+}
+if(handoff){preference=handoff.language;save('wire-language',preference);$('wire-email').value=handoff.sender;}
 
 async function api(path, data, signal) {
  const options = { credentials: 'same-origin', cache: 'no-store', redirect: 'error' };
@@ -46,6 +64,16 @@ async function api(path, data, signal) {
  return body;
 }
 const say = text => { $('wire-status').textContent = text; };
+// The copied window calls this hook on resize/keyboard changes. Keep it inside
+// the visual viewport rather than retaining a desktop drag offset on a phone.
+window.PhoenixViewport={center(win){
+ const v=window.visualViewport,w=v?.width||innerWidth,h=v?.height||innerHeight;
+ const r=win.getBoundingClientRect();
+ win.style.margin='0';win.style.inset='auto';
+ win.style.left=((v?.offsetLeft||0)+Math.max(8,(w-r.width)/2))+'px';
+ win.style.top=((v?.offsetTop||0)+Math.max(8,(h-r.height)/2))+'px';
+ win.style.maxHeight=Math.max(100,h-16)+'px';
+}};
 
 function paint() {
  document.documentElement.lang = lang;
@@ -58,7 +86,7 @@ function paint() {
  if (nimCache) paintNim(nimCache.modal);
  window.dispatchEvent(new Event('wire-language'));
  $('wire-session-help').textContent = t('sessionHelp'); $('wire-session-confirmed').textContent = t('sessionConfirmed');
- document.querySelectorAll('.wire-window-back').forEach(button => { button.textContent = '← ' + t('back'); });
+ document.querySelectorAll('.wire-window-back').forEach(button => { button.textContent = t('back'); });
  document.querySelectorAll('[data-wallet-text]').forEach(el=>{el.textContent=t(el.dataset.walletText);});
  renderCards();
 }
@@ -70,10 +98,13 @@ let choiceCallback=null,choiceFocus=null,choiceParent=null;
 function closeWalletChoice(){
  $('wire-nim-choice').hidden=true;choiceCallback=null;choiceParent?.removeAttribute('inert');choiceParent=null;choiceFocus?.focus();
 }
-function chooseWallet(useHub){
+function chooseWallet(useHub,draft){
  choiceCallback=useHub;choiceFocus=document.activeElement;choiceParent=document.querySelector('.wire-nim-window');choiceParent?.setAttribute('inert','');
  $('wire-choice-status').hidden=true;$('wire-choice-stores').hidden=true;$('wire-nim-choice').hidden=false;
- $('wire-choice-open').href=payLink;
+ const d={v:1,expires:Date.now()+86400000,recipient:draft?.recipient,amount:draft?.amount,message:draft?.message,sender:draft?.sender,request_id:draft?.request_id,payment_id:draft?.payment_id,language:lang};
+ // The custom scheme carries the complete mini-app URL, including its fragment.
+ // The bare HTTPS domain link cannot restore a draft in the app's separate storage.
+ $('wire-choice-open').href=validNimDraft(d)?'nimiqpay://miniapp?url='+encodeURIComponent('https://wire.phoenixmail.ca/#wire-nim='+encodeURIComponent(JSON.stringify(d))):payLink;
  const ua=navigator.userAgent||'';
  $('wire-choice-get').href=/Android/i.test(ua)?androidStore:/iPhone|iPad|iPod/i.test(ua)||navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1?iosStore:'#';
  $('wire-choice-open').focus();
@@ -127,7 +158,7 @@ function openNimWindow() {
   button.setAttribute('aria-pressed', String(asset === 'nim')); button.disabled = asset !== 'nim' && !usdtOn;
   button.onclick = () => { if (asset === 'nim') return; dismiss(); payments.open('send', asset); }; row.append(button);
  }
- const back = modal.querySelector('.wire-window-back'); back.textContent = '← ' + t('back');
+ const back = modal.querySelector('.wire-window-back'); back.textContent = t('back');
  let flow;
  // Keep the authenticated NIM tracker alive when the window is closed or another coin is selected.
  const dismiss = () => { closeWalletChoice();modal.remove(); document.removeEventListener('keydown', escape); nimView = null;if(root.classList.contains('wire-nim-complete')){flow?.destroy();nimCache=null;} $('pay').focus(); };
@@ -135,8 +166,16 @@ function openNimWindow() {
  back.onclick = dismiss; modal.querySelector('.wire-nim-close').onclick = dismiss;
  document.addEventListener('keydown', escape);
  document.body.append(modal); nimView = { root: modal, dismiss };
- paintNim(modal);flow=mountNimFlow(root,{embedded:true,chooseWallet,onStatus:(p,message)=>{
+ const draft=handoff?.sender.toLowerCase()===email.toLowerCase()?handoff:null;
+ if(draft){try{
+  sessionStorage.setItem('wire-request-id',draft.request_id);
+  if(draft.payment_id)sessionStorage.setItem('wire-pending-payment',draft.payment_id);
+  else{sessionStorage.removeItem('wire-pending-payment');sessionStorage.removeItem('wire-pending-wallet');sessionStorage.removeItem('wire-form');}
+ }catch{}}
+ const clearDraft=()=>{handoff=null;try{sessionStorage.removeItem('wire-nim-handoff');}catch{}};
+ paintNim(modal);flow=mountNimFlow(root,{embedded:true,chooseWallet,initialDraft:draft,onDraftUsed:clearDraft,onStatus:(p,message)=>{
   nimCards.set(p.id,p);
+  if(draft?.payment_id===p.id&&p.stage!=='ready')clearDraft();
   if(p.stage==='sent'){
    const notices=nimNotices();
    if(!notices.some(n=>n.id===p.id&&n.sender===email)){notices.push({id:p.id,sender:email,noticePending:true});save('wire-nim-notices',JSON.stringify(notices));}
@@ -326,11 +365,13 @@ function mountPayments() {
  const addBack = win => {
   const head = win.querySelector('.nimiq-payment-head');
   if (!head || head.querySelector('.wire-window-back')) return;
+  const title=head.querySelector('h3');if(title)title.textContent=title.textContent.replace(/^⤢\s*/, '');
+  if(innerWidth<=640){head.onpointerdown=null;head.removeAttribute('title');}
   const nim = win.querySelector('.nimiq-payment-assets button:first-child');
   if (nim) { nim.disabled = !nimOn; nim.onclick = openNimWindow; }
   const close = head.querySelector('button');
   const back = document.createElement('button'); back.type = 'button'; back.className = 'secondary-btn wire-window-back';
-  back.textContent = '← ' + t('back');
+  back.textContent = t('back');
   // Let the copied window remove its own listeners and observers through its close control.
   back.addEventListener('click', () => { close.click(); $('pay').focus(); });
   head.prepend(back);
@@ -355,7 +396,7 @@ function showSender(verified, who) {
  $('wire-who').textContent = email;
  if (verified && enabled) {
   mountPayments();void startCards();
-  try { if (nimOn && !resumed && /^[a-f0-9]{48}$/.test(sessionStorage.getItem('wire-pending-payment') || '')) { resumed = true; openNimWindow(); } } catch { /* tab storage may be unavailable */ }
+  try { if (nimOn && !resumed && (handoff?.sender.toLowerCase()===email.toLowerCase()||/^[a-f0-9]{48}$/.test(sessionStorage.getItem('wire-pending-payment') || ''))) { resumed = true; openNimWindow(); } } catch { /* tab storage may be unavailable */ }
  }
  renderCards();
 }

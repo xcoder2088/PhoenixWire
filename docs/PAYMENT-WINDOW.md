@@ -77,3 +77,25 @@ service, not delivery to an inbox. History is hidden on logout and polling stops
 
 NIM rows use the existing `/api/payments` states and the NIM window's status callback. They do not infer that a NIM card was claimed:
 that information is not provided by this list. No new server route, CSP rule or payment operation is added by the dashboard.
+
+## Nimiq Pay draft handoff
+
+The browser wallet chooser uses `nimiqpay://miniapp?url=<encoded complete Wire URL>` when a valid NIM draft is available.
+The previous bare-domain HTTPS link opened Wire's home page in the app and carried no form. The complete URL now contains
+a `#wire-nim=` fragment with a version, 24-hour deadline, sender and recipient emails, amount, optional message, language,
+request identifier and (for an existing card) payment identifier. No session cookie, grant, link key, recovery link or wallet
+address is transferred. The fragment carries personal form data; it is not an authentication mechanism and is not encrypted.
+It is removed from Wire's address bar before API calls and saved in the receiving tab's session storage during sign-in.
+
+Nimiq Pay has its own cookies and storage. The sender must confirm their email there the first time; Safari's confirmation
+is not copied. Only a matching verified sender resumes the draft. Restoring a draft never sends money. The sender reviews
+the restored form and submits it, then Nimiq Pay must approve the native request with the server-provided card address and
+amount. There is no need to type a wallet destination or manually enter the amount in the wallet. The original request ID
+is retained so the existing sender-bound server idempotency prevents a second card if the browser is also used. A card
+already awaiting funding confirmation is monitored instead of paid again. Once wallet tracking has been saved, the draft
+is cleared. Real iPhone/Android verification of the custom-scheme fragment and native app return remains necessary.
+
+Wire's host also removes the copied title's decorative arrow, styles the close control as a 48 px circle, and supplies the
+existing `PhoenixViewport.center` hook for keyboard/viewport resizing. CSS keeps narrow forms within the viewport and
+uses at least 16 px text in editable controls to avoid Safari focus zoom, without disabling manual pinch zoom. No `pm/`
+file, Go code or CSP is changed for these adaptations.
