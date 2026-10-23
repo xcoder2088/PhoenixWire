@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/brand/wire-icon-32.png?v=0.4.1">
   <link rel="apple-touch-icon" sizes="180x180" href="/brand/wire-icon-180.png?v=0.4.1">
   <link rel="manifest" href="/site.webmanifest?v=0.4.1">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.16">
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.17">
   <meta name="referrer" content="no-referrer">
   <link rel="stylesheet" href="/style.css?v=0.3.0">
   <link rel="stylesheet" href="/flow.css?v=0.3.0">
@@ -17,7 +17,7 @@
   <script src="/hub.js?v=0.3.0" defer></script>
   <script src="/iqons.js?v=0.3.0" defer></script>
   <script type="module" src="/app.js?v=0.3.0"></script>
-  <script type="module" src="/flow.js?v=0.4.13"></script>
+  <script type="module" src="/flow.js?v=0.4.17"></script>
   <script type="module" src="/usdt-flow.js?v=0.3.0"></script>
 </head>
 <body>
@@ -92,11 +92,22 @@
             <div class="card-content">
               <img id="claim-iqon" width="80" height="80" alt="Nimiq Nimicon" hidden>
               <p id="claim-message"></p>
+              <fieldset id="claim-choices" disabled>
+                <legend data-claim="choose">Recevoir sa carte NIM</legend>
+                <button id="claim-pay" type="button" data-claim="pay" hidden>Recevoir dans Nimiq Pay</button>
+                <button id="claim-other" type="button" data-claim="other">Recevoir dans un autre portefeuille</button>
+                <button id="claim-hub" type="button" data-claim="hub">Ouvrir avec le Hub</button>
+              </fieldset>
+              <label id="claim-address-label" hidden><span data-claim="address">Adresse Nimiq</span><input id="claim-address" type="text" autocomplete="off" maxlength="64" spellcheck="false"></label>
+              <label id="claim-accounts-label" hidden><span data-claim="account">Compte de réception</span><select id="claim-accounts"></select></label>
+              <p id="claim-destination" hidden></p>
               <button id="request-claim-code" type="button" data-wire="requestCode">Recevoir mon code par courriel</button>
               <p id="claim-status" role="status" aria-live="polite"></p>
               <label><span data-wire="code">Code à six chiffres</span><input id="claim-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
             </div>
             <button id="release-claim" class="primary" type="submit" disabled data-wire="unlock">Déverrouiller le paiement</button>
+            <p id="claim-payout-details" hidden></p>
+            <button id="claim-retry" type="button" data-claim="retry" hidden>Réessayer</button>
           </form>
         </article>
         <a id="wallet-link" class="wallet-link" target="_blank" rel="noopener noreferrer" hidden data-wire="receive">Recevoir dans mon portefeuille</a>

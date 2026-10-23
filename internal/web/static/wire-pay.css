@@ -9,6 +9,18 @@
 .wire-nim-complete .wire-nim-progress{position:static;display:flex;flex-direction:column;align-items:center;text-align:center;width:100%;max-width:440px;box-sizing:border-box;margin:0;padding:24px;min-width:0}
 .wire-nim-complete .wire-nim-progress p{flex:0 1 auto;max-width:100%}
 .wire-nim-complete #nim-progress-close{width:100%;max-width:240px}
+/* Completion replaces the entire content, including the prepared-card wrapper. */
+.wire-nim-host.wire-nim-complete>:not(#nim-progress),.wire-nim-complete #nim-progress>:not(#nim-progress-message):not(#nim-progress-close){display:none!important}
+#nim-wallet-failure{display:flex;flex-direction:column;align-items:stretch}
+#nim-wallet-retry{order:-2}
+#nim-wallet-wait{order:-1}
+/* Recipient choices are Wire-owned; the mirrored payment window is untouched. */
+.claim-panel #claim-choices{border:0;padding:0;margin:0 0 16px;min-width:0;display:grid;gap:10px}
+.claim-panel #claim-choices legend{font-weight:700;margin-bottom:12px}
+.claim-panel #claim-choices button,.claim-panel #claim-retry,.claim-panel #release-claim,.claim-panel #request-claim-code{border:1px solid var(--accent);border-radius:10px;background:transparent;color:inherit;min-height:48px;padding:12px;font:inherit;white-space:normal;width:100%;box-sizing:border-box}
+.claim-panel #claim-address,.claim-panel #claim-accounts{max-width:100%;width:100%;box-sizing:border-box;font-size:16px;letter-spacing:normal;text-align:left;padding:12px;border:1px solid var(--accent);border-radius:10px}
+.claim-panel #claim-destination,.claim-panel #claim-payout-details{font-size:14px;overflow-wrap:anywhere;line-height:1.5}
+.claim-panel #claim-choices[hidden]{display:none!important}
 @media(max-width:420px){.wire-nim-host.wire-nim-complete{padding:16px}.wire-nim-complete .wire-nim-progress{padding:20px 16px}}
 .wire-wallet-overlay{position:fixed;inset:0;z-index:6000;display:grid;place-items:center;background:#0009;padding:20px;overflow:auto}
 .wire-wallet-choice{width:min(100%,420px);max-height:calc(100dvh - 40px);overflow:auto;box-sizing:border-box;padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:18px;color:var(--text)}

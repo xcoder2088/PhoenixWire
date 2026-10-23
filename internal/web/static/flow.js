@@ -1,4 +1,4 @@
-import { flowText } from './flow-text.js?v=0.3.0';
+import { flowText } from './flow-text.js?v=0.4.17';
 import { addressValid,cardPresentation,paintCard } from './model.js?v=0.3.0';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
@@ -34,7 +34,7 @@ const retryWords={
     "retry": "Réessayer le paiement",
     "wait": "Patiente encore quelques minutes, un premier paiement peut être en route.",
     "remaining": "Réessai possible dans {time}.",
-    "close": "Tu peux fermer : la carte expire seule. Rien n’est débité sans confirmation dans ton portefeuille ; un paiement déjà confirmé dans le portefeuille peut encore arriver.",
+    "close": "Tu peux fermer cette fenêtre.",
     "copy": "Copier le détail",
     "copied": "Détail copié",
     "select": "Sélectionne et copie le détail ci-dessous.",
@@ -48,7 +48,7 @@ const retryWords={
     "retry": "Retry payment",
     "wait": "Wait a few more minutes; a first payment may be on its way.",
     "remaining": "Retry available in {time}.",
-    "close": "You can close this window: the card expires on its own. Nothing is debited without approval in your wallet; a payment already approved there may still arrive.",
+    "close": "You can close this window.",
     "copy": "Copy details",
     "copied": "Details copied",
     "select": "Select and copy the details below.",
@@ -62,7 +62,7 @@ const retryWords={
     "retry": "Reintentar el pago",
     "wait": "Espera unos minutos más; puede haber un primer pago en camino.",
     "remaining": "Podrás reintentar en {time}.",
-    "close": "Puedes cerrar: la tarjeta caduca sola. No se debita nada sin confirmar en tu cartera; un pago ya aprobado allí aún puede llegar.",
+    "close": "Puedes cerrar esta ventana.",
     "copy": "Copiar detalles",
     "copied": "Detalles copiados",
     "select": "Selecciona y copia los detalles siguientes.",
@@ -76,7 +76,7 @@ const retryWords={
     "retry": "Zahlung erneut versuchen",
     "wait": "Warte noch einige Minuten; eine erste Zahlung könnte unterwegs sein.",
     "remaining": "Neuer Versuch in {time} möglich.",
-    "close": "Du kannst schließen: Die Karte läuft von selbst ab. Ohne Bestätigung in deiner Wallet wird nichts abgebucht; eine dort bereits bestätigte Zahlung kann noch eintreffen.",
+    "close": "Du kannst schließen.",
     "copy": "Details kopieren",
     "copied": "Details kopiert",
     "select": "Wähle und kopiere die folgenden Details.",
@@ -90,7 +90,7 @@ const retryWords={
     "retry": "重试付款",
     "wait": "请再等待几分钟，第一笔付款可能仍在途中。",
     "remaining": "{time} 后可重试。",
-    "close": "你可以关闭窗口：卡片会自动过期。未经钱包确认不会扣款；已在钱包批准的付款仍可能稍后到账。",
+    "close": "你可以关闭此窗口。",
     "copy": "复制详情",
     "copied": "详情已复制",
     "select": "请选择并复制下面的详情。",
@@ -150,6 +150,9 @@ const fallback=document.createElement('button');fallback.type='button';fallback.
 $('feedback').after(fallback);
 let configured=false,ready=false,verified=false,busy=false,claimMode=false,active=null;
 let receiveURL='',cooling=0,coolTimer=null;
+// Page-local recipient state: no code or destination is stored in browser storage.
+const reception={route:'',to:'',payout:null,known:false,locked:false,expired:false,message:'',timer:null,read:null,retry:false};
+const ct=key=>t('claim_'+key);
 let paymentList=[];
 let displayed=null;
 let preparedContext=Boolean(embedded&&(initialPayment||scopedPaymentID));
@@ -203,6 +206,7 @@ function renderWallet(p){
   if(!document.hidden&&paymentList.some(p=>(walletFailures.get(p.id)?.waitUntil||0)>Date.now()))walletTimer=setTimeout(()=>renderProgress(),1000);
   return;
  }
+ // The payment status already explains approval, delay and expiry; do not repeat it below.
  walletNote.textContent=rt('close');detailLabel.textContent=rt('detail');
  if(walletDetail.textContent!==(failure.detail||''))walletDetail.textContent=failure.detail||'';
  walletDetail.hidden=!failure.detail;detailLabel.hidden=!failure.detail;copyDetail.hidden=!failure.detail;
@@ -285,7 +289,7 @@ function newCard(id=displayed?.id){
 }
 let requestID=read('wire-request-id');
 function nextID(){const bytes=crypto.getRandomValues(new Uint8Array(16));return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');}
-if(!/^[a-f0-9]{32}$/.test(requestID)){requestID=nextID();save('wire-request-id',requestID);}
+if(!/^[a-f0-9]{32}$/.test(requestID)){requestID=nextID();if(embedded||!new URLSearchParams(location.search).has('claim'))save('wire-request-id',requestID);}
 async function api(path,data,{timeout=false}={}){
  if(destroyed)throw Error('flow_closed');
  const options={credentials:'same-origin',cache:'no-store',redirect:'error'};
@@ -306,6 +310,7 @@ function refreshText(){
  if(configured&&!claimMode){$('preview-submit').textContent=t(active&&active.stage!=='ready'?'retry':'pay');$('notice').textContent=t(ready?'note':'unavailable');root.querySelector('.security').textContent=t('security');root.querySelector('.lock').textContent=cardPresentation(document.documentElement.lang).locked;}
  if(receiveURL)$('release-claim').textContent=t('receive');
  if(cooling)updateClaimControls();
+ if(claimMode)updateClaimControls();
  renderProgress();
 }
 window.addEventListener('wire-language',refreshText);
@@ -371,7 +376,7 @@ function progressText(p){
    const hours=new Intl.NumberFormat(document.documentElement.lang,{maximumFractionDigits:1}).format(Math.max(0,Math.ceil((deadline(p)-Date.now())/360000)/10));
    const at=Date.parse(p.started_at||'');
    const started=Number.isFinite(at)?rt('started').replace('{time}',new Intl.DateTimeFormat(document.documentElement.lang,{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(at)):'';
-   return rt('unpaid').replace('{hours}',hours)+' '+started+' '+rt('arrival');
+   return rt('unpaid').replace('{hours}',hours)+' '+started;
   }
   return rt('unknown');
  }
@@ -386,7 +391,7 @@ function renderProgress(){
  if(destroyed)return;
  const p=displayed,show=p&&(['funding_started','funded','delivery_pending','delivery_failed','sent'].includes(p.stage)||walletFailures.has(p.id));
  renderWallet(p);
- $('new-card').hidden=Boolean(scopedPaymentID)||!verified;
+ $('new-card').hidden=Boolean(scopedPaymentID)||!verified||embedded&&p?.stage==='sent';
  if(show)progress.append($('new-card'));else root.querySelector('.workspace').before($('new-card'));
  $('preview-submit').disabled=busy||nativeRequestInFlight;
  renderHistory();
@@ -472,11 +477,12 @@ async function poll(id){
 }
 function approve(p){save('wire-nim-approved:'+p.id,'yes');observe(p);if(displayed?.id===p.id)$('feedback').textContent=progressText(p);}
 function resume(){
+ if(claimMode){if(!document.hidden)void refreshPayout();return;}
  if(destroyed||claimMode||document.hidden||!verified||editingTransferredDraft)return;
  renderProgress();
  for(const p of paymentList){if(['funding_started','funded','delivery_pending','delivery_failed'].includes(p.stage))void runMonitor(monitor(p));}
 }
-function visibility(){if(document.hidden){clearTimeout(walletTimer);for(const watch of monitors.values()){clearTimeout(watch.timer);watch.timer=null;}}else resume();}
+function visibility(){if(document.hidden){clearTimeout(walletTimer);clearTimeout(reception.timer);for(const watch of monitors.values()){clearTimeout(watch.timer);watch.timer=null;}}else resume();}
 document.addEventListener('visibilitychange',visibility);window.addEventListener('pageshow',resume);window.addEventListener('online',resume);
 $('nim-progress-close').addEventListener('click',()=>{if(onClose)onClose(displayed);else location.assign('/');});
 function resendCard(id){
@@ -672,29 +678,132 @@ $('card-form').addEventListener('submit',event=>{
 });
 $('nim-handoff-pay')?.addEventListener('click',()=>fundNim());
 function updateClaimControls(){
- $('request-claim-code').disabled=busy||cooling>0;
+ if(!claimMode)return;
+ const locked=reception.locked||Boolean(reception.payout)||Boolean(receiveURL),available=reception.known&&!reception.expired&&!locked;
+ root.querySelectorAll('[data-claim]').forEach(el=>el.textContent=ct(el.dataset.claim));
+ $('claim-choices').hidden=locked||reception.expired;$('claim-choices').disabled=busy||!available;
+ $('claim-pay').hidden=!window.nimiq;
+ $('claim-address-label').hidden=!available||reception.route!=='other';$('claim-address').disabled=busy||!available;
+ $('claim-accounts-label').hidden=!available||reception.route!=='pay'||$('claim-accounts').options.length<2;$('claim-accounts').disabled=busy||!available;
+ const chosen=Boolean(reception.route)&&available;
+ $('request-claim-code').hidden=!chosen;$('request-claim-code').disabled=busy||cooling>0;
  $('request-claim-code').textContent=cooling?t('resendIn')+' '+cooling+' s':t('requestCode');
- $('release-claim').disabled=busy||(!receiveURL&&!/^[0-9]{6}$/.test($('claim-code').value));
+ $('claim-code').closest('label').hidden=!chosen;$('claim-code').disabled=busy||!chosen;$('claim-code').required=chosen;
+ $('release-claim').hidden=!chosen&&!receiveURL;
+ $('release-claim').textContent=receiveURL?t('receive'):reception.route==='hub'?ct('hub'):ct('send');
+ $('release-claim').disabled=busy||(!receiveURL&&(!chosen||!/^[0-9]{6}$/.test($('claim-code').value)));
+ $('claim-retry').hidden=!reception.retry;$('claim-retry').disabled=busy||Boolean(reception.read);
+ $('claim-destination').hidden=!reception.to;$('claim-destination').textContent=ct('destination').replace('{to}',reception.to);
+ $('claim-payout-details').hidden=!reception.payout;
+ if(reception.payout){const p=reception.payout;
+  $('claim-payout-details').textContent=ct('details').replace('{value}',new Intl.NumberFormat(document.documentElement.lang,{maximumFractionDigits:5}).format(p.value/100000)).replace('{to}',p.to).replace('{hash}',p.hash||'').replace('{confirmations}',p.confirmations||0);
+ }
+ $('claim-status').textContent=reception.message?t(reception.message):reception.payout?ct(reception.payout.status):'';
+ $('claim-status').className=reception.payout?.status==='payout_confirmed'?'ok':reception.retry||reception.payout?.status==='payout_failed'?'error':'';
 }
 function cooldown(){clearInterval(coolTimer);cooling=20;updateClaimControls();coolTimer=setInterval(()=>{cooling--;updateClaimControls();if(cooling<=0)clearInterval(coolTimer);},1000);}
-async function claimTask(run,button){if(busy)return;button.setAttribute('aria-busy','true');let ok=false;await task(async()=>{updateClaimControls();await run();ok=true;},'claim-status',()=>{button.removeAttribute('aria-busy');$('claim-status').className=ok?'ok':'error';updateClaimControls();});}
+function schedulePayout(){
+ clearTimeout(reception.timer);
+ if(!destroyed&&!document.hidden&&(reception.payout?.status==='payout_pending'||!reception.known&&!reception.expired))reception.timer=setTimeout(()=>void refreshPayout(),3000);
+}
+function showPayout(p){
+ if(!['payout_pending','payout_confirmed','payout_failed'].includes(p.status)||typeof p.to!=='string'||!Number.isSafeInteger(p.value)||p.value<0)throw Error('invalid_payout_response');
+ reception.payout=p;reception.to=p.to;reception.locked=true;reception.known=true;reception.message='';reception.retry=p.status==='payout_pending';
+ $('claim-code').value='';clearInterval(coolTimer);cooling=0;
+ updateClaimControls();schedulePayout();
+}
+function refreshPayout(){
+ if(destroyed)return Promise.resolve();
+ if(reception.read)return reception.read;
+ reception.read=(async()=>{
+  try{showPayout(await api('/api/claims/'+claimID()+'/payout_status',{},{timeout:true}));}
+  catch(error){
+   if(error.status===404&&error.message==='payout_not_started'){
+    reception.known=true;if(!reception.payout&&reception.message!=='claim_payout_already_started')reception.locked=false;
+    if(!reception.locked){reception.retry=false;if(['claim_checkingPayout','claim_payoutUnavailable'].includes(reception.message))reception.message='';}
+   }else{reception.message='claim_payoutUnavailable';reception.retry=true;if(!reception.payout)reception.known=false;}
+  }finally{reception.read=null;updateClaimControls();schedulePayout();}
+ })();
+ return reception.read;
+}
+async function claimTask(run,button){
+ if(busy)return;busy=true;button.setAttribute('aria-busy','true');updateClaimControls();
+ try{await run();}
+ catch(error){
+  const code=error.message;
+  if(code==='payout_already_started'){
+   reception.locked=true;reception.message='claim_payout_already_started';reception.retry=true;await refreshPayout();
+  }else if(code==='invalid_destination'||code==='cashlink_not_confirmed_or_invalid'){
+   reception.locked=false;reception.message='claim_'+code;
+  }else if(error.status===403){reception.locked=false;reception.message='invalid';}
+  else if(error.status===410){reception.expired=true;reception.message='expired';}
+  else{await refreshPayout();if(!reception.payout){reception.message='claim_payoutUnavailable';reception.retry=true;}}
+ }finally{busy=false;button.removeAttribute('aria-busy');updateClaimControls();}
+}
+async function requestClaimCode(){
+ if(!reception.route||!reception.known||reception.locked||reception.expired||cooling>0)return;
+ try{await api('/api/claims/'+claimID()+'/request',{},{timeout:true});reception.message='codeSent';cooldown();}
+ catch(error){if(error.status===429){cooldown();reception.message='waitCode';return;}throw error;}
+}
+function chooseReception(route){
+ if(busy||!reception.known||reception.locked||reception.expired||receiveURL)return;
+ void claimTask(async()=>{
+  if(route==='pay'){
+   try{
+    const accounts=await window.nimiq.listAccounts();
+    if(accounts?.error)throw accounts.error;
+    const addresses=Array.isArray(accounts)?[...new Set(accounts.filter(a=>typeof a==='string'&&softAddress(a)))]:[];
+    if(!addresses.length)throw Error('no_accounts');
+    $('claim-accounts').replaceChildren(...addresses.map(address=>{const option=document.createElement('option');option.value=address;option.textContent=address;return option;}));
+    reception.to=addresses[0];
+   }catch(error){reception.message='claim_'+(error?.type==='PERMISSION_DENIED'||error?.code===4001?'accountsCancelled':'accountsUnavailable');return;}
+  }else reception.to=route==='other'?$('claim-address').value.trim():'';
+  reception.route=route;reception.message='';updateClaimControls();
+  await requestClaimCode();
+ },$('claim-'+route));
+}
+function softAddress(value){return /^NQ[0-9]{2}[0-9A-Z]{32}$/.test(value.replace(/\s/g,'').toUpperCase());}
+$('claim-pay')?.addEventListener('click',()=>chooseReception('pay'));
+$('claim-other')?.addEventListener('click',()=>chooseReception('other'));
+$('claim-hub')?.addEventListener('click',()=>chooseReception('hub'));
+$('claim-address')?.addEventListener('input',()=>{reception.to=$('claim-address').value.trim();updateClaimControls();});
+$('claim-accounts')?.addEventListener('change',()=>{reception.to=$('claim-accounts').value;updateClaimControls();});
+$('claim-retry')?.addEventListener('click',()=>claimTask(async()=>{
+ await refreshPayout();
+ // Resume only the server's locked destination, without consuming another code.
+ if(reception.payout?.status==='payout_pending')showPayout(await api('/api/claims/'+claimID()+'/payout',{to:reception.payout.to},{timeout:true}));
+ else if(!reception.payout&&reception.known&&!reception.locked&&/^[0-9]{6}$/.test($('claim-code').value))await submitClaim();
+},$('claim-retry')));
 $('claim-code').addEventListener('input',()=>{$('claim-code').value=$('claim-code').value.replace(/\D/g,'').slice(0,6);updateClaimControls();});
-$('request-claim-code').addEventListener('click',()=>claimTask(async()=>{try{await api(`/api/claims/${claimID()}/request`,{});status('claim-status','codeSent');cooldown();}catch(error){if(error.status===429){cooldown();status('claim-status','waitCode');return;}throw error;}},$('request-claim-code')));
-$('claim-form').addEventListener('submit',event=>{event.preventDefault();if(receiveURL){if(mobile())location.assign(receiveURL);else window.open(receiveURL,'_blank','noopener,noreferrer');return;}if(!/^[0-9]{6}$/.test($('claim-code').value))return;claimTask(async()=>{
- const result=await api(`/api/claims/${claimID()}/release`,{code:$('claim-code').value});receiveURL=validatedCashlink(result.cashlink);$('claim-code').value='';
- $('request-claim-code').hidden=true;$('claim-code').closest('label').hidden=true;clearInterval(coolTimer);cooling=0;
- $('claim-code').required=false;$('claim-code').disabled=true;
- $('release-claim').textContent=t('receive');status('claim-status','accepted');
-},$('release-claim'));});
+$('request-claim-code').addEventListener('click',()=>claimTask(requestClaimCode,$('request-claim-code')));
+$('claim-form').addEventListener('submit',event=>{
+ event.preventDefault();
+ if(receiveURL){if(mobile())location.assign(receiveURL);else window.open(receiveURL,'_blank','noopener,noreferrer');return;}
+ if(!/^[0-9]{6}$/.test($('claim-code').value))return;
+ void claimTask(submitClaim,$('release-claim'));
+});
+async function submitClaim(){
+  if(!reception.route||!reception.known||reception.locked||reception.expired)return;
+  if(reception.route!=='hub'){
+   if(!softAddress(reception.to)){reception.message='claim_invalid_destination';return;}
+   reception.locked=true;updateClaimControls();
+   showPayout(await api('/api/claims/'+claimID()+'/payout',{code:$('claim-code').value,to:reception.to},{timeout:true}));return;
+  }
+  const result=await api('/api/claims/'+claimID()+'/release',{code:$('claim-code').value},{timeout:true});
+  receiveURL=validatedCashlink(result.cashlink);$('claim-code').value='';
+  clearInterval(coolTimer);cooling=0;reception.message='accepted';
+}
 function claimID(){const id=new URLSearchParams(location.search).get('claim');if(!/^[a-f0-9]{48}$/.test(id||''))throw Error('claim_unavailable');return id;}
 async function boot(){
  refreshText();claimMode=!embedded&&new URLSearchParams(location.search).has('claim');
  if(claimMode){
   root.querySelector('.workspace').hidden=true;$('notice').hidden=true;$('claim-panel').hidden=false;
+  reception.message='claim_checkingPayout';updateClaimControls();await refreshPayout();
   try{const p=await api('/api/claims/'+claimID());paintCard($('claim-card'),document.documentElement.lang,p.id);$('claim-info').textContent=t('from')+' '+p.sender;$('claim-amount').textContent=p.amount+' NIM';$('claim-message').textContent=p.message;
    window.PhoenixNimiqIdenticons?.paint($('claim-iqon'),p.address);
-   if(new Date(p.expires_at).getTime()<=Date.now()){hideClaimInputs();status('claim-status','expired');}
-  }catch(error){hideClaimInputs();$('claim-status').textContent=explain(error);}return;
+   if(new Date(p.expires_at).getTime()<=Date.now()&&!reception.payout){reception.expired=true;reception.message='expired';}
+   updateClaimControls();
+  }catch(error){if(!reception.payout){reception.expired=true;reception.message='failed';updateClaimControls();}}return;
  }
  try{const config=await api('/api/config');configured=config.mode==='integrated';ready=config.payments_enabled===true;usdtAssets=Array.isArray(config.assets)?config.assets:[];if(!configured)return;
   $('sender-auth').hidden=embedded;refreshText();const session=await api('/api/session');const limited=scopedPaymentID&&session.handoff?.payment_id===scopedPaymentID;
@@ -741,7 +850,7 @@ async function boot(){
 const started=boot();
 function hideClaimInputs(){$('request-claim-code').hidden=true;$('release-claim').hidden=true;$('claim-code').closest('label').hidden=true;$('claim-code').disabled=true;}
 
-return {ready:started,resume,destroy(){destroyed=true;window.removeEventListener('wire-language',refreshText);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pageshow',resume);window.removeEventListener('online',resume);clearInterval(coolTimer);clearTimeout(walletTimer);for(const watch of monitors.values())stopMonitor(watch);for(const controller of controllers)controller.abort();controllers.clear();}};
+return {ready:started,resume,destroy(){destroyed=true;window.removeEventListener('wire-language',refreshText);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pageshow',resume);window.removeEventListener('online',resume);clearInterval(coolTimer);clearTimeout(reception.timer);clearTimeout(walletTimer);for(const watch of monitors.values())stopMonitor(watch);for(const controller of controllers)controller.abort();controllers.clear();}};
 }
 
 if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();

@@ -1557,3 +1557,184 @@ test('history formats only server timestamps in five languages and never uses th
  assert.equal(old.$('wire-cards-list').querySelector('time'),null,'missing or zero dates are not invented');
  assert.match(old.$('wire-cards-list').textContent,/Claimed/);assert.equal(old.$('wire-status').textContent,'');
 });
+
+// Public NIM recipient page: no sender session, wallet payment, real chain or email.
+const receivingAddress='NQ28 CQ7G QEBT 10UK R9LG 83C7 YAMY JD8Q K8S4';
+const otherReceivingAddress='NQ24 0358 HL85 UQ05 SLSS C72R KEX3 NU2K RN0N';
+async function recipientPage({language='en',accounts=null,accountError=null,payout=null,payoutError='',statusError='',expired=false,holdStatus=null}={}){
+ const dom=new JSDOM(read('../internal/web/static/classic.html'),{url:'https://wire.example.test/?claim='+'a'.repeat(48),runScripts:'outside-only',pretendToBeVisual:true});doms.push(dom);
+ const {window}=dom,doc=window.document,ctx=dom.getInternalVMContext();doc.documentElement.lang=language;
+ const clock=fakeClock(window),calls=[],opened=[];let accountCalls=0;
+ Object.defineProperty(window,'innerWidth',{value:375});
+ if(accounts!==null||accountError)window.nimiq={async listAccounts(){accountCalls++;if(accountError)throw accountError;return accounts;}};
+ window.open=url=>opened.push(url);
+ window.PhoenixNimiqIdenticons={paint(){}};
+ const answer=(status,body)=>({ok:status>=200&&status<300,status,json:async()=>body});
+ let held=holdStatus,remote=payout;
+ window.fetch=async(path,options={})=>{
+  const body=options.body?JSON.parse(options.body):undefined;calls.push([path,body,options]);
+  if(path.endsWith('/payout_status')){
+   if(held){const gate=held;held=null;await new Promise(resolve=>{gate.release=resolve;});}
+   if(statusError)return answer(503,{code:statusError});
+   return remote?answer(200,remote):answer(404,{code:'payout_not_started'});
+  }
+  if(path==='/api/claims/'+'a'.repeat(48))return answer(200,{id:'a'.repeat(48),sender:'sender@example.test',amount:'2.5',message:'Hello',address:receivingAddress,expires_at:new window.Date(window.Date.now()+(expired?-1:86400000)).toISOString()});
+  if(path.endsWith('/request'))return answer(200,{sent:true});
+  if(path.endsWith('/payout')){
+   if(payoutError)return answer(({invalid_destination:400,invalid_or_expired_code:403,cashlink_not_confirmed_or_invalid:409,payout_already_started:409}[payoutError]||503),{code:payoutError});
+   remote=remote||{status:'payout_pending',hash:'b'.repeat(64),to:body.to,value:250000,confirmations:0};return answer(200,remote);
+  }
+  if(path.endsWith('/release'))return answer(200,{cashlink:'https://hub.nimiq.com/cashlink/#'+Buffer.alloc(40,5).toString('base64url')});
+  throw Error('Unexpected recipient request '+path);
+ };
+ Object.assign(ctx,{flowText,addressValid,cardPresentation,paintCard});
+ const src=read('../internal/web/static/flow.js').replace(/^import[^\n]+\n/gm,'').replace(/^export /gm,'');
+ // Keep the lifecycle handle so tests can assert timer cleanup too.
+ vm.runInContext(src.replace("if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();","window.testFlow=mountNimFlow();"),ctx);
+ await settle();
+ const $=id=>doc.getElementById(id);
+ return {window,doc,$,calls,opened,clock,accountCalls:()=>accountCalls,setRemote(p){remote=p;},setPayoutError(e){payoutError=e;},setStatusError(e){statusError=e;},
+  async choose(route){$('claim-'+route).click();await settle();},
+  async submit(code='123456',to=receivingAddress){if(to){$('claim-address').value=to;$('claim-address').dispatchEvent(new window.Event('input'));}$('claim-code').value=code;$('claim-code').dispatchEvent(new window.Event('input'));$('claim-form').dispatchEvent(new window.Event('submit',{cancelable:true}));await settle();}
+ };
+}
+
+test('recipient checks existing payout before offering choices; opening never sends a code',async()=>{
+ const gate={},app=await recipientPage({holdStatus:gate});
+ assert.equal(app.calls.length,1);assert.ok(app.calls[0][0].endsWith('/payout_status'));
+ assert.equal(app.$('claim-choices').disabled,true);assert.equal(app.$('request-claim-code').hidden,true);
+ gate.release();await settle();
+ assert.equal(app.$('claim-choices').disabled,false);assert.equal(app.$('claim-pay').hidden,true);
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,0);
+ await app.choose('other');
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,1);
+ assert.equal(app.$('claim-address-label').hidden,false);assert.match(app.$('claim-status').textContent,/Code sent/);
+ await app.submit();
+ const post=app.calls.find(([p])=>p.endsWith('/payout'));assert.deepEqual(post[1],{code:'123456',to:receivingAddress});
+ assert.equal(post[2].method,'POST');assert.equal(post[2].headers['Content-Type'],'application/json');
+ assert.match(app.$('claim-status').textContent,/Sending/);assert.equal(app.$('claim-choices').hidden,true);
+ assert.match(app.$('claim-payout-details').textContent,/2.5 NIM/);
+ const requests=app.calls.length;await app.clock.advance(2999);assert.equal(app.calls.length,requests);
+ app.setRemote({status:'payout_confirmed',to:receivingAddress,value:250000,hash:'b'.repeat(64),confirmations:2});
+ await app.clock.advance(1);assert.equal(app.$('claim-status').textContent,'Received!');
+ const stopped=app.calls.length;await app.clock.advance(30000);assert.equal(app.calls.length,stopped);
+ assert.equal(app.$('release-claim').hidden,true);assert.equal(app.window.localStorage.length,0);assert.equal(app.window.sessionStorage.length,0);
+});
+
+test('Nimiq Pay recipient lists accounts only on choice, defaults to first and permits another account',async()=>{
+ const app=await recipientPage({accounts:[receivingAddress,otherReceivingAddress]});
+ assert.equal(app.$('claim-pay').hidden,false);assert.equal(app.accountCalls(),0);
+ await app.choose('pay');assert.equal(app.accountCalls(),1);
+ assert.equal(app.$('claim-accounts-label').hidden,false);assert.equal(app.$('claim-accounts').value,receivingAddress);
+ app.$('claim-accounts').value=otherReceivingAddress;app.$('claim-accounts').dispatchEvent(new app.window.Event('change'));
+ await app.submit('123456',null);
+ assert.equal(app.calls.find(([p])=>p.endsWith('/payout'))[1].to,otherReceivingAddress);
+ assert.ok(!app.calls.some(([p])=>p.endsWith('/release')));
+ const single=await recipientPage({accounts:[receivingAddress]});await single.choose('pay');assert.equal(single.$('claim-accounts-label').hidden,true);
+ await single.submit('123456',null);assert.equal(single.calls.find(([p])=>p.endsWith('/payout'))[1].to,receivingAddress);
+});
+
+test('account permission denial, legacy errors and empty accounts never request a code or lock choices',async()=>{
+ for(const options of [{accountError:{type:'PERMISSION_DENIED'}},{accounts:{error:{type:'PERMISSION_DENIED'}}},{accounts:[]},{accountError:Error('unavailable')}]){
+  const app=await recipientPage(options);await app.choose('pay');
+  assert.ok(app.$('claim-status').textContent.length>10);assert.equal(app.$('claim-choices').disabled,false);
+  assert.ok(!app.calls.some(([p])=>p.endsWith('/request')||p.endsWith('/payout')));
+ }
+});
+
+test('Hub receive keeps release unchanged and never calls payout',async()=>{
+ const app=await recipientPage();await app.choose('hub');await app.submit('123456',null);
+ assert.deepEqual(app.calls.find(([p])=>p.endsWith('/release'))[1],{code:'123456'});
+ assert.match(app.$('claim-status').textContent,/Code accepted/);assert.equal(app.$('request-claim-code').hidden,true);
+ app.$('claim-form').dispatchEvent(new app.window.Event('submit',{cancelable:true}));await settle();
+ assert.match(app.opened[0],/^https:\/\/hub.nimiq.com\/cashlink\/#/);
+ assert.ok(!app.calls.some(([p])=>p.endsWith('/payout')));
+});
+
+test('recipient resumes pending, confirmed and failed payouts without code, even beyond claim expiry',async()=>{
+ for(const status of ['payout_pending','payout_confirmed','payout_failed']){
+  const payout={status,hash:'c'.repeat(64),to:receivingAddress,value:250000,confirmations:status==='payout_confirmed'?2:0};
+  const app=await recipientPage({payout,expired:true});
+  assert.equal(app.$('claim-status').textContent,flowText('en','claim_'+status));assert.equal(app.$('claim-choices').hidden,true);
+  assert.equal(app.$('request-claim-code').hidden,true);assert.ok(!app.calls.some(([p])=>p.endsWith('/request')||p.endsWith('/payout')));
+  if(status==='payout_pending'){
+   app.$('claim-retry').click();await settle();
+   assert.deepEqual(app.calls.find(([p])=>p.endsWith('/payout'))[1],{to:receivingAddress});
+   app.clock.hidden(true);const n=app.calls.length;await app.clock.advance(9000);assert.equal(app.calls.length,n);
+   app.clock.hidden(false);await settle();assert.ok(app.calls.length>n);
+   app.window.testFlow.destroy();const count=app.calls.length;await app.clock.advance(30000);assert.equal(app.calls.length,count);
+  }else{await app.clock.advance(30000);assert.equal(app.calls.filter(([p])=>p.endsWith('/payout_status')).length,1);}
+ }
+});
+
+test('invalid address is refused locally; server address/code/funding errors remain visible and preserve the code',async()=>{
+ for(const error of ['invalid_destination','invalid_or_expired_code','cashlink_not_confirmed_or_invalid']){
+  const app=await recipientPage({payoutError:error});await app.choose('other');
+  await app.submit('123456','nonsense');assert.equal(app.calls.filter(([p])=>p.endsWith('/payout')).length,0);
+  await app.submit();assert.equal(app.$('claim-code').value,'123456');
+  assert.equal(app.$('claim-status').textContent,error==='invalid_or_expired_code'?flowText('en','invalid'):flowText('en','claim_'+error));
+  assert.equal(app.$('claim-choices').disabled,false);app.setPayoutError('');await app.submit();
+  assert.equal(app.$('claim-status').textContent,'Sending…');
+ }
+});
+
+test('lost payout reply and destination conflict resume the server-locked address, never switch to Hub',async()=>{
+ const app=await recipientPage();await app.choose('other');
+ const original=app.window.fetch;app.window.fetch=async(p,o)=>{const result=await original(p,o);if(p.endsWith('/payout'))throw Error('response lost');return result;};
+ await app.submit();assert.equal(app.$('claim-status').textContent,'Sending…');
+ assert.equal(app.$('claim-choices').hidden,true);assert.equal(app.$('claim-code').value,'');
+ const conflict=await recipientPage({payoutError:'payout_already_started'});await conflict.choose('other');
+ conflict.setRemote({status:'payout_pending',hash:'b'.repeat(64),to:otherReceivingAddress,value:250000,confirmations:0});
+ await conflict.submit();assert.equal(conflict.$('claim-destination').textContent,flowText('en','claim_destination').replace('{to}',otherReceivingAddress));
+ assert.equal(conflict.$('claim-hub').closest('fieldset').hidden,true);
+ conflict.setPayoutError('');conflict.$('claim-retry').click();await settle();
+ assert.equal(conflict.calls.filter(([p])=>p.endsWith('/payout')).at(-1)[1].to,otherReceivingAddress);
+});
+
+test('unavailable status fails closed with retry; no code or release until status is known',async()=>{
+ const app=await recipientPage({statusError:'chain_unavailable'});
+ assert.equal(app.$('claim-choices').disabled,true);assert.equal(app.$('claim-retry').hidden,false);
+ await app.choose('hub');assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,0);
+ app.setStatusError('');app.$('claim-retry').click();await settle();assert.equal(app.$('claim-choices').disabled,false);
+ for(const code of ['chain_unavailable','payout_unavailable']){
+  const failed=await recipientPage({payoutError:code});await failed.choose('other');await failed.submit();
+  assert.equal(failed.$('claim-status').textContent,flowText('en','claim_payoutUnavailable'));assert.equal(failed.$('claim-retry').hidden,false);
+  failed.setPayoutError('');failed.$('claim-retry').click();await settle();assert.equal(failed.$('claim-status').textContent,'Sending…');
+ }
+});
+
+test('double submit sends only one recipient payout and never uses a sender session endpoint',async()=>{
+ const app=await recipientPage();await app.choose('other');
+ app.$('claim-address').value=receivingAddress;app.$('claim-address').dispatchEvent(new app.window.Event('input'));app.$('claim-code').value='123456';
+ for(let i=0;i<3;i++)app.$('claim-form').dispatchEvent(new app.window.Event('submit',{cancelable:true}));
+ await settle();assert.equal(app.calls.filter(([p])=>p.endsWith('/payout')).length,1);
+ assert.ok(app.calls.every(([p])=>p.startsWith('/api/claims/')));
+});
+
+test('recipient copy and narrow layout cover five languages without raw service HTML or unsupported words',async()=>{
+ for(const language of ['fr','en','es','de','zh']){
+  const app=await recipientPage({language,accounts:[receivingAddress]});
+  for(const key of ['choose','pay','other','hub','address','account','destination','send','retry','checkingPayout','payout_pending','payout_confirmed','payout_failed','invalid_destination','cashlink_not_confirmed_or_invalid','payout_already_started','payoutUnavailable','accountsUnavailable','accountsCancelled','details']){
+   assert.notEqual(flowText(language,'claim_'+key),'claim_'+key);
+   assert.ok(!/Mainnet|OTP/.test(flowText(language,'claim_'+key)));
+  }
+  assert.equal(app.$('claim-other').textContent,flowText(language,'claim_other'));
+  await app.choose('other');await app.submit();
+  const css=app.doc.createElement('style');css.textContent=read('../internal/web/static/wire-pay.css');app.doc.head.append(css);
+  assert.equal(app.window.innerWidth,375);assert.equal(app.window.getComputedStyle(app.$('claim-choices')).display,'none');
+  assert.equal(app.doc.querySelector('#claim-payout-details img'),null);
+ }
+});
+
+test('NIM success contains only message and Done, and unpaid actions precede diagnostic details',async()=>{
+ const app=await tracked({width:375});app.setStage('sent');await app.clock.advance(4000);
+ assert.equal(app.$('new-card').hidden,true);
+ const css=app.doc.createElement('style');css.textContent=read('../internal/web/static/wire-pay.css');app.doc.head.append(css);
+ const visible=el=>!el.hidden&&app.window.getComputedStyle(el).display!=='none';
+ assert.deepEqual([...app.$('nim-progress').children].filter(visible).map(x=>x.id),['nim-progress-message','nim-progress-close']);
+ const failed=await failedNative({local:{'wire-language':'en'}});const style=failed.doc.createElement('style');style.textContent=css.textContent;failed.doc.head.append(style);
+ failed.$('wire-language').value='en';failed.$('wire-language').dispatchEvent(new failed.window.Event('change'));await settle();
+ assert.equal(failed.$('nim-wallet-close-note').textContent,'You can close this window.');
+ assert.equal(failed.$('nim-wallet-close-note').textContent.includes('debited'),false);
+ assert.equal(failed.window.getComputedStyle(failed.$('nim-wallet-retry')).order,'-2');
+});

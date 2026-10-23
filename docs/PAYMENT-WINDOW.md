@@ -254,3 +254,38 @@ The shared flow remains usable in classic NIM mode; its script/style version ref
 claim routes, the native funding marker, server authorization, CSP or mirrored payment files. Tests cover 375 px CSS/DOM,
 fold persistence, a distinct next request/card, late funding, concurrent wallet/recovery actions, recovery timeouts and
 scoped restrictions. They do not replace an actual iPhone check after owner deployment.
+
+## Completion and unpaid-card presentation
+
+The sent NIM view hides every other direct child of the host and every success-panel action except its message and Done.
+This also covers a prepared-card wrapper and New card; Done closes the complete payment window and returns to home history.
+CSS keeps this panel in normal flow and within a 375 px viewport. An unpaid card keeps one detailed status and a short
+closing hint instead of repeating the wallet/expiry warning. Retry and its countdown precede technical details.
+
+## Receiving NIM directly (server contract de755d5)
+
+`classic.html` remains the recipient entry point for `/?claim=…`; `flow.js` owns this UI, not the mirrored files.
+Following the owner's latest UI order, the recipient chooses Nimiq Pay, another wallet or Hub **before requesting the code**.
+No code is requested on page load. Selecting a route explicitly requests the code using the existing public request route;
+submitting uses it with either `payout` plus `to`, or the unchanged Hub `release` action. Changing the receiving address
+before submission does not consume the code. Server validation remains authoritative.
+
+Nimiq Pay is offered only when `window.nimiq` exists. Its `listAccounts()` call runs only on that choice; its documented
+`string[]` result supplies the first receiving address, with a selector when there are several. Refusal, an empty list or
+a legacy error envelope leaves the other choices available. No wallet transaction or funding marker is changed here.
+Provider reference: https://nimiq.dev/mini-apps/api-reference/nimiq-provider#listaccounts.
+
+The first API request on recipient load is POST `payout_status` with `{}`, without needing a sender session. Only a known
+`payout_not_started` result unlocks initial choices. An unavailable status fails closed and offers retry. Existing pending,
+confirmed or failed payouts replace the code/route controls, including after the card's original claim expiry.
+Pending status is checked every three seconds, resumes on foreground/pageshow/online, shares in-flight reads and stops at
+a terminal result or flow destruction. An explicit retry can resume a pending payout using its **server-returned** destination
+and no code. A lost creation response is reconciled through status before offering another action. A destination conflict
+locks Hub and address changes. Invalid code/address and unconfirmed funding leave the code available for correction/retry;
+unavailable service reads never claim receipt. A failed payout shows the support instruction and retained-funds message.
+
+Codes, destinations and payout data stay in page memory, not browser storage or console logs; reload recovers from server
+status. UI strings cover FR/EN/ES/DE/ZH. `tests/wire-pay.test.mjs` uses a public-route fake server and logical timers for
+choice, accounts, release, payout, errors, lost replies, concurrent clicks, reload-style resumption and the 375 px DOM/CSS.
+The older claim tests now select Hub explicitly and simulate the initial empty payout status. No Go, CSP or pm/ file changes
+are required. These simulated tests do not verify a real iPhone or execute any real payment.
