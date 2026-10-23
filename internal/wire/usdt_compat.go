@@ -32,11 +32,28 @@ type nopCloser struct{ *bytes.Reader }
 
 func (nopCloser) Close() error { return nil }
 
+// notReady is what the window shows (it prints a sentence it does not know) when the relayer cannot take a new card yet: its gas is below the
+// reserve that keeps claims and refunds payable. Said in the sender's language, never as a code.
+var notReady = map[string]string{
+	"fr": "Wire ne peut pas prendre de nouvelle carte pour le moment : sa réserve de gaz est en cours de remplissage. Réessayez plus tard.",
+	"en": "Wire cannot take a new card right now: its gas reserve is being refilled. Try again later.",
+	"es": "Wire no puede aceptar una tarjeta nueva por ahora: su reserva de gas se está rellenando. Inténtalo más tarde.",
+	"de": "Wire kann gerade keine neue Karte annehmen: Die Gas-Reserve wird aufgefüllt. Versuche es später erneut.",
+	"zh": "Wire 目前无法接收新卡片：其燃料储备正在补充。请稍后再试。",
+}
+
 // compatFail answers the way PhoenixMail's routes do: {"error": code}.
-func compatFail(w http.ResponseWriter, status int, out map[string]json.RawMessage) {
+func compatFail(w http.ResponseWriter, status int, out map[string]json.RawMessage, lang string) {
 	code := "invalid_request"
 	if c := str(out, "code"); c != "" {
 		code = c
+	}
+	if code == "relayer_float_low" {
+		if text, ok := notReady[lang]; ok {
+			code = text
+		} else {
+			code = notReady["en"]
+		}
 	}
 	respond(w, status, map[string]string{"error": code})
 }
@@ -67,7 +84,7 @@ func (a *API) usdtCompat(w http.ResponseWriter, r *http.Request, s session, engi
 		out, status := compatCall(func(w http.ResponseWriter, r *http.Request) { a.usdtCreate(w, r, s, engine) }, r, map[string]string{"asset": in.Asset, "card_id": in.CardID,
 			"link_owner": in.LinkOwner, "amount": in.Amount, "recipient": in.Recipient, "message": in.Message, "language": in.Lang})
 		if status != 200 {
-			compatFail(w, status, out)
+			compatFail(w, status, out, in.Lang)
 			return
 		}
 		var pay map[string]any
@@ -100,7 +117,7 @@ func (a *API) usdtCompat(w http.ResponseWriter, r *http.Request, s session, engi
 		}
 		out, status := compatCall(func(w http.ResponseWriter, r *http.Request) { a.usdtCardAction(w, r, engine, c, action) }, r, body)
 		if status != 200 {
-			compatFail(w, status, out)
+			compatFail(w, status, out, in.Lang)
 			return
 		}
 		if v, ok := out["balance_units"]; ok { // the window reads camelCase

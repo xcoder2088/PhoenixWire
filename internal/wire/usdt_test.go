@@ -16,6 +16,7 @@ import (
 type evmNode struct {
 	mu      sync.Mutex
 	balance string // balanceOf answer, hex without 0x, 64 digits
+	native  string // the relayer's native coin, hex with 0x (1 coin when empty)
 	block   int
 }
 
@@ -44,6 +45,9 @@ func (n *evmNode) serve() *httptest.Server {
 			}
 		case "eth_getBalance":
 			result = "0xde0b6b3a7640000"
+			if n.native != "" {
+				result = n.native
+			}
 		case "eth_getCode":
 			result = "0x"
 		case "eth_getBlockByNumber":

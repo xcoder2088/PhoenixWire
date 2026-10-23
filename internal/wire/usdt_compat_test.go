@@ -95,3 +95,26 @@ func TestPaymentWindowRoutes(t *testing.T) {
 		t.Fatalf("an unknown route: %d", w.Code)
 	}
 }
+
+// A relayer below its gas reserve takes no new card: the window gets a sentence in the sender's language, not a code it cannot read.
+func TestPaymentWindowSaysWhenTheRelayerIsNotReady(t *testing.T) {
+	node := &evmNode{balance: word(0), block: 5000, native: "0x0"}
+	rpc := node.serve()
+	defer rpc.Close()
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_EVM_RPC_POLYGON", rpc.URL)
+	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
+	f := newFixture(t)
+	f.verifySender("sender@example.test")
+	id, _, owner, err := service.NewCardLink()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for lang, want := range map[string]string{"fr": "réserve de gaz", "en": "gas reserve", "zh": "燃料储备", "xx": "gas reserve"} {
+		w := f.call("POST", "/api/usdt/cashlink/create", map[string]string{"asset": "usdc_polygon", "cardId": hex.EncodeToString(id), "linkOwner": owner, "amount": "2.5", "recipient": "friend@example.test", "lang": lang})
+		var out struct{ Error string }
+		if w.Code != 503 || json.Unmarshal(w.Body.Bytes(), &out) != nil || !strings.Contains(out.Error, want) || strings.Contains(out.Error, "relayer_float_low") {
+			t.Fatalf("%s: %d %s", lang, w.Code, w.Body)
+		}
+	}
+}
