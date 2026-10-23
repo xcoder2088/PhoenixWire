@@ -43,7 +43,7 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 	})
 	// Fail closed. No seed, wallet, payment state, or delivery provider is loaded.
 	if api != nil {
-		for _, path := range []string{"/api/payments", "/api/payments/", "/api/sender/", "/api/session", "/api/logout", "/api/claims/"} {
+		for _, path := range []string{"/api/payments", "/api/payments/", "/api/sender/", "/api/session", "/api/logout", "/api/claims/", "/api/usdt/"} {
 			mux.Handle(path, api.Handler())
 		}
 	} else {

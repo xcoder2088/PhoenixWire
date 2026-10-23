@@ -46,6 +46,17 @@ func (m *testDelivery) Invite(_ context.Context, p payment, link string) error {
 	return nil
 }
 
+func (m *testDelivery) InviteUSDT(_ context.Context, i usdtInvite, _ string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.invites++
+	m.lastLink = i.Card.ClaimURL
+	if m.fail {
+		return errors.New("fixture_delivery_failure")
+	}
+	return nil
+}
+
 type fixture struct {
 	api    *API
 	engine *service.Engine

@@ -220,6 +220,10 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 		failure(w, 401, "sender_verification_required")
 		return
 	}
+	if strings.HasPrefix(path, "/api/usdt/") {
+		a.usdtServe(w, r, s)
+		return
+	}
 	if path == "/api/payments" {
 		if r.Method == "POST" {
 			a.create(w, r, s)

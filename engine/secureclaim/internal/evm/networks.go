@@ -86,7 +86,7 @@ func Lookup(asset string) (Network, error) {
 			if raw := strings.TrimSpace(os.Getenv(n.envName)); raw != "" {
 				var list []string
 				for _, u := range strings.Split(raw, ",") {
-					if u = strings.TrimSpace(u); strings.HasPrefix(u, "https://") {
+					if u = strings.TrimSpace(u); strings.HasPrefix(u, "https://") || strings.HasPrefix(u, "http://127.0.0.1:") || strings.HasPrefix(u, "http://localhost:") { // a node of the operator on this very machine may use plain http
 						list = append(list, u)
 					}
 				}

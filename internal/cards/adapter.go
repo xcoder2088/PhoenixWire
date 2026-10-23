@@ -99,6 +99,11 @@ func Protected(c ProtectedCashlinkCard, lang, nimicon string) (string, error) {
 		return "", err
 	}
 	out = strings.ReplaceAll(out, "cid:"+ProtectedCashlinkIqonCID(c), dataPNG(image))
+	return adaptWireCard(out)
+}
+
+// adaptWireCard gives a mirrored PhoenixMail card Wire's brand and the action placement (18px below the white box).
+func adaptWireCard(out string) (string, error) {
 	start := strings.Index(out, `<td valign="middle" style="text-align:left">`)
 	if start < 0 {
 		return "", errors.New("card_mirror_changed")

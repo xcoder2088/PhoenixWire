@@ -595,6 +595,9 @@ func setupUSDTLink(s *server, stateDir string) (*usdtHTTP, error) {
 			return nil, err
 		}
 		node := chain.NewHTTP(n.ChainID, n.RPCs, spec.minTip)
+		if onlyLocalNodes(n.RPCs) { // the operator's own node on this machine may speak plain http; any other node must use https
+			node.AllowHTTPForTests()
+		}
 		token, err := cl.ParseAddress(n.Token)
 		if err != nil {
 			return nil, err
@@ -717,4 +720,17 @@ func (h *usdtHTTP) relayers(s *server, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	write(w, 200, res)
+}
+
+// onlyLocalNodes: every endpoint is a plain-http node on this very machine.
+func onlyLocalNodes(endpoints []string) bool {
+	if len(endpoints) == 0 {
+		return false
+	}
+	for _, e := range endpoints {
+		if !strings.HasPrefix(e, "http://127.0.0.1:") && !strings.HasPrefix(e, "http://localhost:") {
+			return false
+		}
+	}
+	return true
 }

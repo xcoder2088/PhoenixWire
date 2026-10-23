@@ -52,6 +52,7 @@ type snapshot struct {
 	Sessions map[string]session
 	Payments map[string]savedPayment
 	Rates    map[string]rate
+	USDT     map[string]usdtCard `json:",omitempty"` // USDC / USDT cards of the senders (their claim links are never kept)
 }
 type diskStore struct {
 	state  snapshot
@@ -84,7 +85,7 @@ func newStore(dir string, master []byte) (*diskStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &diskStore{aead: aead, path: filepath.Join(dir, "wire-state.sealed"), state: snapshot{Version: 1, Sessions: map[string]session{}, Payments: map[string]savedPayment{}, Rates: map[string]rate{}}}
+	d := &diskStore{aead: aead, path: filepath.Join(dir, "wire-state.sealed"), state: snapshot{Version: 1, Sessions: map[string]session{}, Payments: map[string]savedPayment{}, Rates: map[string]rate{}, USDT: map[string]usdtCard{}}}
 	info, err := os.Lstat(d.path)
 	if errors.Is(err, os.ErrNotExist) {
 		return d, nil
@@ -103,6 +104,9 @@ func newStore(dir string, master []byte) (*diskStore, error) {
 	defer clear(plain)
 	if json.Unmarshal(plain, &d.state) != nil || d.state.Version != 1 || d.state.Sessions == nil || d.state.Payments == nil || d.state.Rates == nil || len(d.state.Payments) > 10000 || len(d.state.Sessions) > 10000 {
 		return nil, errors.New("invalid_state")
+	}
+	if d.state.USDT == nil { // a state file made before the USDC / USDT cards
+		d.state.USDT = map[string]usdtCard{}
 	}
 	return d, nil
 }

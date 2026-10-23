@@ -18,6 +18,7 @@ import (
 type Delivery interface {
 	Send(context.Context, string, string) error
 	Invite(context.Context, payment, string) error
+	InviteUSDT(context.Context, usdtInvite, string) error
 }
 type MailerSend struct {
 	APIKey, From string
@@ -41,6 +42,15 @@ func (m MailerSend) Invite(ctx context.Context, p payment, claimURL string) erro
 		return err
 	}
 	return m.send(ctx, p.Recipient, subject, plain, body)
+}
+
+// InviteUSDT e-mails the card of a USDC / USDT payment. The claim link is in the card's button and in the plain text, nowhere else.
+func (m MailerSend) InviteUSDT(ctx context.Context, i usdtInvite, lang string) error {
+	subject, plain, body, err := cards.USDTInvitation(i.Sender, i.Card, lang)
+	if err != nil {
+		return err
+	}
+	return m.send(ctx, i.Recipient, subject, plain, body)
 }
 func (m MailerSend) send(ctx context.Context, to, subject, plain, body string) error {
 	if err := m.Validate(); err != nil {
