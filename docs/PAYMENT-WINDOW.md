@@ -95,7 +95,7 @@ is retained so the existing sender-bound server idempotency prevents a second ca
 already awaiting funding confirmation is monitored instead of paid again. Once wallet tracking has been saved, the draft
 is cleared. Real iPhone/Android verification of the custom-scheme fragment and native app return remains necessary.
 
-Wire's host also removes the copied title's decorative arrow, styles the close control as a 48 px circle, and supplies the
+Wire's host also removes the copied title's decorative arrow, styles the close control as a 48 px rounded square, and supplies the
 existing `PhoenixViewport.center` hook for keyboard/viewport resizing. CSS keeps narrow forms within the viewport and
 uses at least 16 px text in editable controls to avoid Safari focus zoom, without disabling manual pinch zoom. No `pm/`
 file, Go code or CSP is changed for these adaptations.
@@ -112,6 +112,8 @@ only after the server acknowledges the request. Feedback is beside the button as
 blocks duplicate requests and permits resending after 30 seconds; this is UI feedback, not a replacement for server quotas.
 Failed or timed-out requests remain retryable and never show a successful-send state. Editing the email clears old feedback.
 
-The home page has an explicit Sign out button, translated in all five languages. It uses the existing logout route, closes
+The home page has a PhoenixMail-style lock button: a 44 px square with 9 px rounded corners and a 20 px outlined padlock.
+Its outline and icon follow the theme accent. Sign out is provided as an accessible label and tooltip in all five languages.
+It uses the existing logout route, closes
 the payment window, stops tracking and hides private history after server success. A failed logout remains visibly signed
 in. Card recovery data stays in local storage; signing out never cancels a card or discards its recovery keys.

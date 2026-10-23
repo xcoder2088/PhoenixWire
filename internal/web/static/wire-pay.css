@@ -59,7 +59,9 @@ body.wire-body{background:var(--bg);color:var(--text)}
 #wire-send-code[data-state="sent"]{border-color:#369d70;opacity:1}
 .wire-code-delivery{margin:10px 0 14px;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
 .wire-session-actions{display:flex;justify-content:flex-end;margin:0 0 16px}
-.wire-session-actions button{min-height:44px;padding:10px 16px;border-radius:10px;font:inherit;font-weight:650}
+.wire-body .wire-session-actions .wire-session-lock{display:inline-flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;min-height:44px;padding:10px;box-sizing:border-box;border:1px solid var(--accent);border-radius:9px;background:var(--panel);color:var(--accent)}
+.wire-session-lock svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.wire-body .wire-session-actions .wire-session-lock:hover:not(:disabled){color:var(--accent)}
 .wire-body .nimiq-payment-tabs{display:none!important}
 .wire-body .wire-coin-picker .nimiq-payment-body{display:block}
 .wire-body .wire-coin-picker .nimiq-payment-preview,.wire-body .wire-coin-picker .nimiq-payment-panel>:not(.nimiq-payment-assets){display:none!important}
@@ -67,7 +69,7 @@ body.wire-body{background:var(--bg);color:var(--text)}
 .wire-body .wire-coin-picker .nimiq-payment-assets button{min-height:64px;white-space:normal}
 /* Keep Safari from zooming into small form controls; retain the user's pinch zoom. */
 .wire-body input:not([type="radio"]):not([type="checkbox"]),.wire-body select,.wire-body textarea{font-size:16px}
-.wire-body .nimiq-payment-head>button:last-child{flex:0 0 48px;display:grid;place-items:center;width:48px;height:48px;min-width:48px;min-height:48px;padding:0;border-radius:50%;font-size:32px;line-height:1}
+.wire-body .nimiq-payment-head>button:last-child{flex:0 0 48px;display:grid;place-items:center;width:48px;height:48px;min-width:48px;min-height:48px;padding:0;border-radius:10px;font-size:32px;line-height:1}
 .wire-body .nimiq-payment-window,.wire-body .wire-wallet-choice{box-sizing:border-box;min-width:0}
 .wire-body .nimiq-payment-window{width:min(860px,calc(100vw - 24px));max-width:calc(100vw - 24px)}
 .wire-body .nimiq-payment-body,.wire-body .nimiq-payment-panel,.wire-body .nimiq-payment-preview,.wire-body .wire-nim-host{min-width:0;max-width:100%;box-sizing:border-box}

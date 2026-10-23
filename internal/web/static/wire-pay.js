@@ -88,7 +88,7 @@ function paint() {
  document.documentElement.lang = lang;
  $('wire-title').textContent = t('title'); $('wire-sub').textContent = t('sub');
  $('wire-email-label').textContent = t('email');paintCodeRequest(); $('wire-code-label').textContent = t('code'); $('wire-verify').textContent = t('verify');
- $('wire-as').textContent = t('as'); $('wire-logout').textContent = t('out');
+ $('wire-as').textContent = t('as'); $('wire-logout').setAttribute('aria-label',t('out'));$('wire-logout').title=t('out');
  $('wire-language').value = preference;
  $('wire-pay-label').textContent = t('pay');
  paintTheme();

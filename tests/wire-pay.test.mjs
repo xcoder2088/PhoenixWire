@@ -823,7 +823,7 @@ test('home has an explicit sign-out action in five languages, ends the session a
  const t=await start({clocked:true});await makeCard(t);await t.clock.advance(2500);
  for(const[language,label]of Object.entries(labels)){
   t.$('wire-language').value=language;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
-  assert.equal(t.$('wire-logout').textContent,label);assert.equal(t.$('wire-logout').closest('[hidden]'),null);
+  assert.equal(t.$('wire-logout').getAttribute('aria-label'),label);assert.equal(t.$('wire-logout').title,label);assert.equal(t.$('wire-logout').closest('[hidden]'),null);
  }
  const recovery=t.window.localStorage.getItem('wire-usdt-cards');assert.ok(JSON.parse(recovery)[0].fragment);
  t.$('wire-logout').click();await settle();
@@ -840,6 +840,24 @@ test('failed server sign-out stays visibly signed in and allows another attempt'
  assert.equal(t.$('wire-ready').hidden,false);assert.equal(t.$('wire-sender').hidden,true);assert.equal(t.$('wire-logout').disabled,false);
  assert.match(t.$('wire-status').textContent,/Something went wrong/);
  t.failLogout(false);t.$('wire-logout').click();await settle();assert.equal(t.$('wire-ready').hidden,true);
+});
+
+test('sign out keeps its outlined lock icon and PhoenixMail-sized rounded square across themes',async()=>{
+ const t=await start(),style=t.doc.createElement('style');style.textContent=read('../internal/web/static/wire-pay.css');t.doc.head.append(style);
+ const button=t.$('wire-logout'),icon=button.querySelector('svg');assert.ok(icon);assert.equal(icon.getAttribute('aria-hidden'),'true');
+ assert.ok(icon.querySelector('rect'));assert.ok(icon.querySelector('path'));
+ for(const language of ['fr','en','es','de','zh']){
+  t.$('wire-language').value=language;t.$('wire-language').dispatchEvent(new t.window.Event('change'));assert.equal(button.querySelector('svg'),icon);
+ }
+ for(let i=0;i<2;i++){
+  const c=t.window.getComputedStyle(button);assert.equal(c.width,'44px');assert.equal(c.height,'44px');assert.equal(c.borderRadius,'9px');
+  t.$('wire-theme').click();
+ }
+ const rules=[...style.sheet.cssRules],rule=rules.find(r=>r.selectorText==='.wire-body .wire-session-actions .wire-session-lock');
+ assert.equal(rule.style.getPropertyValue('color'),'var(--accent)');assert.equal(rule.style.getPropertyValue('border'),'1px solid var(--accent)');
+ const nim=await start({nimOnly:true});nim.$('pay').click();await settle();
+ const ns=nim.doc.createElement('style');ns.textContent=style.textContent;nim.doc.head.append(ns);
+ const close=nim.doc.querySelector('.wire-nim-close');assert.equal(nim.window.getComputedStyle(close).borderRadius,'10px');
 });
 
 test('signing out from the completed NIM window closes it and stops its cached flow cleanly',async()=>{
@@ -928,13 +946,13 @@ test('a transferred new draft is not replaced by a previous pending card, while 
  assert.equal(resumed.nativeCalls.length,0);assert.equal(resumed.checkouts.length,0);
 });
 
-test('navigation has no decorative arrows, the close control is large and round, and mobile controls avoid Safari focus zoom',async()=>{
+test('navigation has no decorative arrows, the close control is a large rounded square, and mobile controls avoid Safari focus zoom',async()=>{
  const t=await start({width:375});t.$('pay').click();await settle();
  assert.deepEqual([...t.doc.querySelectorAll('.wire-navigation a')].map(a=>a.textContent),['PhoenixWire','PhoenixMail']);
  assert.ok(!/[←↗⤢]/.test(t.doc.querySelector('.nimiq-payment-head').textContent));
  const css=read('../internal/web/static/wire-pay.css'),style=t.doc.createElement('style');style.textContent=css;t.doc.head.append(style);
  const close=t.doc.querySelector('.nimiq-payment-head>button:last-child'),computed=t.window.getComputedStyle(close);
- assert.equal(computed.borderRadius,'50%');assert.equal(computed.width,'48px');assert.equal(computed.height,'48px');
+ assert.equal(computed.borderRadius,'10px');assert.equal(computed.width,'48px');assert.equal(computed.height,'48px');
  assert.equal(t.window.getComputedStyle(t.$('wire-email')).fontSize,'16px');
  assert.equal(t.doc.querySelector('.nimiq-payment-head').onpointerdown,null);
  assert.ok(!/user-scalable\s*=\s*no|maximum-scale\s*=\s*1/.test(t.doc.querySelector('meta[name="viewport"]').content));
