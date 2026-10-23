@@ -13,10 +13,11 @@ import (
 	"github.com/xcoder2088/NimiqSecureClaim/internal/vault"
 )
 
-// This file adds NO Nimiq funding, signing, broadcast, or second payment engine.
+// This file adds NO Nimiq funding or second payment engine.
 // PhoenixMail creates and funds the original Cashlink using its existing Hub flow.
-// The backend only verifies the already-funded Cashlink, encrypts its 32-byte
-// seed, and releases the Hub-compatible link after email OTP verification.
+// The backend verifies the already-funded Cashlink, encrypts its 32-byte
+// seed, and after email OTP verification either releases the Hub-compatible
+// link or (cashlink_payout.go) pays the coins to an address the recipient names.
 func (s *server) issuerAuthorized(r *http.Request) bool {
 	supplied := r.Header.Get("X-Claim-Service-Key")
 	return len(s.creationKey) >= 32 && len(supplied) == len(s.creationKey) &&
@@ -101,6 +102,11 @@ func (s *server) releaseExistingCashlink(w http.ResponseWriter, r *http.Request,
 		write(w, 409, map[string]string{"error": "cashlink_not_funded"})
 		return
 	}
+	// A claim whose coins are being paid to an address cannot also be opened with the Hub link.
+	if rec, err := s.loadPayout(id); err != nil || rec != nil {
+		write(w, 409, map[string]string{"error": "payout_already_started"})
+		return
+	}
 	var input struct {
 		Code string `json:"code"`
 	}
@@ -176,6 +182,12 @@ func (s *server) otpClaimAction(w http.ResponseWriter, r *http.Request, id, acti
 		return true
 	case "release":
 		s.releaseExistingCashlink(w, r, id)
+		return true
+	case "payout":
+		s.payoutExistingCashlink(w, r, id, false)
+		return true
+	case "payout_status":
+		s.payoutExistingCashlink(w, r, id, true)
 		return true
 	default:
 		return false

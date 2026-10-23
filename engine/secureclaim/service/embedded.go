@@ -83,7 +83,7 @@ func New(c Config) (*Engine, error) {
 		secrets.Close()
 		return nil, err
 	}
-	s := &server{claims: claims, otp: manager, cashlinkVault: private, chainReady: func(ctx context.Context) bool { return verifier.NetworkReady(ctx) == nil }}
+	s := &server{claims: claims, otp: manager, cashlinkVault: private, chainReady: func(ctx context.Context) bool { return verifier.NetworkReady(ctx) == nil }, chain: verifier, payoutDir: filepath.Join(c.Directory, "payouts")}
 	// USDC / USDT cashlinks run in the same process when the operator names the chains (NIMIQ_CLAIM_USDTLINK_CHAINS). Their keys
 	// (co-signer master, relayers) are generated in <state>/usdtlink and belong to Wire alone. The gateway reaches the issuer routes
 	// in-process with a key that exists only in this process's memory.

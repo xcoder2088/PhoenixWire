@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/xcoder2088/NimiqSecureClaim/internal/claim"
@@ -46,6 +47,9 @@ type server struct {
 	escrow        *escrow.Admission
 	cashlinkVault *vault.FileStore
 	chainReady    func(context.Context) bool
+	chain         payoutChain // the node, for direct payouts (cashlink_payout.go); nil without a Mainnet RPC
+	payoutDir     string
+	payoutMu      sync.Mutex
 	evm           *evmcard.Service
 	usdt          *usdtHTTP // USDT cashlinks (usdtlink_http.go); nil unless NIMIQ_CLAIM_USDTLINK_CHAINS is set
 }
@@ -389,6 +393,8 @@ func LegacyMain() {
 			log.Fatal("Invalid Mainnet RPC")
 		}
 		s.chainReady = func(ctx context.Context) bool { return verifier.NetworkReady(ctx) == nil }
+		s.chain = verifier
+		s.payoutDir = filepath.Join(os.Getenv("NIMIQ_CLAIM_STATE_DIR"), "payouts")
 		master, err := vault.DecodeMasterHex(masterHex)
 		if err != nil {
 			log.Fatal("Invalid encrypted Cashlink key")

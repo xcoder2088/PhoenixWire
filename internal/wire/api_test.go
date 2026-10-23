@@ -3,7 +3,9 @@ package wire
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -65,6 +67,8 @@ type fixture struct {
 	root   string
 	funded bool
 	rpcMu  sync.Mutex
+	sent   []string // raw transactions the node was handed
+	mined  int      // confirmations the node reports for them
 	cookie *http.Cookie
 	t      *testing.T
 }
@@ -97,6 +101,28 @@ func newFixture(t *testing.T) *fixture {
 			var address string
 			json.Unmarshal(in.Params[0], &address)
 			data = []map[string]any{{"to": address, "value": 250000, "recipientData": "0082809287", "confirmations": 2, "executionResult": true}}
+		case "getRawTransactionInfo", "sendRawTransaction":
+			var raw string
+			json.Unmarshal(in.Params[0], &raw)
+			sum := sha256.Sum256([]byte(raw))
+			hash := hex.EncodeToString(sum[:])
+			if in.Method == "getRawTransactionInfo" {
+				data = map[string]string{"hash": hash}
+			} else {
+				f.sent = append(f.sent, raw)
+				data = hash
+			}
+		case "getTransactionByHash":
+			var hash string
+			json.Unmarshal(in.Params[0], &hash)
+			for _, raw := range f.sent {
+				if sum := sha256.Sum256([]byte(raw)); hex.EncodeToString(sum[:]) == hash {
+					json.NewEncoder(w).Encode(map[string]any{"result": map[string]any{"data": map[string]any{"confirmations": f.mined, "executionResult": true}}})
+					return
+				}
+			}
+			json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": -32603, "message": "not found"}})
+			return
 		default:
 			t.Errorf("unexpected RPC method %s", in.Method)
 		}
@@ -406,4 +432,57 @@ func TestExpiredPreparedClaimCannotStartButOwnerCanRecover(t *testing.T) {
 		t.Fatal("expired claim offered new funding")
 	}
 	good(f.call("POST", "/api/payments/"+p.ID+"/recovery", map[string]string{}), t)
+}
+
+func TestRecipientCanHaveTheCardPaidToAnAddress(t *testing.T) {
+	f := newFixture(t)
+	f.verifySender("sender@example.test")
+	p := f.create()
+	good(f.call("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t)
+	f.rpcMu.Lock()
+	f.funded = true
+	f.rpcMu.Unlock()
+	good(f.call("POST", "/api/payments/"+p.ID+"/confirm", map[string]string{}), t)
+	f.cookie = nil // the recipient is another person: no sender session
+	to := "NQ07 0000 0000 0000 0000 0000 0000 0000 0000"
+	if w := f.call("POST", "/api/claims/"+p.ID+"/payout", map[string]string{"to": "NQ28 CQ7G QEBT 10UK R9LG 83C7 YAMY JD8Q K8S4"}); w.Code != 403 {
+		t.Fatal("a payout started without a code", w.Code)
+	}
+	if w := f.call("POST", "/api/claims/"+p.ID+"/payout_status", map[string]string{}); w.Code != 404 {
+		t.Fatal("status of a payout nobody asked for", w.Code)
+	}
+	if w := f.call("POST", "/api/claims/"+p.ID+"/payout", map[string]string{"code": "123456", "to": strings.Repeat("N", 65)}); w.Code != 403 {
+		t.Fatal("oversized destination reached the engine", w.Code)
+	}
+	good(f.call("POST", "/api/claims/"+p.ID+"/request", map[string]string{}), t)
+	code := f.mail.codes["recipient@example.test"]
+	if w := f.call("POST", "/api/claims/"+p.ID+"/payout", map[string]string{"code": code, "to": to}); w.Code != 400 {
+		t.Fatal("the burn address was accepted", w.Code)
+	}
+	destination := "NQ28 CQ7G QEBT 10UK R9LG 83C7 YAMY JD8Q K8S4"
+	w := f.call("POST", "/api/claims/"+p.ID+"/payout", map[string]string{"code": code, "to": destination, "extra": "ignored"})
+	good(w, t)
+	var started map[string]any
+	json.Unmarshal(w.Body.Bytes(), &started)
+	if started["status"] != "payout_pending" || started["value"] != float64(250000) || len(f.sent) != 1 {
+		t.Fatal("payout did not start", started, len(f.sent))
+	}
+	if w := f.call("POST", "/api/claims/"+p.ID+"/release", map[string]string{"code": code}); w.Code != 409 {
+		t.Fatal("the Hub link stayed open after a payout began", w.Code)
+	}
+	f.restart() // the journal survives a restart
+	f.cookie = nil
+	f.rpcMu.Lock()
+	f.mined = 2
+	f.rpcMu.Unlock()
+	w = f.call("POST", "/api/claims/"+p.ID+"/payout_status", map[string]string{})
+	good(w, t)
+	var followed map[string]any
+	json.Unmarshal(w.Body.Bytes(), &followed)
+	if followed["status"] != "payout_confirmed" || followed["hash"] != started["hash"] || len(f.sent) != 1 {
+		t.Fatal("payout not followed", followed)
+	}
+	if w := f.call("POST", "/api/claims/"+p.ID+"/payout", map[string]string{"to": "NQ24 0358 HL85 UQ05 SLSS C72R KEX3 NU2K RN0N"}); w.Code != 409 {
+		t.Fatal("a second destination was accepted", w.Code)
+	}
 }

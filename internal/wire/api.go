@@ -644,7 +644,7 @@ func (a *API) claim(w http.ResponseWriter, r *http.Request) {
 		respond(w, 200, map[string]any{"id": p.ID, "amount": p.Amount, "sender": p.Sender, "message": p.Message, "address": p.Address, "expires_at": p.Created.Add(24 * time.Hour)})
 		return
 	}
-	if r.Method != "POST" || len(parts) != 2 || (parts[1] != "request" && parts[1] != "release") {
+	if r.Method != "POST" || len(parts) != 2 || (parts[1] != "request" && parts[1] != "release" && parts[1] != "payout" && parts[1] != "payout_status") {
 		failure(w, 404, "not_found")
 		return
 	}
@@ -658,6 +658,21 @@ func (a *API) claim(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		r.Body = io.NopCloser(strings.NewReader(string(raw)))
+	}
+	if parts[1] == "payout" {
+		// The code is needed once, to start the payment; the same destination may ask again without it (see the engine). Only these two
+		// fields ever reach the engine.
+		var input struct {
+			Code string `json:"code"`
+			To   string `json:"to"`
+		}
+		raw, err := io.ReadAll(io.LimitReader(r.Body, 8193))
+		if err != nil || len(raw) > 8192 || json.Unmarshal(raw, &input) != nil || len(input.To) > 64 || input.Code != "" && !codeRE.MatchString(input.Code) {
+			failure(w, 403, "invalid_or_expired_code")
+			return
+		}
+		clean, _ := json.Marshal(map[string]string{"code": input.Code, "to": input.To})
+		r.Body = io.NopCloser(strings.NewReader(string(clean)))
 	}
 	// Route only public request/release to the original, audited OTP handler.
 	clone := r.Clone(service.WithEmailLanguage(r.Context(), cards.Language(p.Language)))
