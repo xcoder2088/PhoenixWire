@@ -86,4 +86,4 @@ All endpoints and payloads are subject to security review; do not treat this dra
 
 ## Licensing
 
-No license has been selected for this private repository. Do not assume PhoenixMail's license or a competition submission license applies to this service.
+This copy, embedded in Phoenix Wire, is licensed under the MIT License by its copyright holder (see `LICENSE`, and the root `LICENSE`). Third-party notices stay as listed in `web/NIMIQ-NOTICES.md` and `docs/THIRD-PARTY-NOTICES.md`; MIT does not license any brand or mark. The upstream NimiqSecureClaim repository is a separate, private repository and its own licensing is unchanged.
