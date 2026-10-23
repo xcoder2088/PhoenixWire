@@ -22,3 +22,22 @@ Three small, marked changes to the mirrored files (to re-apply after a new sync)
 
 Not yet in this window: NIM (still `classic.html`, which a `/?claim=…` link opens) and the sender's free gas (the window
 supports it; `/api/usdt/status` says `gas:false`).
+
+## Wire navigation, identity and session copy
+
+Wire adds an explicit return control to each payment-window instance from `wire-pay.js`. It invokes the copied window's own
+close button so its listeners and observers are cleaned up. Asset switches recreate the window; a host observer enhances each
+replacement. The mirrored files remain unchanged. The page also links directly to the PhoenixWire presentation
+(`https://phoenixmail.ca/#phoenixwire`) and PhoenixMail (`https://phoenixmail.ca/#phoenixmail`). Classic NIM has a link back to `/`.
+
+The tab and mobile shortcut name is PhoenixWire. Icons derive from the existing emblem; normal static routing serves them with
+the existing CSP. Before sender verification and beside the signed-in address, five-language text explains the unchanged 24-hour
+session. `tests/wire-pay.test.mjs` covers those labels and navigation with the copied window and fake API.
+
+## Exact invitation boundary
+
+The browser generates and retains the link key. It sends public owner data at card creation and proofs/signatures to claim and
+refund routes. When inviting the recipient, it submits the **full claim URL** to Wire, which validates it and uses it in the mail
+without persisting it. A retry may submit it again. The recipient browser does not submit its fragment to claim routes.
+Do not extend that last property into a claim that Wire or its mail provider can never see the key. The transient invitation
+handoff and the service co-signer are separate parts of the trust model; no runtime behavior changed in this clarification.

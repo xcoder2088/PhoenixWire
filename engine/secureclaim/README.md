@@ -1,5 +1,7 @@
 # Current local Mainnet integration
 
+> Current Wire integration (2026-10-23): this engine runs in Wire's process. The root UI hosts the copied PhoenixMail USDC/USDT payment window (`wire-pay.js`); `classic.html` and `/?claim=…` retain NIM. The historical sections below do not describe the current root page. Read the repository-root docs/PAYMENT-WINDOW.md and docs/ARCHITECTURE.md first.
+
 The work branch now accepts Mainnet claims only. PhoenixMail retains the original Cashlink funding engine; this service encrypts and holds that original secret and releases it only after email OTP verification. No second payment engine or production deployment is introduced.
 
 Start both repositories from PhoenixMail with `./run-local.sh` (ports 8787 and 8099). Real MailerSend credentials are requested locally if missing and are never printed. The launcher stores private stable keys and uses a dedicated Mainnet state directory. Do not reuse older network-state directories or delete their ciphertext/keys.

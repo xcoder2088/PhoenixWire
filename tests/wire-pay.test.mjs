@@ -107,3 +107,63 @@ test('without a session the sender is asked for an e-mail code, and nothing is o
   assert.ok(!t.doc.querySelector('.nimiq-payment-window'));
   assert.ok(!t.calls.some(c => c[0] === '/api/usdt/status'));
 });
+
+test('the two 24-hour notices render in all five languages before and after sender confirmation', async () => {
+  const t = await start({ session: { verified: false } });
+  const expected = {
+    fr: ['Vous confirmez votre courriel une seule fois : il reste confirmé 24 heures sur cet appareil.', 'Confirmé pour 24 h.'],
+    en: ['You confirm your email once. It stays confirmed for 24 hours on this device.', 'Confirmed for 24 hours.'],
+    es: ['Confirmas tu correo una sola vez: queda confirmado 24 horas en este dispositivo.', 'Confirmado por 24 horas.'],
+    de: ['Du bestätigst deine E-Mail nur einmal: Sie bleibt 24 Stunden auf diesem Gerät bestätigt.', '24 Stunden bestätigt.'],
+    zh: ['你只需确认一次邮箱：在此设备上 24 小时内保持已确认。', '已确认 24 小时。'],
+  };
+  for (const [lang, [help, confirmed]] of Object.entries(expected)) {
+    t.$('wire-language').value = lang;
+    t.$('wire-language').dispatchEvent(new t.window.Event('change'));
+    assert.equal(t.$('wire-session-help').textContent, help);
+    assert.equal(t.$('wire-session-confirmed').textContent, confirmed);
+  }
+  assert.equal(t.$('wire-email').getAttribute('aria-describedby'), 'wire-session-help');
+  assert.ok(t.$('wire-email').closest('label').compareDocumentPosition(t.$('wire-session-help')) & t.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.ok(t.$('wire-session-help').compareDocumentPosition(t.$('wire-send-code')) & t.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  t.$('wire-code').value = '123456'; t.$('wire-verify').click(); await settle();
+  assert.equal(t.$('wire-ready').hidden, false);
+  assert.equal(t.$('wire-session-confirmed').closest('.wire-who'), t.$('wire-who').closest('.wire-who'));
+  assert.equal(t.$('wire-session-confirmed').textContent, expected.zh[1]);
+});
+
+test('return controls work on direct entry and after replacing the payment window', async () => {
+  const t = await start();
+  const links = [...t.doc.querySelectorAll('.wire-navigation a')].map(a => a.href);
+  assert.deepEqual(links, ['https://phoenixmail.ca/#phoenixwire', 'https://phoenixmail.ca/#phoenixmail']);
+  t.$('pay').click(); await settle();
+  const before = t.doc.querySelector('.nimiq-payment-window');
+  const assets = [...before.querySelectorAll('.nimiq-payment-assets button')];
+  assert.ok(assets.length > 2);
+  assets[assets.length - 1].click(); await settle();
+  const after = t.doc.querySelector('.nimiq-payment-window');
+  assert.notEqual(after, before);
+  const back = after.querySelector('.wire-window-back');
+  assert.ok(back); back.click(); await settle();
+  assert.equal(t.doc.querySelector('.nimiq-payment-modal'), null);
+  assert.equal(t.doc.activeElement, t.$('pay'));
+  assert.ok(!t.calls.some(([path]) => /create|cancel|refund/.test(path)), 'navigation never changes a card or sends a payment');
+  t.$('pay').click(); await settle();
+  assert.ok(t.doc.querySelector('.wire-window-back'), 'the window can be reopened');
+});
+
+test('both sender pages declare the approved shortcut icons and PhoenixWire tab name', () => {
+  for (const file of ['index.html', 'classic.html']) {
+    const doc = new JSDOM(read('../internal/web/static/' + file)).window.document;
+    assert.equal(doc.title, 'PhoenixWire');
+    assert.equal(doc.querySelector('meta[name="apple-mobile-web-app-title"]').content, 'PhoenixWire');
+    assert.equal(doc.querySelector('link[rel="apple-touch-icon"]').getAttribute('href'), '/brand/wire-icon-180.png?v=0.4.1');
+    assert.ok(doc.querySelector('link[rel="icon"]'));
+    assert.equal(doc.querySelector('link[rel="manifest"]').getAttribute('href'), '/site.webmanifest?v=0.4.1');
+    assert.ok(doc.querySelector('.wire-navigation a'));
+    doc.defaultView.close();
+  }
+  const manifest = JSON.parse(read('../internal/web/static/site.webmanifest'));
+  assert.equal(manifest.name, 'PhoenixWire'); assert.equal(manifest.start_url, '/');
+  for (const size of [192, 512]) assert.ok(manifest.icons.some(icon => icon.sizes === size + 'x' + size));
+});

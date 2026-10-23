@@ -1,5 +1,5 @@
 /* Wire's own frame around PhoenixMail's payment window (the window brings its own styles: /pm/*). */
-.wire-body{margin:0;min-height:100vh;display:block}
+.wire-body{margin:0;min-height:100vh;height:auto;display:block;overflow:auto;overflow-x:hidden}
 .wire-shell{max-width:560px;margin:0 auto;padding:20px 16px 40px}
 .wire-head{display:flex;align-items:center;gap:10px;margin-bottom:18px}.wire-head img{flex:1;min-width:0;max-width:215px;height:auto;object-fit:contain;object-position:left center}
 .wire-head select,.wire-head button{width:auto;min-height:40px}
@@ -12,3 +12,16 @@
 .wire-note{margin:18px 0 0;font-size:13px}.wire-foot{text-align:center;margin-top:22px;font-size:12px;opacity:.7}
 /* Until NIM and payment requests move into this window, it offers what Wire's server does: sending USDC / USDT. */
 .nimiq-payment-assets button:first-child,.nimiq-payment-assets+.nimiq-payment-controls button:first-child{display:none}
+
+/* Explicit exits also work after a direct visit or from a home-screen shortcut. */
+.wire-navigation{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 16px;margin:0 0 18px;width:100%}
+.wire-navigation a{display:inline-flex;align-items:center;min-height:44px;padding:8px 12px;border:1px solid var(--accent);border-radius:10px;color:var(--text);text-decoration:none;background:var(--panel)}
+.wire-navigation a:hover{color:var(--accent)}
+.wire-navigation a:focus-visible,.wire-window-back:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.wire-session-help,.wire-session-confirmed{font-size:13px;line-height:1.5;color:var(--muted)}
+.wire-session-help{margin:-4px 0 14px}.wire-session-confirmed{display:inline-block;margin:4px 6px 4px 0}
+.wire-who{overflow-wrap:anywhere}
+.nimiq-payment-head .wire-window-back{width:auto;height:auto;min-height:40px;padding:8px 12px;font-size:13px;color:var(--text);border:1px solid var(--accent);border-radius:9px;background:var(--panel);white-space:normal}
+.nimiq-payment-head{flex-wrap:wrap;gap:8px}
+.nimiq-payment-head h3{flex:1;min-width:0}
+@media(max-width:420px){.wire-head{flex-wrap:wrap}.wire-head img{flex-basis:100%;margin-right:50%}.wire-card{padding:18px}.wire-window-back{max-width:70%}}

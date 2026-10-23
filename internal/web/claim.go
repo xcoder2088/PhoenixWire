@@ -10,8 +10,9 @@ import (
 	claimweb "github.com/xcoder2088/NimiqSecureClaim/web"
 )
 
-// The recipient's side of a USDC / USDT card: the claim page is served from Wire's own origin (so the link key in its fragment
-// never leaves the browser) with a Content-Security-Policy of its own, and the camera permission it needs to read a wallet QR code.
+// The recipient claim page reads and uses the link key locally; recipient API calls carry proofs and signatures.
+// Separately, the sender submits the full link once for invitation delivery; Wire validates and e-mails it without persisting it.
+// This page has its own Content-Security-Policy and camera permission for wallet QR codes.
 
 var claimPaths = map[string]bool{"/proxycode.js": true, "/usdt.html": true, "/cashlink.js": true, "/jsqr.js": true, "/usdc-coin.png": true, "/usdt-coin.png": true, "/phoenixmail-official-emblem.webp": true}
 

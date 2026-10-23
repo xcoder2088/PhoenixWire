@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -49,6 +50,52 @@ func TestRoutesAndHeaders(t *testing.T) {
 				t.Fatal("missing safety headers")
 			}
 		})
+	}
+}
+
+func TestShortcutAssetsKeepThePagePolicy(t *testing.T) {
+	h := NewHandler()
+	page := httptest.NewRecorder()
+	h.ServeHTTP(page, httptest.NewRequest("GET", "/", nil))
+	policy := page.Header().Get("Content-Security-Policy")
+	for path, size := range map[string]int{"/brand/wire-icon-32.png": 32, "/brand/wire-icon-180.png": 180, "/brand/wire-icon-192.png": 192, "/brand/wire-icon-512.png": 512, "/favicon.ico": 0, "/site.webmanifest": 0} {
+		t.Run(path, func(t *testing.T) {
+			r := httptest.NewRecorder()
+			h.ServeHTTP(r, httptest.NewRequest("GET", path, nil))
+			if r.Code != 200 || r.Body.Len() == 0 || r.Header().Get("Content-Security-Policy") != policy {
+				t.Fatalf("asset unavailable or policy changed: %s %d", path, r.Code)
+			}
+			if size > 0 {
+				config, err := png.DecodeConfig(bytes.NewReader(r.Body.Bytes()))
+				if err != nil || config.Width != size || config.Height != size {
+					t.Fatalf("invalid icon dimensions: %s %+v %v", path, config, err)
+				}
+			}
+			if path == "/favicon.ico" && !bytes.HasPrefix(r.Body.Bytes(), []byte{0, 0, 1, 0}) {
+				t.Fatal("invalid favicon")
+			}
+			if path == "/site.webmanifest" {
+				if r.Header().Get("Content-Type") != "application/manifest+json" {
+					t.Fatal("incorrect manifest content type")
+				}
+				var manifest struct {
+					Name string `json:"name"`
+					Start string `json:"start_url"`
+				}
+				if err := json.Unmarshal(r.Body.Bytes(), &manifest); err != nil || manifest.Name != "PhoenixWire" || manifest.Start != "/" {
+					t.Fatal("invalid shortcut manifest")
+				}
+			}
+		})
+	}
+	for _, path := range []string{"/", "/classic.html", "/?claim=fixture"} {
+		r := httptest.NewRecorder()
+		h.ServeHTTP(r, httptest.NewRequest("GET", path, nil))
+		for _, text := range []string{"<title>PhoenixWire</title>", "rel=\"apple-touch-icon\"", "rel=\"manifest\"", "/favicon.ico?v=0.4.1"} {
+			if !strings.Contains(r.Body.String(), text) {
+				t.Fatalf("%s missing %s", path, text)
+			}
+		}
 	}
 }
 

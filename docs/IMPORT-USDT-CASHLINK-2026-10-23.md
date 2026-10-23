@@ -24,9 +24,12 @@ helpers added at the end.
 - It makes the whole engine **available and tested** in this repository: `go test ./...` in `engine/secureclaim` and at the root,
   and the JavaScript tests, all pass.
 - It does **not** switch anything on. Wire still starts as a card preview unless `PHOENIXWIRE_ENABLE_PAYMENTS=1`, and the USDC /
-  USDT cashlink routes stay off unless their own environment switches are set (see `docs/USDT-CASHLINK.md`, `docs/USDT-CARDS.md`).
+  USDT cashlink routes stay off unless their own environment switches are set (see `engine/secureclaim/docs/USDT-CASHLINK.md`,
+  `engine/secureclaim/docs/USDT-CARDS.md`).
   No key, state, vault, log or credential was copied.
-- Wiring the USDC / USDT cashlink into Wire's own gateway and interface is the next piece of work.
+- Follow-up commits `a68072e`, `31c6924`, `dd2465f` and `83bfc27` integrated the engine, gateway, browser flow and PhoenixMail
+  payment window. The current root page is `index.html` + `wire-pay.js` + `wire-pay.css`; `classic.html` remains for NIM.
+  See PAYMENT-WINDOW.md. The import-time test statement above records the import, not checks run by every later editor.
 
 ## Licensing notes
 

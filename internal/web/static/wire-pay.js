@@ -5,11 +5,11 @@ import { resolveLanguage } from './model.js?v=0.3.0';
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
 const STORE = 'wire-usdt-cards', words = {
- en: { title: 'One payment. One email.', sub: 'Send USDC or USDT to anyone with an email address. Only they can receive it, after a code sent to that address.', email: 'Your email', send: 'Send me a code', code: 'Six-digit code', verify: 'Confirm', as: 'Signed in as', out: 'Change sender', pay: 'Payments', codeSent: 'Code sent. Check your email.', wrong: 'This code is not valid.', off: 'Payments are not switched on here.', funded: 'Card funded. Sending the invitation…', sent: 'The card was sent to {email}. It stays yours until it is claimed.', retry: 'The e-mail could not be sent yet. Trying again…', classic: 'Send NIM', fail: 'Something went wrong. Try again.' },
- fr: { title: 'Un paiement. Un courriel.', sub: 'Envoyez des USDC ou des USDT à toute personne qui a une adresse courriel. Seule cette personne peut les recevoir, après un code envoyé à cette adresse.', email: 'Votre courriel', send: 'M’envoyer un code', code: 'Code à six chiffres', verify: 'Confirmer', as: 'Connecté en tant que', out: 'Changer d’expéditeur', pay: 'Paiements', codeSent: 'Code envoyé. Vérifiez votre courriel.', wrong: 'Ce code n’est pas valide.', off: 'Les paiements ne sont pas activés ici.', funded: 'Carte alimentée. Envoi de l’invitation…', sent: 'La carte a été envoyée à {email}. Elle reste à vous tant qu’elle n’est pas réclamée.', retry: 'Le courriel n’a pas pu partir. Nouvel essai…', classic: 'Envoyer des NIM', fail: 'Une erreur est survenue. Réessayez.' },
- es: { title: 'Un pago. Un correo.', sub: 'Envía USDC o USDT a cualquier persona con una dirección de correo. Solo ella puede recibirlo, tras un código enviado a esa dirección.', email: 'Tu correo', send: 'Envíame un código', code: 'Código de seis dígitos', verify: 'Confirmar', as: 'Sesión de', out: 'Cambiar de remitente', pay: 'Pagos', codeSent: 'Código enviado. Revisa tu correo.', wrong: 'Este código no es válido.', off: 'Los pagos no están activados aquí.', funded: 'Tarjeta financiada. Enviando la invitación…', sent: 'La tarjeta se envió a {email}. Sigue siendo tuya hasta que se reclame.', retry: 'El correo no pudo enviarse aún. Reintentando…', classic: 'Enviar NIM', fail: 'Algo salió mal. Inténtalo de nuevo.' },
- de: { title: 'Eine Zahlung. Eine E-Mail.', sub: 'Sende USDC oder USDT an jede Person mit einer E-Mail-Adresse. Nur sie kann sie empfangen, nach einem Code an diese Adresse.', email: 'Deine E-Mail', send: 'Code senden', code: 'Sechsstelliger Code', verify: 'Bestätigen', as: 'Angemeldet als', out: 'Absender wechseln', pay: 'Zahlungen', codeSent: 'Code gesendet. Prüfe deine E-Mail.', wrong: 'Dieser Code ist ungültig.', off: 'Zahlungen sind hier nicht aktiviert.', funded: 'Karte aufgeladen. Die Einladung wird gesendet…', sent: 'Die Karte wurde an {email} gesendet. Sie bleibt deine, bis sie eingelöst wird.', retry: 'Die E-Mail konnte noch nicht gesendet werden. Neuer Versuch…', classic: 'NIM senden', fail: 'Etwas ist schiefgelaufen. Versuche es erneut.' },
- zh: { title: '一笔付款。一封邮件。', sub: '把 USDC 或 USDT 发给任何有邮箱的人。只有对方在输入发送到该邮箱的验证码后才能收款。', email: '你的邮箱', send: '给我发验证码', code: '六位验证码', verify: '确认', as: '登录身份', out: '更换发送者', pay: '付款', codeSent: '验证码已发送，请查收邮件。', wrong: '验证码无效。', off: '此处未启用付款。', funded: '卡片已充值。正在发送邀请…', sent: '卡片已发送到 {email}。在被领取之前它仍属于你。', retry: '邮件暂时无法发送。正在重试…', classic: '发送 NIM', fail: '出错了，请重试。' },
+ en: { sessionHelp: "You confirm your email once. It stays confirmed for 24 hours on this device.", sessionConfirmed: "Confirmed for 24 hours.", back: "Back to PhoenixWire", title: 'One payment. One email.', sub: 'Send USDC or USDT to anyone with an email address. Only they can receive it, after a code sent to that address.', email: 'Your email', send: 'Send me a code', code: 'Six-digit code', verify: 'Confirm', as: 'Signed in as', out: 'Change sender', pay: 'Payments', codeSent: 'Code sent. Check your email.', wrong: 'This code is not valid.', off: 'Payments are not switched on here.', funded: 'Card funded. Sending the invitation…', sent: 'The card was sent to {email}. It stays yours until it is claimed.', retry: 'The e-mail could not be sent yet. Trying again…', classic: 'Send NIM', fail: 'Something went wrong. Try again.' },
+ fr: { sessionHelp: "Vous confirmez votre courriel une seule fois : il reste confirmé 24 heures sur cet appareil.", sessionConfirmed: "Confirmé pour 24 h.", back: "Retour à PhoenixWire", title: 'Un paiement. Un courriel.', sub: 'Envoyez des USDC ou des USDT à toute personne qui a une adresse courriel. Seule cette personne peut les recevoir, après un code envoyé à cette adresse.', email: 'Votre courriel', send: 'M’envoyer un code', code: 'Code à six chiffres', verify: 'Confirmer', as: 'Connecté en tant que', out: 'Changer d’expéditeur', pay: 'Paiements', codeSent: 'Code envoyé. Vérifiez votre courriel.', wrong: 'Ce code n’est pas valide.', off: 'Les paiements ne sont pas activés ici.', funded: 'Carte alimentée. Envoi de l’invitation…', sent: 'La carte a été envoyée à {email}. Elle reste à vous tant qu’elle n’est pas réclamée.', retry: 'Le courriel n’a pas pu partir. Nouvel essai…', classic: 'Envoyer des NIM', fail: 'Une erreur est survenue. Réessayez.' },
+ es: { sessionHelp: "Confirmas tu correo una sola vez: queda confirmado 24 horas en este dispositivo.", sessionConfirmed: "Confirmado por 24 horas.", back: "Volver a PhoenixWire", title: 'Un pago. Un correo.', sub: 'Envía USDC o USDT a cualquier persona con una dirección de correo. Solo ella puede recibirlo, tras un código enviado a esa dirección.', email: 'Tu correo', send: 'Envíame un código', code: 'Código de seis dígitos', verify: 'Confirmar', as: 'Sesión de', out: 'Cambiar de remitente', pay: 'Pagos', codeSent: 'Código enviado. Revisa tu correo.', wrong: 'Este código no es válido.', off: 'Los pagos no están activados aquí.', funded: 'Tarjeta financiada. Enviando la invitación…', sent: 'La tarjeta se envió a {email}. Sigue siendo tuya hasta que se reclame.', retry: 'El correo no pudo enviarse aún. Reintentando…', classic: 'Enviar NIM', fail: 'Algo salió mal. Inténtalo de nuevo.' },
+ de: { sessionHelp: "Du bestätigst deine E-Mail nur einmal: Sie bleibt 24 Stunden auf diesem Gerät bestätigt.", sessionConfirmed: "24 Stunden bestätigt.", back: "Zurück zu PhoenixWire", title: 'Eine Zahlung. Eine E-Mail.', sub: 'Sende USDC oder USDT an jede Person mit einer E-Mail-Adresse. Nur sie kann sie empfangen, nach einem Code an diese Adresse.', email: 'Deine E-Mail', send: 'Code senden', code: 'Sechsstelliger Code', verify: 'Bestätigen', as: 'Angemeldet als', out: 'Absender wechseln', pay: 'Zahlungen', codeSent: 'Code gesendet. Prüfe deine E-Mail.', wrong: 'Dieser Code ist ungültig.', off: 'Zahlungen sind hier nicht aktiviert.', funded: 'Karte aufgeladen. Die Einladung wird gesendet…', sent: 'Die Karte wurde an {email} gesendet. Sie bleibt deine, bis sie eingelöst wird.', retry: 'Die E-Mail konnte noch nicht gesendet werden. Neuer Versuch…', classic: 'NIM senden', fail: 'Etwas ist schiefgelaufen. Versuche es erneut.' },
+ zh: { sessionHelp: "你只需确认一次邮箱：在此设备上 24 小时内保持已确认。", sessionConfirmed: "已确认 24 小时。", back: "返回 PhoenixWire", title: '一笔付款。一封邮件。', sub: '把 USDC 或 USDT 发给任何有邮箱的人。只有对方在输入发送到该邮箱的验证码后才能收款。', email: '你的邮箱', send: '给我发验证码', code: '六位验证码', verify: '确认', as: '登录身份', out: '更换发送者', pay: '付款', codeSent: '验证码已发送，请查收邮件。', wrong: '验证码无效。', off: '此处未启用付款。', funded: '卡片已充值。正在发送邀请…', sent: '卡片已发送到 {email}。在被领取之前它仍属于你。', retry: '邮件暂时无法发送。正在重试…', classic: '发送 NIM', fail: '出错了，请重试。' },
 };
 
 function read(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
@@ -34,6 +34,8 @@ function paint() {
  $('wire-as').textContent = t('as'); $('wire-logout').textContent = t('out'); $('wire-classic').textContent = t('classic');
  $('wire-language').value = preference;
  $('wire-pay-label').textContent = t('pay');
+ $('wire-session-help').textContent = t('sessionHelp'); $('wire-session-confirmed').textContent = t('sessionConfirmed');
+ document.querySelectorAll('.wire-window-back').forEach(button => { button.textContent = '← ' + t('back'); });
 }
 function setLanguage(value) {
  preference = value; save('wire-language', value);
@@ -70,7 +72,8 @@ function watch(id) {
  setTimeout(tick, 2500);
 }
 
-// The window hands over the files it would attach to an e-mail. The claim link is in one of them: it stays here, in this browser.
+// The browser retains the claim fragment locally. At invitation, Wire receives the full link to validate and e-mail it,
+// without persisting it. Claims and refunds are signed locally; their routes receive signatures, not the private link key.
 function attach(files) {
  for (const f of files) {
   if (!/^phoenixmail-usdt-claim/.test(f.name)) continue;
@@ -92,7 +95,24 @@ function loadCashlink() {
 
 function mountPayments() {
  if (payments) return;
- $('pay').addEventListener('click', () => payments.open('send', 'usdc_polygon')); // NIM and payment requests stay with the earlier page until they move to this window
+ const addBack = win => {
+  const head = win.querySelector('.nimiq-payment-head');
+  if (!head || head.querySelector('.wire-window-back')) return;
+  const close = head.querySelector('button');
+  const back = document.createElement('button'); back.type = 'button'; back.className = 'secondary-btn wire-window-back';
+  back.textContent = '← ' + t('back');
+  // Let the copied window remove its own listeners and observers through its close control.
+  back.addEventListener('click', () => { close.click(); $('pay').focus(); });
+  head.prepend(back);
+ };
+ $('pay').addEventListener('click', () => addBack(payments.open('send', 'usdc_polygon')));
+ // The copied window replaces itself when switching coins; enhance each replacement without editing pm/.
+ const windows = new MutationObserver(changes => {
+  for (const change of changes) for (const node of change.addedNodes) {
+   if (node.nodeType === 1 && node.matches('.nimiq-payment-modal')) node.querySelectorAll('.nimiq-payment-window').forEach(addBack);
+  }
+ });
+ windows.observe(document.body, { childList: true });
  payments = window.PhoenixNimiqPayments.create({ language: () => lang, account: () => 'wire', senderEmail: () => email, attach, status: say,
   brand: { icon: '/brand/phoenix-emblem.webp', alt: 'Phoenix Wire', first: 'Phoenix', second: 'Wire' }, snapshot: () => null, recipient: () => '', bindOTPRecipient: () => true, openRecoveredClaim: () => false });
 }

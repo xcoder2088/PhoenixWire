@@ -2,15 +2,22 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Phoenix Wire</title>
+  <title>PhoenixWire</title>
+  <meta name="application-name" content="PhoenixWire">
+  <meta name="apple-mobile-web-app-title" content="PhoenixWire">
+  <link rel="icon" href="/favicon.ico?v=0.4.1" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/brand/wire-icon-32.png?v=0.4.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/brand/wire-icon-180.png?v=0.4.1">
+  <link rel="manifest" href="/site.webmanifest?v=0.4.1">
   <meta name="referrer" content="no-referrer">
   <link rel="stylesheet" href="/pm/app.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/nimiq-payments.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/theme-light.css?v=0.4.0">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.0">
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.1">
 </head>
 <body class="wire-body">
   <main class="wire-shell">
+    <nav class="wire-navigation" aria-label="PhoenixWire / PhoenixMail"><a href="https://phoenixmail.ca/#phoenixwire">← PhoenixWire</a><a href="https://phoenixmail.ca/#phoenixmail">PhoenixMail ↗</a></nav>
     <header class="wire-head"><img src="/brand/phoenix-wire.webp?v=0.3.0" width="215" height="57" alt="Phoenix Wire">
       <select id="wire-language" aria-label="Language"><option value="auto">Automatic</option><option value="fr">Français</option><option value="en">English</option><option value="es">Español</option><option value="de">Deutsch</option><option value="zh">中文</option></select>
       <button id="wire-theme" type="button" class="secondary-btn">☾ / ☀</button>
@@ -19,12 +26,13 @@
       <h1 id="wire-title"></h1>
       <p id="wire-sub" class="wire-sub"></p>
       <div id="wire-sender" hidden>
-        <label><span id="wire-email-label"></span><input id="wire-email" type="email" autocomplete="email" maxlength="254"></label>
+        <label><span id="wire-email-label"></span><input id="wire-email" type="email" autocomplete="email" maxlength="254" aria-describedby="wire-session-help"></label>
+        <p id="wire-session-help" class="wire-session-help"></p>
         <button id="wire-send-code" type="button" class="primary-btn"></button>
         <div id="wire-code-box" hidden><label><span id="wire-code-label"></span><input id="wire-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6"></label><button id="wire-verify" type="button" class="primary-btn"></button></div>
       </div>
       <div id="wire-ready" hidden>
-        <p class="wire-who"><span id="wire-as"></span> <strong id="wire-who"></strong> <button id="wire-logout" type="button" class="secondary-btn"></button></p>
+        <p class="wire-who"><span id="wire-as"></span> <strong id="wire-who"></strong> <span id="wire-session-confirmed" class="wire-session-confirmed"></span> <button id="wire-logout" type="button" class="secondary-btn"></button></p>
         <button id="pay" type="button" class="secondary-btn wire-pay-button"><img src="/brand/usdc-coin.png?v=0.3.0" alt="" width="24" height="24"><img src="/brand/usdt-coin.png?v=0.4.0" alt="" width="24" height="24"><span id="wire-pay-label"></span></button>
       </div>
       <p id="wire-status" role="status" aria-live="polite"></p>
@@ -38,6 +46,6 @@
   <script src="/pm/usdt-cashlink.js?v=0.4.0"></script>
   <script src="/pm/usdt-payments.js?v=0.4.0"></script>
   <script src="/pm/nimiq-payments.js?v=0.4.0"></script>
-  <script type="module" src="/wire-pay.js?v=0.4.0"></script>
+  <script type="module" src="/wire-pay.js?v=0.4.1"></script>
 </body>
 </html>

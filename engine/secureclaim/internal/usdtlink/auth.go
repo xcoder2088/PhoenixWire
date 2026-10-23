@@ -17,7 +17,7 @@ package usdtlink
 //     (amount, fee, nonce, transaction hash) and a random challenge. NOTHING is reserved yet: knowing a card id does not let
 //     anyone block the recipient's address.
 //  2. ProveLink (e-mail check): the browser signs an EIP-712 LinkAuthorization (package proof, action e-mail, no destination)
-//     with the link key, never sending the key. Only a holder of the link can ask for the e-mail code. The e-mail address comes
+//     with the link key, without sending the key to recipient claim routes. Only a holder of the link can ask for the e-mail code. The e-mail address comes
 //     from the card's record, never from the client.
 //  3. VerifyEmail: the code is checked by the existing e-mail code manager under a key unique to THIS check. Success marks the
 //     check as done for this session (ten minutes, once).

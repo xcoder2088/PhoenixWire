@@ -1,5 +1,7 @@
 # USDT cashlink service (`internal/usdtlink`)
 
+> Wire integration: `/` now hosts PhoenixMail's payment window via `wire-pay.js`; classic.html remains for NIM. Recipient API calls use link proofs/signatures without the private key. Wire's separate invitation route transiently receives the complete claim URL to validate and e-mail it without persistence (a retry can resubmit it). Thus a local signing key is not a guarantee that the operator never sees the invitation's link key. See `docs/PAYMENT-WINDOW.md` at the repository root.
+
 Registers cards, follows them on the chain, gives the **co-signature** of protected cards, and has the **relayer** pay claims,
 refunds and gas money. The protocol (Safe wallet per card, link key + co-signer, relayer) is the PhoenixCashlink repository; this
 repository vendors it under `internal/cashlink` (`scripts/vendor.sh` there; never edit the mirror).

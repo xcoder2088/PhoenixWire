@@ -66,3 +66,15 @@ already granted for copies distributed under that license.
   **`MailerSend.BrandName`** (the field Wire already sets to "Phoenix Wire") is now upstream, so the Wire change is no longer a local patch.
 - Not mirrored on purpose: `cmd/server/*` (Wire moved it into `service/`) and everything else Wire changed locally. Before the next sync, `diff` those paths.
 - To sync again: `scripts/sync-secureclaim.sh`.
+
+## Current integration (2026-10-23)
+
+The initial-import and follow-up sections above record the earlier migration stages. Wire now embeds the USDC/USDT engine
+from the later import described in IMPORT-USDT-CASHLINK-2026-10-23.md. The gateway and browser integration are implemented:
+`/` hosts PhoenixMail’s copied payment window under `pm/`, with `wire-pay.js` as its host; NIM remains in `classic.html` and
+`/?claim=…`. See ARCHITECTURE.md for the current flow. No historical note authorizes copying operational state or deployment.
+
+Wire-specific comment clarifications in `service/usdt_wire.go`, `service/usdtlink_http.go`, `internal/usdtlink/auth.go` and
+`internal/usdtlink/usdtlink.go` describe the invitation exception: Wire receives the full link transiently for email delivery,
+while creation/claim/refund routes use public data/proofs/signatures. These are comment-only differences to preserve on sync;
+no engine runtime change accompanies them.

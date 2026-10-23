@@ -3,17 +3,19 @@
 //
 // What this service is, and is not:
 //
-//   - The sender's browser creates the card (a random id and a link key it never sends here) and pays amount + a small fee
+//   - The sender's browser creates the card (a random id and a locally generated link key) and pays amount + a small fee
 //     reserve to the card's address. Only the card's id, the PUBLIC address of the link key, the amount and the optional
-//     recipient email reach this service.
+//     recipient email reach card creation. Separately, Wire receives the full claim link once to validate and e-mail the
+//     invitation without persisting the link. Recipient claim and sender refund routes receive signatures, not the key.
 //   - A card has two owners: the link key and a co-signer key derived HERE from a master secret. It pays out only if this
 //     service co-signs, and it co-signs only after the recipient proved his email with a code, and only for ONE destination
 //     address. Whoever merely holds the link cannot claim.
 //   - The claim transaction is sent by this service's relayer, which pays the gas in POL/ETH and takes the fee reserve (USDT)
 //     from the card. The relayer cannot redirect money: it rebuilds the one payout the signatures allow (see
 //     internal/cashlink/relayer). The recipient pays nothing and needs no gas.
-//   - Nothing here can spend a card on its own: an open card needs the link key (in the URL fragment, never sent to a
-//     server) AND this service's signature, which needs the recipient's email proof.
+//   - The normal protected-card claim needs the link-key signature AND this service's signature after the recipient
+//     email proof. Invitation delivery transiently exposes the full link to Wire and its mail provider; it is not a
+//     guarantee that the operator can never see the link key.
 //
 // The Safe/relayer/co-signer code is the vendored PhoenixCashlink library (internal/cashlink, mirror: do not edit it there).
 package usdtlink
@@ -140,8 +142,8 @@ type Chain struct {
 	GasSeed int
 }
 
-// Record is a card as stored. Nothing secret: the link key never reaches this service; the co-signer key is derived from the
-// master secret when needed and never stored.
+// Record does not persist the link key. Wire transiently receives the full link during invitation delivery.
+// The co-signer key is derived from the master secret when needed and is not stored in the record.
 type Record struct {
 	ID           string    `json:"id"` // 32 hex characters: the card id chosen by the sender's browser
 	Asset        string    `json:"asset"`

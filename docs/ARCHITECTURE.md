@@ -1,60 +1,61 @@
-# Phoenix Wire integration
+# PhoenixWire architecture
 
-One Go process runs the embedded UI, Wire gateway and imported SecureClaim engine.
-The legacy engine CLI delegates to the same exported service package.
+One Go process runs `internal/web`, the `internal/wire` gateway and the imported `engine/secureclaim/service` package.
+The imported engine keeps its own module path. Wire owns separate keys and private state; it does not use another service's vault.
 
-## Passwordless sender
+## Pages and synchronization boundaries
 
-An email code verifies the sender without registration or password. The engine's durable
-code manager is reused with separate keys/state for sender and recipient codes.
-Per-email counters prevent cookie changes from resetting resend/guess limits.
-Per-IP request limits are persisted. Verification rotates an HttpOnly cookie.
-Verified sessions last 24 hours; pending sessions 15 minutes. Mutations require the
-configured same Origin; the gateway enables no CORS.
+| Route / files | Role |
+|---|---|
+| `/`, `index.html`, `wire-pay.js`, `wire-pay.css` | Current sender host: verify sender, open the payment window, monitor cards and invite recipients |
+| `/pm/*` | PhoenixMail payment-window mirror; see PAYMENT-WINDOW.md before changing it |
+| `/classic.html` | Earlier interface, still used for NIM sending and its design preview |
+| `/?claim=…` | Earlier interface in NIM recipient mode |
+| `/usdt.html#c=…` | Engine's USDC/USDT recipient page |
 
-## Payment order
+`internal/wire/usdt_compat.go` adapts the PhoenixMail-shaped `/api/usdt/cashlink/*` calls to Wire's gateway.
+The gateway reaches issuer operations in-process. Public `/api/v1/usdt/issuer*` routes are refused.
+Normal app pages retain self-hosted scripts/styles under the CSP in `internal/web/server.go`; the embedded recipient page has
+its separately generated script hashes and camera permission in `internal/web/claim.go`.
 
-1. Persist an immutable recipient/amount/idempotency intent for the verified sender.
-2. Call the existing CreateOnce and Provisioner: generate/seal the secret server-side.
-3. Persist funding_started before returning the public wallet checkout request.
-4. Official Hub checkout uses extraData to encode the Cashlink marker that the
-   existing verifier checks in the transaction's recipientData.
-5. Confirm funding through the existing RPC verifier.
-6. Persist funded/delivery_pending, send the opaque claim URL, persist sent.
-7. Gate public actions on confirmed durable state; delegate recipient code
-   request/release to the existing handler.
+## Sender identity
 
-Public routing never exposes issuer creation, sealing, legacy demo or vault access.
-Gateway snapshots use AES-GCM, atomic publication and fsync. The engine keeps its
-existing durable claims, encrypted code counters and vault. Private directories and
-process locks prevent shared writers; persistence failure disables further actions.
+A code confirms the sender without registration or a password. Durable per-email and per-IP limits protect requests and guesses.
+Verification rotates the HttpOnly session cookie. Confirmed sessions last 24 hours; pending sessions last 15 minutes.
+The UI explains the 24-hour period before verification and beside the signed-in email. This duration is unchanged.
+Mutations require the configured same Origin. Gateway snapshots use AES-GCM, atomic publication and fsync.
 
-## Recovery
+## USDC / USDT flow
 
-Idempotency binds the verified sender to one immutable payment. Started checkout
-retries check the same address without another checkout. Sender re-verification
-restores owner history, including the original Cashlink recovery link. Recovery is
-manual and only possible while funds remain unspent. Email resends reuse the same
-claim with persisted cooldown/count limits.
+1. The browser generates a random card ID and private link key, then submits the public link-owner address, recipient and amount.
+2. The engine derives its co-signer owner and computes a two-owner Safe. The browser independently checks the address before funding.
+3. The sender funds the card's address with amount plus fees using the wallet QR/link. The gateway generates the funding QR.
+4. `wire-pay.js` watches the card. Once funded, it submits the complete claim URL for invitation delivery.
+5. Wire checks the origin, card and key-derived public owner, then sends the invitation through its email provider without persisting the link.
+6. The recipient page proves possession of the link key, verifies the email code, confirms a destination and checks the exact payment hash.
+7. The service co-signs the authorized payment; the relay pays gas. Confirmed chain state determines the outcome.
+8. Sender refunds use the gateway's ownership check, a service co-signature and a local browser signature over the prepared refund.
 
-## Boundaries
+The browser keeps card/recovery data locally, including `wire-usdt-cards`; the copied payment window also maintains its own
+sender history. Browser signing does not send the private key to claim/refund routes. Invitation delivery transiently exposes
+the full link to Wire and the mail provider, so “the link key never leaves the browser” is not an accurate end-to-end guarantee.
+One logical invitation is sent on funding; uncertain responses/retries can resubmit its link. Nothing in this revision changes that behavior.
+All cards in this flow are protected. Assets are USDC Polygon, USDT Polygon and USDT Ethereum, according to enabled configuration.
+Sender free-gas support remains unavailable in the Wire host (`gas:false`).
 
-Unconfigured startup remains a card preview. Only NIM sending is implemented.
-USDT Ethereum / USDT0 Polygon require their own escrow, token, gas and recovery
-design. No production deployment or repository visibility change is included.
-See LOCAL-TESTING.md for constraints and manual validation.
+## NIM flow retained in classic.html
 
-## Presentation reuse
+The gateway persists an immutable sender/recipient/amount intent, then creates and seals a NIM Cashlink using the existing engine.
+Official Hub checkout funds that address. A started checkout is persisted before opening the wallet and is not automatically restarted.
+Funding confirmation precedes invitation delivery. Recipient codes gate release of the original Hub-compatible Cashlink link.
+NIM uses an opaque invitation URL and encrypted server-side seed storage; it differs from the browser-held USDC/USDT link model.
+Re-verifying the sender restores NIM owner history; recovery still depends on unspent funds.
 
-`internal/cards/*_mirror.go` and `internal/web/static/card-mirror.js` are generated
-from PhoenixMail `3aff3328fdd04a1022381a9cc0d7208534d78388` by
-`scripts/sync-phoenixmail-cards.sh`. They contain presentation only. Wire's adapter
-changes the complete logo, embeds raster images as data URIs for MailerSend and
-places the card action 18px below the white content area. Footer code and assets
-are mirrored from PhoenixMail, outside the card. Both verification uses share the
-upstream SecureClaim template, translated through a request context.
+## Presentation and operational boundaries
 
-The official browser Iqons renderer supplies a 160px PNG to the owner-authenticated
-art endpoint. Go rejects other formats/dimensions, strips metadata and persists it
-in the encrypted snapshot; the first stored image is immutable and survives the
-wallet redirect and process restart. The image never controls funding or ownership.
+Email cards are rendered by `internal/cards`, using PhoenixMail presentation mirrors and Wire adapters. NIM artwork uses the
+official Iqons renderer; validated PNG art is decorative and never establishes funding or ownership. Current sender cards use
+the copied window's `o.brand` option. Historic design notes do not override the implemented window.
+
+Unconfigured startup does not enable payments. Follow LOCAL-TESTING.md and DEPLOYMENT.md for configuration and owner-run checks.
+Historical review documents under docs/ describe their pinned commits, not a current deployment certification.

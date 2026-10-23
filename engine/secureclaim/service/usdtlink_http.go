@@ -43,7 +43,8 @@ import (
 //	  GET|POST /api/v1/usdt/issuer/relayers                     what every relayer holds (native coin, fees earned, cards waiting)
 //	  POST /api/v1/usdt/issuer/relayers/{chain}/withdraw   {what: "native"|asset id, to} -> sends ALL of it to `to` (the owner's administrator only)
 //
-// The recipient's link key never reaches this service: the browser proves it holds it by signing (internal/cashlink/proof).
+// Recipient claim routes receive link-key proofs and signatures, not the private key (internal/cashlink/proof).
+// Wire's separate invitation route receives the full claim link to validate and e-mail it without persisting it.
 
 const usdtCookie = "__Host-usdtlink"
 

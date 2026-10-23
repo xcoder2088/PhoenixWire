@@ -35,7 +35,8 @@ var b64u = base64.RawURLEncoding
 
 // CheckClaimLink checks that a claim URL really is this card's: on Wire's own origin, the claim page, only an allowed language in the
 // query, and a fragment "#c=<card id>.<link key>" whose card id is this card and whose key belongs to the card's link owner. The key
-// is used to compute that address and is not kept.
+// is used transiently to compute that address and is not kept. Wire receives this full link at invitation delivery,
+// then passes it to its e-mail provider; this is distinct from recipient claim and sender refund calls.
 func CheckClaimLink(rawURL, origin, cardID, linkOwner string) error {
 	u, err := url.Parse(rawURL)
 	o, err2 := url.Parse(origin)
@@ -69,7 +70,7 @@ func CheckClaimLink(rawURL, origin, cardID, linkOwner string) error {
 }
 
 // NewCardLink makes what the sender's browser makes with cashlink.js: a card id, a link key and the key's address. For tools and tests;
-// the real senders do it in their browser, where the key stays.
+// real senders generate and retain it in their browser. The full link is also submitted for invitation delivery, without persistence.
 func NewCardLink() (id, key []byte, owner string, err error) {
 	id = make([]byte, 16)
 	if _, err = rand.Read(id); err != nil {

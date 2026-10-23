@@ -1,6 +1,7 @@
-# Phoenix Wire hosting handoff
+# PhoenixWire hosting handoff
 
-Prepared files only: no remote installation or DNS change was performed.
+Hosting configuration and owner-run checklist. This document does not certify the state of a deployed instance.
+The current sender page hosts PhoenixMail’s payment window; see PAYMENT-WINDOW.md.
 Use **127.0.0.1:8790** for Wire. The laptop's `phoenixmail-web` already uses
 8788; neither that service nor the claim service on 8099 should be changed.
 
@@ -40,15 +41,17 @@ temporary local backup mode 0600, move it off the laptop, then remove the tempor
 copy. Do not print keys into a terminal or put backups in Git. An environment-file
 backup alone is insufficient: Wire's master key is a separate binary file.
 
-## Live acceptance — pending, exactly 1 NIM
+## Owner-run acceptance — NIM and USDC / USDT separately
 
 Automated tests do not demonstrate real delivery or receipt. After the owner has
 reviewed and enabled hosting, record each step without logging codes or secrets:
 
 1. Sender receives and enters their sign-in email code.
-2. Sender creates a **1 NIM** protected card and approves one wallet funding.
+2. For NIM, open `/classic.html` and use an owner-approved small amount. The current `/` window instead offers configured
+   USDC Polygon, USDT Polygon and USDT Ethereum; run each asset’s acceptance separately.
 3. Funding is confirmed, then the recipient receives the branded invitation.
-4. The invitation has no redeemable QR or bearer link. Its card and footer render.
+4. Check the card and footer. NIM uses an opaque invitation URL; USDC/USDT use a protected `#c=…` link. The sender submits
+   that full link to Wire for validation and email delivery without persistence; recipient claim calls use proofs/signatures.
 5. Recipient requests a code; wrong/incomplete codes reveal no wallet link.
 6. Correct code turns the same button into “Receive my NIM in Nimiq”.
 7. Recipient accepts the payment; confirm actual wallet receipt.
@@ -58,6 +61,10 @@ reviewed and enabled hosting, record each step without logging codes or secrets:
 Wire persists sessions: restart preserves valid sessions, codes, counters and
 pending payments. PhoenixMail's in-memory web sessions behave differently;
 restarting PhoenixMail can log its users out. Restart only the intended service.
+
+For USDC/USDT, also check quote/hash agreement, confirmation depth, interrupted deployment/payout, sender refunds, remaining
+relay gas and recovery data on the sender’s device. A successful NIM check is not acceptance of either EVM chain.
+The page explains the 24-hour sender session and includes tab/home-screen icons; verify these on desktop and phone.
 
 The live check needs access to the serving laptop, real configured mail and the
 owner's wallet approval. None is assumed available to this coding environment.
