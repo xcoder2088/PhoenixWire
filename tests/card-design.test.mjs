@@ -12,11 +12,11 @@ test('window opens empty, then shows the pastel card shell and correct token art
  const d=dom.window.document,$=id=>d.getElementById(id);
  assert.ok(d.querySelector('.app-window .workspace .panel'));
  assert.equal($('payment-card').hidden,true);assert.equal($('preview-empty').hidden,false);
- for(const currency of ['NIM','USDT_ETHEREUM','USDT0_POLYGON']){
+ for(const currency of ['NIM','USDT_ETHEREUM','USDC_POLYGON','USDT_POLYGON']){
   $('currency').value=currency;$('card-form').dispatchEvent(new dom.window.Event('submit',{cancelable:true}));
   assert.equal($('preview-empty').hidden,true);assert.equal($('payment-card').hidden,false);
   assert.ok($('payment-card').querySelector('.card-content .coin img'));
-  assert.match($('coin').querySelector('img').src,currency==='NIM'?/nimiq-logo\.svg/:/usdt\.svg/);
+  assert.match($('coin').querySelector('img').src,currency==='NIM'?/nimiq-logo\.svg/:currency==='USDC_POLYGON'?/usdc-coin\.png/:/usdt\.svg/);
   assert.equal($('payment-card').querySelector('.card-action').disabled,true);
   assert.equal($('payment-card').querySelector('.card-action').parentElement,$('payment-card'));
   assert.equal($('payment-card').querySelectorAll('footer').length,0);

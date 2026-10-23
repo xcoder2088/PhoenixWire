@@ -39,8 +39,8 @@ test('preview renders literal content and persists no form data', () => {
   assert.equal(ui.nodes.get('card-amount').textContent, '25.50');
   assert.equal(ui.nodes.get('card-message').textContent, '<script>alert(1)</script>');
   assert.equal(ui.stored.size, 0);
-  ui.event('currency', 'change', 'USDT0_POLYGON');
-  assert.equal(ui.nodes.get('card-unit').textContent, 'USDT0');
+  ui.event('currency', 'change', 'USDC_POLYGON');
+  assert.equal(ui.nodes.get('card-unit').textContent, 'USDC');
   assert.equal(ui.nodes.get('card-network').textContent, 'Polygon');
 });
 test('themes and accents work even when storage is unavailable', () => {

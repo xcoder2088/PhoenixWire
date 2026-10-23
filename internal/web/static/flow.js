@@ -33,7 +33,8 @@ async function task(run,target='feedback',cleanup){
  if(busy)return;busy=true;status(target,'working');
  try{await run();}catch(error){$(target).textContent=explain(error);}finally{busy=false;cleanup?.();}
 }
-function senderUI(email){verified=Boolean(email);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');}
+let usdtAssets=[];
+function senderUI(email){verified=Boolean(email);window.WireUSDT?.configure({assets:usdtAssets,isVerified:verified});$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');}
 function showPayment(p){
  $('preview-empty').hidden=true;$('payment-card').hidden=false;$('preview-title').hidden=false;
  $('recipient').value=p.recipient;$('amount').value=p.amount;$('message').value=p.message;$('currency').value='NIM';
@@ -77,6 +78,7 @@ $('verify-sender-code').addEventListener('click',()=>task(async()=>{
 $('logout').addEventListener('click',()=>task(async()=>{await api('/api/logout',{});location.reload();}));
 $('new-card').addEventListener('click',()=>{requestID=nextID();save('wire-request-id',requestID);active=null;for(const id of ['recipient','amount','message'])$(id).readOnly=false;$('currency').disabled=false;$('recipient').value='';$('message').value='';$('feedback').textContent='';});
 $('card-form').addEventListener('submit',event=>{
+ if(configured&&window.WireUSDT?.enabled($('currency').value)){event.preventDefault();window.WireUSDT.submit();return;} // USDC / USDT cards have their own flow (usdt-flow.js)
  if(!configured)return;event.preventDefault();
  if(busy)return;
  const openWallet=verified&&ready&&$('currency').value==='NIM'&&(!active||active.stage==='ready')&&!mobile();
@@ -133,7 +135,7 @@ async function boot(){
    if(new Date(p.expires_at).getTime()<=Date.now()){hideClaimInputs();status('claim-status','expired');}
   }catch(error){hideClaimInputs();$('claim-status').textContent=explain(error);}return;
  }
- try{const config=await api('/api/config');configured=config.mode==='integrated';ready=config.payments_enabled===true;if(!configured)return;
+ try{const config=await api('/api/config');configured=config.mode==='integrated';ready=config.payments_enabled===true;usdtAssets=Array.isArray(config.assets)?config.assets:[];if(!configured)return;
   $('sender-auth').hidden=false;refreshText();const session=await api('/api/session');senderUI(session.verified?session.email:'');if(verified)await loadHistory();
   try{const draft=JSON.parse(read('wire-form')||'null');if(draft&&active?.id===draft.payment)showPayment(active);}catch{}
   const pending=read('wire-pending-payment');

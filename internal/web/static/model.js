@@ -28,7 +28,8 @@ export function resolveLanguage(preference, languages) {
 export const assets = Object.freeze({
   NIM: { unit: 'NIM', network: 'Nimiq', symbol: 'N', decimals: 5 },
   USDT_ETHEREUM: { unit: 'USDT', network: 'Ethereum', symbol: '₮', decimals: 6 },
-  USDT0_POLYGON: { unit: 'USDT0', network: 'Polygon', symbol: '₮', decimals: 6 }
+  USDC_POLYGON: { unit: 'USDC', network: 'Polygon', symbol: '$', decimals: 6 },
+  USDT_POLYGON: { unit: 'USDT', network: 'Polygon', symbol: '₮', decimals: 6 }
 });
 
 export function addressValid(address) {

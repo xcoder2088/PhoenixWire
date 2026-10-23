@@ -11,6 +11,7 @@
   <script src="/iqons.js?v=0.3.0" defer></script>
   <script type="module" src="/app.js?v=0.3.0"></script>
   <script type="module" src="/flow.js?v=0.3.0"></script>
+  <script type="module" src="/usdt-flow.js?v=0.3.0"></script>
 </head>
 <body>
   <div class="shell">
@@ -37,7 +38,7 @@
               <p id="sender-status" role="status" aria-live="polite"></p>
             </div>
             <label><span data-i18n="recipient">Courriel du destinataire</span><input id="recipient" type="email" autocomplete="off" required maxlength="254" placeholder="destinataire@exemple.com"></label>
-            <div class="fields"><label><span data-i18n="currency">Monnaie</span><select id="currency"><option value="NIM">NIM · Nimiq</option><option value="USDT_ETHEREUM">USDT · Ethereum</option><option value="USDT0_POLYGON">USDT0 · Polygon</option></select></label><label><span data-i18n="amount">Montant</span><input id="amount" type="text" inputmode="decimal" required maxlength="24" placeholder="25.00" value="25"></label></div>
+            <div class="fields"><label><span data-i18n="currency">Monnaie</span><select id="currency"><option value="NIM">NIM · Nimiq</option><option value="USDT_ETHEREUM">USDT · Ethereum</option><option value="USDC_POLYGON">USDC · Polygon</option><option value="USDT_POLYGON">USDT · Polygon</option></select></label><label><span data-i18n="amount">Montant</span><input id="amount" type="text" inputmode="decimal" required maxlength="24" placeholder="25.00" value="25"></label></div>
             <label><span data-i18n="message">Petit mot (facultatif)</span><textarea id="message" maxlength="160" rows="2"></textarea></label>
             <p class="security" data-i18n="security">Le parcours prévu déverrouillera le paiement après vérification du courriel par code à six chiffres.</p>
             <button id="preview-submit" class="primary" type="submit" data-i18n="preview">Prévisualiser la carte</button>
@@ -63,6 +64,16 @@
           <p class="preview-note" data-i18n="previewNote" id="preview-note" hidden>Pas de QR réclamable, de clé ou de fonds dans cet aperçu.</p>
         </section>
       </div>
+      <section id="usdt-panel" class="panel usdt-panel" hidden aria-live="polite">
+        <h2 id="usdt-title"></h2>
+        <p id="usdt-help"></p>
+        <div id="usdt-qr" class="usdt-qr" role="img" aria-label="QR"></div>
+        <p class="usdt-address-row"><code id="usdt-address"></code> <button id="usdt-copy" type="button"></button></p>
+        <a id="usdt-wallet" class="wallet-link" rel="noopener noreferrer" hidden></a>
+        <p id="usdt-status" class="usdt-status" role="status"></p>
+        <p id="usdt-warning" class="usdt-warning"></p>
+      </section>
+      <section id="usdt-history" class="panel" hidden><h2 id="usdt-history-title"></h2><div id="usdt-list"></div></section>
       <section id="my-payments" class="panel" hidden><h2 data-wire="history">Mes envois et récupération</h2><div id="payment-list"></div><button id="new-card" type="button" data-wire="newCard">Nouvelle carte</button></section>
       <section id="claim-panel" class="panel claim-panel" hidden>
         <article id="claim-card" class="payment-card" data-currency="NIM">

@@ -28,7 +28,7 @@ input,select,textarea{padding:11px 12px;font-size:13px;min-height:44px}.fields{g
 .empty-cards:after{content:"";position:absolute;left:23px;top:24px;width:26px;height:4px;border-radius:4px;background:var(--accent);opacity:.45;transform:rotate(7deg)}
 .payment-card{width:100%;max-width:400px;min-height:0;padding:22px 20px 18px;margin:0;border-radius:26px;border:1px solid #c8bae9;background:#eee5ff;background-image:linear-gradient(125deg,#eee5ff 0%,#e2eeff 56%,#ffe8f4 100%);color:#211e49;font-family:Arial,Helvetica,sans-serif;box-shadow:0 15px 35px #080a131c}
 .payment-card[data-currency=USDT_ETHEREUM]{background:#e0f5e9;background-image:linear-gradient(125deg,#def5e6 0%,#e1f5f1 56%,#e9edff 100%);border-color:#b5d9c6;color:#211e49}
-.payment-card[data-currency=USDT0_POLYGON]{background:#eee4fb;background-image:linear-gradient(125deg,#eee4fb 0%,#e5eaff 56%,#f8e8f6 100%);border-color:#cebbea;color:#211e49}
+.payment-card[data-currency=USDC_POLYGON],.payment-card[data-currency=USDT_POLYGON]{background:#eee4fb;background-image:linear-gradient(125deg,#eee4fb 0%,#e5eaff 56%,#f8e8f6 100%);border-color:#cebbea;color:#211e49}
 .card-top{gap:12px;align-items:center;margin-bottom:14px}.card-brand{display:flex;align-items:center;flex:1;min-width:0}.card-brand img{display:block;object-fit:contain;object-position:left center;width:100%;max-width:215px;height:auto;max-height:62px}
 .sample{font-size:10px;letter-spacing:.1px;border:1.5px solid var(--accent);border-radius:20px;background:#fff;color:#3d2f78;padding:7px 9px;white-space:nowrap}
 .payment-card .card-heading{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#7461aa;margin:17px 0 4px}

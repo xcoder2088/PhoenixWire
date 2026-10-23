@@ -13,7 +13,9 @@ import (
 // The recipient's side of a USDC / USDT card: the claim page is served from Wire's own origin (so the link key in its fragment
 // never leaves the browser) with a Content-Security-Policy of its own, and the camera permission it needs to read a wallet QR code.
 
-var claimPaths = map[string]bool{"/usdt.html": true, "/cashlink.js": true, "/jsqr.js": true, "/usdc-coin.png": true, "/usdt-coin.png": true, "/phoenixmail-official-emblem.webp": true}
+var claimPaths = map[string]bool{"/proxycode.js": true, "/usdt.html": true, "/cashlink.js": true, "/jsqr.js": true, "/usdc-coin.png": true, "/usdt-coin.png": true, "/phoenixmail-official-emblem.webp": true}
+
+var proxyCode = regexp.MustCompile(`PROXY_CREATION_CODE='(0x[0-9a-f]+)'`)
 
 var inlineScript = regexp.MustCompile(`(?s)<script>(.*?)</script>`)
 
@@ -33,10 +35,19 @@ func serveClaimAssets(mux *http.ServeMux) {
 		panic(err)
 	}
 	csp := claimCSP(page)
+	// The Safe proxy creation code is the one constant the sender's page needs besides cashlink.js: it is taken from the claim page,
+	// where it already lives, instead of being copied a second time.
+	proxy := proxyCode.FindSubmatch(page)
+	if proxy == nil {
+		panic("proxy creation code not found in the claim page")
+	}
+	proxyJS := []byte("window.PHOENIX_PROXY_CREATION_CODE='" + string(proxy[1]) + "';\n")
 	for name := range claimPaths {
 		name = strings.TrimPrefix(name, "/")
-		body, err := claimweb.Claim.ReadFile(name)
-		if err != nil {
+		var body []byte
+		if name == "proxycode.js" {
+			body = proxyJS
+		} else if body, err = claimweb.Claim.ReadFile(name); err != nil {
 			panic(err)
 		}
 		kind := map[string]string{".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".png": "image/png", ".webp": "image/webp"}[name[strings.LastIndex(name, "."):]]

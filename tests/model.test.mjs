@@ -12,13 +12,13 @@ test('locale resolver matches PhoenixMail precedence and regional normalization'
 });
 
 test('preview supports explicit asset/network pairs', () => {
-  assert.deepEqual(Object.keys(assets), ['NIM', 'USDT_ETHEREUM', 'USDT0_POLYGON']);
-  assert.equal(assets.USDT0_POLYGON.network, 'Polygon');
+  assert.deepEqual(Object.keys(assets), ['NIM', 'USDT_ETHEREUM', 'USDC_POLYGON', 'USDT_POLYGON']);
+  assert.equal(assets.USDC_POLYGON.network, 'Polygon');
 });
 test('decimal preview formatting never uses floating point', () => {
   assert.equal(previewAmount('00025,12345', 'NIM'), '25.12345');
   assert.equal(previewAmount('0.000001', 'USDT_ETHEREUM'), '0.000001');
-  assert.equal(previewAmount('999999999999.123456', 'USDT0_POLYGON'), '999999999999.123456');
+  assert.equal(previewAmount('999999999999.123456', 'USDC_POLYGON'), '999999999999.123456');
 });
 test('invalid amounts and networks fail closed', () => {
   for (const value of ['', '0', '0.00000', '-1', '1e3', 'Infinity', '1.000001', '<script>', '1.2.3', '1000000000000']) {

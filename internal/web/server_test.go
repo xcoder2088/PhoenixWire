@@ -126,6 +126,15 @@ func TestUSDTRoutesArePublicOnlyForTheRecipient(t *testing.T) {
 	if other := get("/"); !strings.Contains(other.Header().Get("Permissions-Policy"), "camera=()") {
 		t.Fatal("the camera stays off everywhere else")
 	}
+	proxy := get("/proxycode.js")
+	if proxy.Code != 200 || !strings.HasPrefix(proxy.Body.String(), "window.PHOENIX_PROXY_CREATION_CODE='0x") || !strings.Contains(proxy.Header().Get("Content-Type"), "javascript") {
+		t.Fatalf("proxy code for the sender's browser: %d %q", proxy.Code, proxy.Body.String()[:20])
+	}
+	for _, path := range []string{"/usdt-flow.js", "/usdt-text.js", "/qrcode.js", "/brand/usdc-coin.png"} {
+		if r := get(path); r.Code != 200 {
+			t.Fatalf("%s: %d", path, r.Code)
+		}
+	}
 	for _, path := range []string{"/cashlink.js", "/jsqr.js", "/usdc-coin.png"} {
 		if r := get(path); r.Code != 200 {
 			t.Fatalf("%s: %d", path, r.Code)

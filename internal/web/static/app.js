@@ -65,8 +65,8 @@ function renderCard(amount) {
   paintCard($('payment-card'),lang,'00');
   $('coin').textContent = '';
   const image=document.createElement('img');image.width=image.height=80;
-  image.src=id==='NIM'?'/brand/nimiq-logo.svg?v=0.3.0':'/brand/usdt.svg?v=0.3.0';
-  image.alt=id==='NIM'?'Nimiq Nimicon':'Tether USDT';$('coin').append(image);
+  image.src=id==='NIM'?'/brand/nimiq-logo.svg?v=0.3.0':id==='USDC_POLYGON'?'/brand/usdc-coin.png?v=0.3.0':'/brand/usdt.svg?v=0.3.0';
+  image.alt=id==='NIM'?'Nimiq Nimicon':id==='USDC_POLYGON'?'USD Coin USDC':'Tether USDT';$('coin').append(image);
   // An illustrative public address only; this preview has no seed or funding intent.
   if(id==='NIM')globalThis.PhoenixNimiqIdenticons?.paint(image,'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');
   $('card-unit').textContent = asset.unit;

@@ -39,7 +39,7 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 			writeJSON(w, 200, map[string]any{"mode": "integrated", "payments_enabled": ready, "email_enabled": true, "otp_enabled": true, "assets": assetList})
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"mode": "preview", "payments_enabled": false, "email_enabled": false, "otp_enabled": false, "assets": []string{"NIM", "USDT_ETHEREUM", "USDT0_POLYGON"}})
+		writeJSON(w, http.StatusOK, map[string]any{"mode": "preview", "payments_enabled": false, "email_enabled": false, "otp_enabled": false, "assets": []string{"NIM", "USDC_POLYGON", "USDT_POLYGON", "USDT_ETHEREUM"}})
 	})
 	// Fail closed. No seed, wallet, payment state, or delivery provider is loaded.
 	if api != nil {
@@ -76,7 +76,7 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 		}
 		// An explicit allowlist prevents directory listings and SPA fallbacks on unknown APIs.
 		switch r.URL.Path {
-		case "/", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/card-mirror.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/design.css", "/brand/phoenix-wire.webp", "/brand/phoenix-emblem.webp", "/brand/nimiq-logo.svg", "/brand/usdt.svg":
+		case "/", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/card-mirror.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/design.css", "/usdt-flow.js", "/usdt-text.js", "/qrcode.js", "/brand/phoenix-wire.webp", "/brand/phoenix-emblem.webp", "/brand/nimiq-logo.svg", "/brand/usdt.svg", "/brand/usdc-coin.png":
 			static.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
