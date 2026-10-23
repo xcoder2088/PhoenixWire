@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/pm/app.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/nimiq-payments.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/theme-light.css?v=0.4.0">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.13">
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.14">
 </head>
 <body class="wire-body">
   <main class="wire-shell">
@@ -23,7 +23,7 @@
       <select id="wire-palette" aria-label="Theme"><option value="live">Live shuffle</option><option value="phoenixfire">PhoenixFire</option><option value="aurora">Aurora</option><option value="ocean">Ocean</option></select>
       <button id="wire-theme" type="button" class="secondary-btn">☾ / ☀</button>
     </header>
-    <section class="wire-card">
+    <section id="wire-entry" class="wire-card">
       <h1 id="wire-title"></h1>
       <p id="wire-sub" class="wire-sub"></p>
       <p id="wire-gas" class="wire-gas" hidden><span class="wire-led" aria-hidden="true"></span><span id="wire-gas-text"></span></p>
@@ -41,6 +41,12 @@
       </div>
       <p id="wire-status" role="status" aria-live="polite"></p>
       
+    </section>
+    <section id="wire-handoff-home" class="wire-card" hidden>
+      <h2 id="wire-handoff-title"></h2><p id="wire-handoff-help"></p>
+      <p id="wire-handoff-state" role="status" aria-live="polite"></p>
+      <button id="wire-handoff-open" type="button" class="secondary-btn"></button>
+      <button id="wire-handoff-logout" type="button" class="secondary-btn web-lock wire-session-lock"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="11" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></button>
     </section>
     <div id="wire-card-notices" class="wire-card-notices" hidden></div>
     <section id="wire-cards" class="wire-card wire-cards" aria-labelledby="wire-cards-title" hidden>
@@ -61,6 +67,10 @@
             <p id="nim-progress-message" role="status" aria-live="polite" aria-atomic="true"></p>
             <button id="nim-progress-close" type="button" class="secondary-btn" hidden></button>
             <button id="nim-progress-resend" type="button" class="secondary-btn" hidden></button>
+          </section>
+          <section id="nim-handoff-summary" class="wire-nim-summary" hidden>
+            <div id="nim-handoff-card"></div>
+            <button id="nim-handoff-pay" class="secondary-btn" type="button" data-wire="pay"></button>
           </section>
           <p id="notice" class="nimiq-payment-how" role="status"></p>
           <div class="workspace">
@@ -98,7 +108,7 @@
     <div class="wire-wallet-choice">
       <h2 id="wire-choice-title" data-wallet-text="choiceTitle"></h2>
       <p id="wire-choice-help" data-wallet-text="choiceHelp"></p>
-      <a id="wire-choice-open" href="https://nimpay.app/miniapps/open/wire.phoenixmail.ca" target="_blank" rel="noopener noreferrer" data-wallet-text="openPay"></a>
+      <a id="wire-choice-open" href="#" target="_blank" rel="noopener noreferrer" data-wallet-text="openPay"></a>
       <a id="wire-choice-get" href="#" target="_blank" rel="noopener noreferrer" data-wallet-text="getPay"></a>
       <button id="wire-choice-hub" type="button" data-wallet-text="useHub"></button>
       <button id="wire-choice-cancel" type="button" data-wallet-text="cancelPay"></button>
@@ -112,6 +122,6 @@
   <script src="/pm/usdt-cashlink.js?v=0.4.6"></script>
   <script src="/pm/usdt-payments.js?v=0.4.6"></script>
   <script src="/pm/nimiq-payments.js?v=0.4.0"></script>
-  <script type="module" src="/wire-pay.js?v=0.4.13"></script>
+  <script type="module" src="/wire-pay.js?v=0.4.14"></script>
 </body>
 </html>

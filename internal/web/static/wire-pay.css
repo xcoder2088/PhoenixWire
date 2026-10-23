@@ -147,3 +147,13 @@ body.wire-body{background:var(--bg);color:var(--text)}
 .wire-led{flex:none;width:8px;height:8px;border-radius:50%;background:#3ccf8e;box-shadow:0 0 0 0 #3ccf8e66;animation:wire-heartbeat 2.4s ease-in-out infinite}
 @keyframes wire-heartbeat{0%,56%,100%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}8%{transform:scale(1.35);box-shadow:0 0 0 5px #3ccf8e40}18%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}28%{transform:scale(1.25);box-shadow:0 0 0 4px #3ccf8e33}40%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}}
 @media (prefers-reduced-motion:reduce){.wire-led{animation:none}}
+
+/* Disable only the pending handoff action; Hub, stores and Cancel remain available. */
+#wire-choice-open[aria-disabled="true"]{opacity:.65;cursor:wait;}
+
+.wire-nim-summary{display:flex;flex-direction:column;align-items:center;gap:18px;width:100%;min-width:0;box-sizing:border-box;}
+#nim-handoff-card{width:100%;max-width:520px;min-width:0;}
+.wire-nim-summary .payment-card{width:100%;box-sizing:border-box;}
+.wire-nim-summary #feedback{overflow-wrap:anywhere;}
+.wire-nim-prepared .wire-nim-summary>button{max-width:100%;min-height:44px;white-space:normal;}
+#wire-handoff-home{overflow-wrap:anywhere;}

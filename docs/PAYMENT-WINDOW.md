@@ -78,22 +78,42 @@ service, not delivery to an inbox. History is hidden on logout and polling stops
 NIM rows use the existing `/api/payments` states and the NIM window's status callback. They do not infer that a NIM card was claimed:
 that information is not provided by this list. No new server route, CSP rule or payment operation is added by the dashboard.
 
-## Nimiq Pay draft handoff
+## Nimiq Pay per-card handoff (client)
 
-The browser wallet chooser uses `nimiqpay://miniapp?url=<encoded complete Wire URL>` when a valid NIM draft is available.
-The previous bare-domain HTTPS link opened Wire's home page in the app and carried no form. The complete URL now contains
-a `#wire-nim=` fragment with a version, 24-hour deadline, sender and recipient emails, amount, optional message, language,
-request identifier and (for an existing card) payment identifier. No session cookie, grant, link key, recovery link or wallet
-address is transferred. The fragment carries personal form data; it is not an authentication mechanism and is not encrypted.
-It is removed from Wire's address bar before API calls and saved in the receiving tab's session storage during sign-in.
+The wallet chooser creates nothing on opening. Only clicking “I already have Nimiq Pay” prepares the protected NIM card
+using the verified sender's existing `POST /api/payments` idempotent request (or reuses its ready card). No funding is started.
+Then `POST /api/handoff {"payment_id": "..."}` returns a 43-character opaque token, single-use, valid for five minutes
+(`expires_in: 300`). No draft fields are sent to the handoff route.
 
-Nimiq Pay has its own cookies and storage. The sender must confirm their email there the first time; Safari's confirmation
-is not copied. Only a matching verified sender resumes the draft. Restoring a draft never sends money. The sender reviews
-the restored form and submits it, then Nimiq Pay must approve the native request with the server-provided card address and
-amount. There is no need to type a wallet destination or manually enter the amount in the wallet. The original request ID
-is retained so the existing sender-bound server idempotency prevents a second card if the browser is also used. A card
-already awaiting funding confirmation is monitored instead of paid again. Once wallet tracking has been saved, the draft
-is cleared. Real iPhone/Android verification of the custom-scheme fragment and native app return remains necessary.
+The mini-app address is only `https://wire.phoenixmail.ca/#h=<token>`, wrapped in
+`nimiqpay://miniapp?url=<encoded URL>`. No email, amount, message, payment ID, recovery key or cookie is put in the link.
+The host removes the fragment synchronously before API requests, posts the credential once to redeem, and never puts it in
+local/session storage or the console. Retired `#wire-nim=` fragments and their saved personal-data drafts are discarded.
+Foreground events and reload never retry a consumed token. Failed/stalled requests show translated feedback, not a blank page.
+
+After redeem the host trusts the actual `/api/session` response, not a client-side verified flag. A scoped session
+(`verified:false, handoff:{payment_id}`) sees only the prepared card's read-only summary, payment button, tracking and
+sign-out. No creation form, full My cards dashboard, stablecoin API lists or recovery button is shown or requested.
+Reload reconstructs this same view from the scope and `GET /api/payments`; storage cannot switch the payment being shown.
+Closing the window returns to a limited card panel, not a signed-in sender dashboard.
+
+A same-sender `already_signed_in:true` response keeps the existing full sender session and opens this prepared card's summary.
+A different sender's `409 session_conflict` never logs them out or replaces them automatically: the page asks them to sign out
+explicitly and reopen from Safari. A `409 payment_not_fundable` or `410 claim_expired` displays the appropriate warning and
+blocks another funding action. Since those errors do not return the payment, no exact private on-chain state is invented.
+A `404 invalid_or_expired` asks the user to reopen the link from Safari; normal email verification remains available.
+
+Restoring a prepared card never creates a second card and never opens a wallet automatically. Explicit payment first refreshes
+the payment and calls confirm. For a still-ready card the current server returns `funding_not_started` (it does not read the
+chain for a ready card); only that result permits a fresh start. The service's atomic start rejects a concurrent start from
+Safari or the app. A rejected/racing start refreshes and tracks the same card, never requests a second wallet payment.
+The native provider's exact funding text/UTF-8 mark, canonical escrow and luna amount are unchanged. Native refusal does not
+fall back automatically; an uncertain broadcast is checked before offering Hub.
+
+The browser pre-opens a blank target on the explicit tap to retain the iOS gesture across the requests and removes its opener
+before navigating to the opaque URL. If blocked, a direct retry link is offered. Closing the chooser prevents late navigation;
+creation failures keep Hub and store choices available. Five-language tests simulate the route contract and isolated contexts,
+not a physical iPhone/Android mini-app launch or real funds. Those device checks remain necessary after owner deployment.
 
 Wire's host also removes the copied title's decorative arrow, styles the close control like PhoenixMail's lock (44 px square,
 9 px corners, theme-accent border and 20 px outlined icon), and supplies the

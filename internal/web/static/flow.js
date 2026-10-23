@@ -2,7 +2,7 @@ import { flowText } from './flow-text.js?v=0.3.0';
 import { addressValid,cardPresentation,paintCard } from './model.js?v=0.3.0';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
-export function mountNimFlow(root=document,{embedded=false,chooseWallet=null,onClose=null,onStatus=()=>{},initialDraft=null,onDraftUsed=()=>{}}={}){
+export function mountNimFlow(root=document,{embedded=false,chooseWallet=null,onClose=null,onStatus=()=>{},initialDraft=null,onDraftUsed=()=>{},initialPayment=null,scopedPaymentID=''}={}){
 // The bundled official Iqons adapter validates public Nimiq addresses through this hook.
 if(!embedded)window.PhoenixNimiqPayments={addressValid};
 
@@ -25,13 +25,14 @@ const progressWords={
 };
 const doneWords={fr:'Terminé',en:'Done',es:'Listo',de:'Fertig',zh:'完成'};
 const pt=key=>embedded&&key==='close'?(doneWords[document.documentElement.lang]||doneWords.en):(progressWords[document.documentElement.lang]||progressWords.en)[key];
-let fallbackCheckout=null,destroyed=false;
+let fallbackCheckout=null,destroyed=false,handedOver=false;
 const fallback=document.createElement('button');fallback.type='button';fallback.className='secondary-btn wire-nim-hub-fallback';fallback.hidden=true;
 $('feedback').after(fallback);
 let configured=false,ready=false,verified=false,busy=false,claimMode=false,active=null;
 let receiveURL='',cooling=0,coolTimer=null;
 let paymentList=[];
 let displayed=null;
+const preparedContext=Boolean(embedded&&(initialPayment||scopedPaymentID));
 let editingTransferredDraft=Boolean(embedded&&initialDraft&&!initialDraft.payment_id);
 const completedForms=new Set();
 const monitors=new Map(),checks=new Map(),controllers=new Set();
@@ -100,17 +101,17 @@ function showPayment(p){
 }
 async function loadHistory(){
  const data=await api('/api/payments',undefined,{timeout:true});$('my-payments').hidden=false;$('payment-list').textContent='';
- paymentList=data.payments;
- for(const p of data.payments){
+ paymentList=scopedPaymentID?data.payments.filter(p=>p.id===scopedPaymentID):data.payments;
+ for(const p of preparedContext?[]:data.payments){
   const row=document.createElement('div');row.className='history-row';
   const label=document.createElement('p');label.textContent=`${p.amount} NIM · ${p.recipient} · ${t(p.stage)}`;row.append(label);
   if(p.stage==='delivery_failed'){const resend=document.createElement('button');resend.type='button';resend.textContent=pt('resend');resend.disabled=checks.has(p.id);resend.addEventListener('click',()=>resendCard(p.id));row.append(resend);}
   if(p.address){const recover=document.createElement('button');recover.type='button';recover.textContent=t('recover');recover.addEventListener('click',()=>task(async()=>{const result=await api(`/api/payments/${p.id}/recovery`,{});const link=document.createElement('a');link.href=validatedCashlink(result.cashlink);link.target='_blank';link.rel='noopener noreferrer';link.textContent=t('recover');recover.replaceWith(link);}));row.append(recover);}
   $('payment-list').append(row);
  }
- active=editingTransferredDraft?null:data.payments.find(p=>!['sent'].includes(p.stage))||null;
+ active=preparedContext?paymentList.find(p=>p.id===(initialPayment?.id||scopedPaymentID))||null:editingTransferredDraft?null:data.payments.find(p=>!['sent'].includes(p.stage))||null;
  const pending=read('wire-pending-payment');
- const shown=editingTransferredDraft?null:data.payments.find(p=>p.id===pending)||data.payments.find(p=>p.id===displayed?.id)||active||(!embedded?data.payments[0]:null);
+ const shown=preparedContext?active:editingTransferredDraft?null:data.payments.find(p=>p.id===pending)||data.payments.find(p=>p.id===displayed?.id)||active||(!embedded?data.payments[0]:null);
  for(const p of data.payments){const watch=monitors.get(p.id);if(watch){watch.payment=p;if(p.stage==='sent')stopMonitor(watch);}}
  if(shown)showPayment(shown);
  $('new-card').hidden=Boolean(active);refreshText();
@@ -143,7 +144,13 @@ function renderProgress(){
  const newlyComplete=complete&&!root.classList.contains('wire-nim-complete');
  if(embedded)root.classList.toggle('wire-nim-complete',complete);
  if(embedded){
-  root.querySelector('.workspace').hidden=complete;$('notice').hidden=complete;$('my-payments').hidden=complete;
+  root.querySelector('.workspace').hidden=complete||preparedContext;$('notice').hidden=complete||preparedContext;$('my-payments').hidden=complete||preparedContext;
+  if($('nim-handoff-summary')){
+   $('nim-handoff-summary').hidden=!preparedContext||complete;
+   const pay=$('nim-handoff-pay');pay.textContent=t('pay');pay.disabled=busy;
+   pay.hidden=!p||p.stage!=='ready'||Date.now()>=deadline(p);
+   if(preparedContext&&p&&Date.now()>=deadline(p)&&p.stage!=='sent')$('feedback').textContent=pt('expired');
+  }
   root.closest('.wire-nim-window')?.querySelectorAll(':scope>.nimiq-payment-head').forEach(el=>el.hidden=complete);
   root.closest('.wire-nim-window')?.querySelectorAll(':scope>.wire-nim-assets').forEach(el=>el.hidden=true);
  }
@@ -258,6 +265,34 @@ fallback.addEventListener('click',()=>task(async()=>{
  if(!window.confirm(wt('confirm')))return;
  fallback.hidden=true;await hubCheckout(saved.p,saved.checkout);
 }));
+
+// Preparing a handoff never starts funding or opens a wallet.
+let handoffPreparation=null;
+function prepareHandoff(){
+ if(handoffPreparation)return handoffPreparation;
+ const pending=prepareHandoffPayment();handoffPreparation=pending;
+ pending.finally(()=>{handoffPreparation=null;}).catch(()=>{});
+ return pending;
+}
+function useHubAfterPreparation(){
+ const open=()=>{if(!destroyed)fundNim(true);};
+ if(handoffPreparation)handoffPreparation.finally(open).catch(()=>{});else open();
+}
+async function prepareHandoffPayment(){
+ if(busy||!verified||scopedPaymentID)throw Error('sender_verification_required');
+ busy=true;renderProgress();
+ try{
+  let p=active;
+  if(preparedContext&&!p)throw Error('payment_unavailable');
+  if(!p){const result=await api('/api/payments',{recipient:$('recipient').value,amount:$('amount').value.trim().replace(',','.'),currency:'NIM',message:$('message').value,request_id:requestID,language:document.documentElement.lang},{timeout:true});p=result.payment;active=p;}
+  if(p.stage==='preparing'){const result=await api(`/api/payments/${p.id}/prepare`,{},{timeout:true});p=result.payment;active=p;}
+  showPayment(p);
+  if(p.stage!=='ready')throw Object.assign(Error('payment_not_fundable'),{status:409});
+  handedOver=true;
+  return p;
+ }finally{busy=false;renderProgress();}
+}
+
 function fundNim(forceHub=false){
  if(busy)return;
  if(displayed?.stage==='sent')return;
@@ -272,6 +307,7 @@ function fundNim(forceHub=false){
   if(active&&active.stage==='preparing'){const result=await api(`/api/payments/${active.id}/prepare`,{});active=result.payment;await loadHistory();return;}
   if(active&&active.stage!=='ready'){await poll(active.id);return;}
   let p=active;
+  if(preparedContext&&!p)throw Error('payment_unavailable');
   if(!p){const result=await api('/api/payments',{recipient:$('recipient').value,amount:$('amount').value.trim().replace(',','.'),currency:'NIM',message:$('message').value,request_id:requestID,language:document.documentElement.lang});p=result.payment;active=p;}
   editingTransferredDraft=false;
   showPayment(p);
@@ -280,7 +316,17 @@ function fundNim(forceHub=false){
   // No unprotected fallback. No seed is present in this checkout request.
   if(!native&&!window.HubApi)throw Error('wallet_unavailable');
   if(native&&window.nimiqPay?.network&&window.nimiqPay.network!=='mainnet'){$('feedback').textContent=wt('network');return;}
-  const started=await api(`/api/payments/${p.id}/start`,{});active=started.payment;
+  // A ready UI can be stale (the other browser may already have started).
+  // Confirm first; the service reports funding_not_started for a still-ready card.
+  // Any other failure blocks the wallet. The service's atomic start guards the race.
+  if(preparedContext||handedOver){
+   try{await confirm(p.id);return;}catch(error){if(error.message!=='funding_not_started'||active?.stage!=='ready')throw error;}
+   if(active?.stage!=='ready')return;
+  }
+  let started;
+  try{started=await api(`/api/payments/${p.id}/start`,{},{timeout:true});}
+  catch(error){if(error.message==='funding_already_started'){await loadHistory();await poll(p.id);return;}throw error;}
+  active=started.payment;
   // Hub's checkout extraData becomes the chain transaction's recipientData.
   const checkout={appName:started.checkout.appName,recipient:started.checkout.recipient,value:started.checkout.value,extraData:new Uint8Array(started.checkout.recipientData)};
   if(native){
@@ -311,9 +357,10 @@ $('card-form').addEventListener('submit',event=>{
  if(configured&&window.WireUSDT?.enabled($('currency').value)){event.preventDefault();window.WireUSDT.submit();return;}
  if(!configured)return;event.preventDefault();
  if(busy)return;
- if(verified&&ready&&$('currency').value==='NIM'&&(!active||active.stage==='ready')&&!nativeWallet()&&!window.nimiqPay&&chooseWallet){chooseWallet(()=>{if(!destroyed)fundNim(true);},{recipient:$('recipient').value,amount:$('amount').value.trim().replace(',','.'),message:$('message').value,sender:$('sender').value,request_id:requestID,payment_id:active?.id||''});return;}
+ if(verified&&ready&&$('currency').value==='NIM'&&(!active||active.stage==='ready')&&!nativeWallet()&&!window.nimiqPay&&chooseWallet){chooseWallet(useHubAfterPreparation,prepareHandoff);return;}
  fundNim();
 });
+$('nim-handoff-pay')?.addEventListener('click',()=>fundNim());
 function updateClaimControls(){
  $('request-claim-code').disabled=busy||cooling>0;
  $('request-claim-code').textContent=cooling?t('resendIn')+' '+cooling+' s':t('requestCode');
@@ -340,7 +387,18 @@ async function boot(){
   }catch(error){hideClaimInputs();$('claim-status').textContent=explain(error);}return;
  }
  try{const config=await api('/api/config');configured=config.mode==='integrated';ready=config.payments_enabled===true;usdtAssets=Array.isArray(config.assets)?config.assets:[];if(!configured)return;
-  $('sender-auth').hidden=embedded;refreshText();const session=await api('/api/session');senderUI(session.verified?session.email:'');if(verified)await loadHistory();
+  $('sender-auth').hidden=embedded;refreshText();const session=await api('/api/session');const limited=scopedPaymentID&&session.handoff?.payment_id===scopedPaymentID;
+  senderUI(session.verified?session.email:limited?(initialPayment?.sender||'handoff'):'');
+  if(preparedContext){
+   root.classList.add('wire-nim-prepared');
+   $('nim-handoff-card').append($('payment-card'));
+   $('nim-handoff-summary').append($('feedback'),fallback);
+  }
+  if(verified)await loadHistory();
+  if(preparedContext){
+   if(!verified||!active){$('feedback').textContent=pt('session');renderProgress();return;}
+   showPayment(active);resume();return;
+  }
   if(embedded&&initialDraft){
    if(initialDraft.payment_id){
     const original=paymentList.find(p=>p.id===initialDraft.payment_id);

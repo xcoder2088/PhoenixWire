@@ -1,7 +1,7 @@
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.3.0';
-import { mountNimFlow } from './flow.js?v=0.4.9';
+import { mountNimFlow } from './flow.js?v=0.4.11';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -14,12 +14,91 @@ const STORE = 'wire-usdt-cards', words = {
 };
 
 const walletChoiceWords={
- en:{choiceTitle:'How would you like to pay?',openPay:'I already have Nimiq Pay',getPay:'Get Nimiq Pay',useHub:'Use the Nimiq wallet (Hub)',cancelPay:'Cancel',choiceHelp:'Nimiq Pay opens Wire in the app. Confirm your email there once; it stays confirmed for 24 hours. Your browser session is separate.',openPayHelp:'If the app did not open, try again, install Nimiq Pay, or use the Hub. No payment has started.',storeHelp:'Choose the store for your phone.'},
- fr:{choiceTitle:'Comment voulez-vous payer ?',openPay:'J’ai déjà Nimiq Pay',getPay:'Obtenir Nimiq Pay',useHub:'Utiliser le portefeuille Nimiq (Hub)',cancelPay:'Annuler',choiceHelp:'Nimiq Pay ouvre Wire dans l’application. Confirmez-y votre courriel une fois : il reste confirmé 24 heures. La session du navigateur est distincte.',openPayHelp:'Si l’application ne s’est pas ouverte, réessayez, installez Nimiq Pay ou utilisez le Hub. Aucun paiement n’a commencé.',storeHelp:'Choisissez la boutique de votre téléphone.'},
- es:{choiceTitle:'¿Cómo quieres pagar?',openPay:'Ya tengo Nimiq Pay',getPay:'Obtener Nimiq Pay',useHub:'Usar la cartera Nimiq (Hub)',cancelPay:'Cancelar',choiceHelp:'Nimiq Pay abre Wire en la aplicación. Confirma allí tu correo una vez: queda confirmado 24 horas. La sesión del navegador es independiente.',openPayHelp:'Si la aplicación no se abrió, inténtalo de nuevo, instala Nimiq Pay o usa el Hub. No se ha iniciado ningún pago.',storeHelp:'Elige la tienda de tu teléfono.'},
- de:{choiceTitle:'Wie möchtest du bezahlen?',openPay:'Ich habe bereits Nimiq Pay',getPay:'Nimiq Pay herunterladen',useHub:'Nimiq Wallet (Hub) verwenden',cancelPay:'Abbrechen',choiceHelp:'Nimiq Pay öffnet Wire in der App. Bestätige dort einmal deine E-Mail: Sie bleibt 24 Stunden bestätigt. Die Browsersitzung ist davon getrennt.',openPayHelp:'Falls die App nicht geöffnet wurde, versuche es erneut, installiere Nimiq Pay oder nutze den Hub. Es wurde keine Zahlung gestartet.',storeHelp:'Wähle den Store für dein Smartphone.'},
- zh:{choiceTitle:'你想如何付款？',openPay:'我已安装 Nimiq Pay',getPay:'获取 Nimiq Pay',useHub:'使用 Nimiq 钱包（Hub）',cancelPay:'取消',choiceHelp:'Nimiq Pay 会在应用内打开 Wire。请在那里确认一次邮箱，确认状态将保持 24 小时。浏览器的会话与应用内的会话相互独立。',openPayHelp:'如果应用未打开，请重试、安装 Nimiq Pay，或使用 Hub。尚未开始付款。',storeHelp:'请选择你手机的应用商店。'}
+ en:{choiceTitle:'How would you like to pay?',openPay:'I already have Nimiq Pay',getPay:'Get Nimiq Pay',useHub:'Use the Nimiq wallet (Hub)',cancelPay:'Cancel',openPayHelp:'If the app did not open, try again, install Nimiq Pay, or use the Hub. No payment has started.',storeHelp:'Choose the store for your phone.'},
+ fr:{choiceTitle:'Comment voulez-vous payer ?',openPay:'J’ai déjà Nimiq Pay',getPay:'Obtenir Nimiq Pay',useHub:'Utiliser le portefeuille Nimiq (Hub)',cancelPay:'Annuler',openPayHelp:'Si l’application ne s’est pas ouverte, réessayez, installez Nimiq Pay ou utilisez le Hub. Aucun paiement n’a commencé.',storeHelp:'Choisissez la boutique de votre téléphone.'},
+ es:{choiceTitle:'¿Cómo quieres pagar?',openPay:'Ya tengo Nimiq Pay',getPay:'Obtener Nimiq Pay',useHub:'Usar la cartera Nimiq (Hub)',cancelPay:'Cancelar',openPayHelp:'Si la aplicación no se abrió, inténtalo de nuevo, instala Nimiq Pay o usa el Hub. No se ha iniciado ningún pago.',storeHelp:'Elige la tienda de tu teléfono.'},
+ de:{choiceTitle:'Wie möchtest du bezahlen?',openPay:'Ich habe bereits Nimiq Pay',getPay:'Nimiq Pay herunterladen',useHub:'Nimiq Wallet (Hub) verwenden',cancelPay:'Abbrechen',openPayHelp:'Falls die App nicht geöffnet wurde, versuche es erneut, installiere Nimiq Pay oder nutze den Hub. Es wurde keine Zahlung gestartet.',storeHelp:'Wähle den Store für dein Smartphone.'},
+ zh:{choiceTitle:'你想如何付款？',openPay:'我已安装 Nimiq Pay',getPay:'获取 Nimiq Pay',useHub:'使用 Nimiq 钱包（Hub）',cancelPay:'取消',openPayHelp:'如果应用未打开，请重试、安装 Nimiq Pay，或使用 Hub。尚未开始付款。',storeHelp:'请选择你手机的应用商店。'}
 };
+
+const handoffWords={
+  "fr": {
+    "choiceHelp": "Nimiq Pay ouvre uniquement cette carte dans l’application, sans nouveau code courriel. Vérifiez-la avant de payer.",
+    "handoffOpening": "Ouverture de Nimiq Pay…",
+    "handoffReady": "Touchez à nouveau « J’ai déjà Nimiq Pay » pour ouvrir l’application.",
+    "handoffExpired": "Le lien est invalide ou a expiré. Rouvrez le lien depuis Safari.",
+    "handoffSession": "Votre connexion a expiré. Confirmez votre courriel ou utilisez le Hub.",
+    "handoffLimit": "Trop de demandes. Patientez avant de réessayer, ou utilisez le Hub.",
+    "handoffFailed": "Impossible d’ouvrir Nimiq Pay. Réessayez ou utilisez le Hub.",
+    "handoffConflict": "Un autre expéditeur est connecté ici. Déconnectez-vous, puis rouvrez le lien depuis Safari.",
+    "handoffNotFundable": "Cette carte ne peut plus être alimentée par ce lien. Consultez son état dans Safari. Ne payez pas une deuxième fois.",
+    "handoffCardExpired": "Cette carte a expiré. Consultez son état dans Safari. Ne payez pas une deuxième fois.",
+    "handoffLimited": "Cet accès permet uniquement de payer et de suivre cette carte. Votre compte complet reste dans Safari.",
+    "handoffResume": "Afficher la carte",
+    "handoffUnavailable": "Impossible de reprendre cette carte. Rouvrez le lien depuis Safari."
+  },
+  "en": {
+    "choiceHelp": "Nimiq Pay opens only this card in the app, without another email code. Review it before paying.",
+    "handoffOpening": "Opening Nimiq Pay…",
+    "handoffReady": "Tap “I already have Nimiq Pay” again to open the app.",
+    "handoffExpired": "The link is invalid or has expired. Reopen the link from Safari.",
+    "handoffSession": "Your session has expired. Confirm your email or use the Hub.",
+    "handoffLimit": "Too many requests. Wait before retrying, or use the Hub.",
+    "handoffFailed": "Could not open Nimiq Pay. Try again or use the Hub.",
+    "handoffConflict": "Another sender is signed in here. Sign out, then reopen the link from Safari.",
+    "handoffNotFundable": "This card can no longer be funded through this link. Check its status in Safari. Do not pay again.",
+    "handoffCardExpired": "This card has expired. Check its status in Safari. Do not pay again.",
+    "handoffLimited": "This access only lets you pay and follow this card. Your full account stays in Safari.",
+    "handoffResume": "View the card",
+    "handoffUnavailable": "Unable to resume this card. Reopen the link from Safari."
+  },
+  "es": {
+    "choiceHelp": "Nimiq Pay abre solo esta tarjeta en la aplicación, sin otro código por correo. Revísala antes de pagar.",
+    "handoffOpening": "Abriendo Nimiq Pay…",
+    "handoffReady": "Toca de nuevo «Ya tengo Nimiq Pay» para abrir la aplicación.",
+    "handoffExpired": "El enlace no es válido o ha caducado. Vuelve a abrirlo desde Safari.",
+    "handoffSession": "Tu sesión ha caducado. Confirma tu correo o usa el Hub.",
+    "handoffLimit": "Demasiadas solicitudes. Espera antes de reintentar o usa el Hub.",
+    "handoffFailed": "No se pudo abrir Nimiq Pay. Reintenta o usa el Hub.",
+    "handoffConflict": "Hay otro remitente conectado aquí. Cierra su sesión y vuelve a abrir el enlace desde Safari.",
+    "handoffNotFundable": "Esta tarjeta ya no se puede financiar mediante este enlace. Consulta su estado en Safari. No vuelvas a pagar.",
+    "handoffCardExpired": "Esta tarjeta ha caducado. Consulta su estado en Safari. No vuelvas a pagar.",
+    "handoffLimited": "Este acceso solo permite pagar y seguir esta tarjeta. Tu cuenta completa permanece en Safari.",
+    "handoffResume": "Ver la tarjeta",
+    "handoffUnavailable": "No se pudo retomar esta tarjeta. Vuelve a abrir el enlace desde Safari."
+  },
+  "de": {
+    "choiceHelp": "Nimiq Pay öffnet nur diese Karte in der App, ohne weiteren E-Mail-Code. Prüfe sie vor dem Bezahlen.",
+    "handoffOpening": "Nimiq Pay wird geöffnet…",
+    "handoffReady": "Tippe erneut auf „Ich habe bereits Nimiq Pay“, um die App zu öffnen.",
+    "handoffExpired": "Der Link ist ungültig oder abgelaufen. Öffne ihn erneut in Safari.",
+    "handoffSession": "Deine Sitzung ist abgelaufen. Bestätige deine E-Mail oder nutze den Hub.",
+    "handoffLimit": "Zu viele Anfragen. Warte vor einem neuen Versuch oder nutze den Hub.",
+    "handoffFailed": "Nimiq Pay konnte nicht geöffnet werden. Versuche es erneut oder nutze den Hub.",
+    "handoffConflict": "Hier ist ein anderer Absender angemeldet. Melde ihn ab und öffne den Link erneut in Safari.",
+    "handoffNotFundable": "Diese Karte kann über diesen Link nicht mehr aufgeladen werden. Prüfe ihren Status in Safari. Bezahle nicht erneut.",
+    "handoffCardExpired": "Diese Karte ist abgelaufen. Prüfe ihren Status in Safari. Bezahle nicht erneut.",
+    "handoffLimited": "Dieser Zugang erlaubt nur das Bezahlen und Verfolgen dieser Karte. Dein vollständiges Konto bleibt in Safari.",
+    "handoffResume": "Karte anzeigen",
+    "handoffUnavailable": "Diese Karte konnte nicht fortgesetzt werden. Öffne den Link erneut in Safari."
+  },
+  "zh": {
+    "choiceHelp": "Nimiq Pay 只会在应用内打开此卡片，无需再次获取邮箱验证码。付款前请核对卡片。",
+    "handoffOpening": "正在打开 Nimiq Pay…",
+    "handoffReady": "请再次点击“我已安装 Nimiq Pay”以打开应用。",
+    "handoffExpired": "链接无效或已过期。请从 Safari 重新打开链接。",
+    "handoffSession": "会话已过期。请确认邮箱或使用 Hub。",
+    "handoffLimit": "请求过多。请稍后重试或使用 Hub。",
+    "handoffFailed": "无法打开 Nimiq Pay。请重试或使用 Hub。",
+    "handoffConflict": "这里已登录另一位发件人。请先退出，再从 Safari 重新打开链接。",
+    "handoffNotFundable": "此链接已无法为该卡片充值。请在 Safari 查看状态，勿再次付款。",
+    "handoffCardExpired": "此卡片已过期。请在 Safari 查看状态，勿再次付款。",
+    "handoffLimited": "此访问权限仅用于支付和跟踪这张卡片。完整账户仍在 Safari 中。",
+    "handoffResume": "查看卡片",
+    "handoffUnavailable": "无法继续处理此卡片。请从 Safari 重新打开链接。"
+  }
+};
+for(const language of Object.keys(handoffWords))Object.assign(words[language],handoffWords[language]);
 // The public light: Wire pays the network fee (gas) of an USDC / USDT payment. It is a quiet line, shown only while it is true.
 const gasLightWords={
  en:'Network fees on USDC and USDT are paid by Phoenix Wire',
@@ -57,24 +136,18 @@ let preference = read('wire-language', 'auto'), lang = 'en', email = '', payment
 let nimCache=null;
 let choosingCoin=false,codeSending=false,codeSentTo='',codeUntil=0,codeTimer=null;
 const t = key => (words[lang] || words.en)[key];
-// Only a payment draft crosses contexts. Never export cookies, grants, link keys or recovery URLs.
-function validNimDraft(d){
- return d&&d.v===1&&Number.isFinite(d.expires)&&d.expires>Date.now()&&d.expires<=Date.now()+86400000&&
- ['recipient','sender'].every(k=>typeof d[k]==='string'&&d[k].length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d[k]))&&
- typeof d.amount==='string'&&/^\d{1,9}(?:\.\d{1,5})?$/.test(d.amount)&&Number(d.amount)>0&&
- typeof d.message==='string'&&[...d.message].length<=160&&/^[a-f0-9]{32}$/.test(d.request_id)&&
- (d.payment_id===''||/^[a-f0-9]{48}$/.test(d.payment_id))&&['fr','en','es','de','zh'].includes(d.language);
-}
-function readNimDraft(){try{const d=JSON.parse(sessionStorage.getItem('wire-nim-handoff')||'null');return validNimDraft(d)?d:null;}catch{return null;}}
-let handoff=readNimDraft();
-if(location.hash.startsWith('#wire-nim=')){
- const encoded=location.hash.slice(10);
- handoff=null;try{sessionStorage.removeItem('wire-nim-handoff');}catch{}
- // Remove the transferred draft from the address bar before any network request.
+// Only an opaque, one-use credential crosses contexts. Remove it before any request.
+let incomingToken=null,handoffError='',handoffPayment=null,scopedID='',fundingBlocked=false;
+if(location.hash.startsWith('#h=')){
+ incomingToken=location.hash.slice(3);
  history.replaceState(null,'',location.pathname+location.search);
- try{if(encoded.length<=6000){const d=JSON.parse(decodeURIComponent(encoded));if(validNimDraft(d)){handoff=d;sessionStorage.setItem('wire-nim-handoff',JSON.stringify(d));}}}catch{}
 }
-if(handoff){preference=handoff.language;save('wire-language',preference);$('wire-email').value=handoff.sender;}
+// Never accept the retired personal-data fragment or its saved draft.
+if(location.hash.startsWith('#wire-nim=')){
+ history.replaceState(null,'',location.pathname+location.search);
+ handoffError='handoffExpired';
+}
+try{sessionStorage.removeItem('wire-nim-handoff');}catch{}
 
 async function api(path, data, signal) {
  const options = { credentials: 'same-origin', cache: 'no-store', redirect: 'error' };
@@ -99,6 +172,9 @@ window.PhoenixViewport={center(win){
 
 function paint() {
  document.documentElement.lang = lang;
+ $('wire-handoff-title').textContent=t('nimCard');$('wire-handoff-help').textContent=t('handoffLimited');
+ $('wire-handoff-open').textContent=t('handoffResume');$('wire-handoff-open').hidden=fundingBlocked||Boolean(handoffError);
+ $('wire-handoff-logout').setAttribute('aria-label',t('out'));$('wire-handoff-logout').title=t('out');
  $('wire-title').textContent = t('title'); $('wire-sub').textContent = t('sub'); $('wire-gas-text').textContent = t('gasLed');
  $('wire-email-label').textContent = t('email');paintCodeRequest(); $('wire-code-label').textContent = t('code'); $('wire-verify').textContent = t('verify');
  $('wire-as').textContent = t('as'); $('wire-logout').setAttribute('aria-label',t('out'));$('wire-logout').title=t('out');
@@ -116,25 +192,56 @@ function paint() {
  renderCards();
 }
 // iOS cannot reliably disclose whether another app is installed. Ask, without timers or blur heuristics.
-const payLink='https://nimpay.app/miniapps/open/wire.phoenixmail.ca';
 const iosStore='https://apps.apple.com/app/nimiq-pay/id6471844738';
 const androidStore='https://play.google.com/store/apps/details?id=com.nimiq.pay';
-let choiceCallback=null,choiceFocus=null,choiceParent=null;
+let choiceCallback=null,choiceFocus=null,choiceParent=null,choicePrepare=null,choiceVersion=0,creatingHandoff=false;
 function closeWalletChoice(){
+ choiceVersion++;choicePrepare=null;$('wire-choice-open').onclick=null;$('wire-choice-open').setAttribute('href','#');
  $('wire-nim-choice').hidden=true;choiceCallback=null;choiceParent?.removeAttribute('inert');choiceParent=null;choiceFocus?.focus();
 }
-function chooseWallet(useHub,draft){
+function chooseWallet(useHub,prepare){
  choiceCallback=useHub;choiceFocus=document.activeElement;choiceParent=document.querySelector('.wire-nim-window');choiceParent?.setAttribute('inert','');
  $('wire-choice-status').hidden=true;$('wire-choice-stores').hidden=true;$('wire-nim-choice').hidden=false;
- const d={v:1,expires:Date.now()+86400000,recipient:draft?.recipient,amount:draft?.amount,message:draft?.message,sender:draft?.sender,request_id:draft?.request_id,payment_id:draft?.payment_id,language:lang};
- // The custom scheme carries the complete mini-app URL, including its fragment.
- // The bare HTTPS domain link cannot restore a draft in the app's separate storage.
- $('wire-choice-open').href=validNimDraft(d)?'nimiqpay://miniapp?url='+encodeURIComponent('https://wire.phoenixmail.ca/#wire-nim='+encodeURIComponent(JSON.stringify(d))):payLink;
+ choiceVersion++;choicePrepare=prepare;
+ $('wire-choice-open').setAttribute('href','#');
  const ua=navigator.userAgent||'';
  $('wire-choice-get').href=/Android/i.test(ua)?androidStore:/iPhone|iPad|iPod/i.test(ua)||navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1?iosStore:'#';
  $('wire-choice-open').focus();
 }
-$('wire-choice-open').addEventListener('click',()=>{$('wire-choice-status').hidden=false;});
+$('wire-choice-open').addEventListener('click',async event=>{
+ if($('wire-choice-open').getAttribute('href')!=='#')return; // direct retry after a blocked popup
+ event.preventDefault();
+ if(creatingHandoff||!choicePrepare)return;
+ const version=choiceVersion,button=$('wire-choice-open');
+ creatingHandoff=true;button.setAttribute('aria-disabled','true');
+ const feedback=$('wire-choice-status');feedback.hidden=false;feedback.textContent=t('handoffOpening');
+ // Open the blank target synchronously: iOS otherwise blocks popups after fetch.
+ // It receives only the opaque URL, never draft fields or a session cookie.
+ const target=window.open('about:blank','_blank');
+ if(target)target.opener=null;
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
+ try{
+  const payment=await choicePrepare();
+  if(version!==choiceVersion){target?.close();return;}
+  const result=await api('/api/handoff',{payment_id:payment.id},controller.signal);
+  if(version!==choiceVersion){target?.close();return;}
+  if(!/^[A-Za-z0-9_-]{43}$/.test(result.token)||result.expires_in!==300)throw Error('invalid_response');
+  const uri='nimiqpay://miniapp?url='+encodeURIComponent('https://wire.phoenixmail.ca/#h='+result.token);
+  feedback.textContent=t('openPayHelp');
+  if(target)target.location.href=uri;
+  else{
+   // Popup blocked: expose a real link for a second, direct user gesture.
+   button.href=uri;
+   button.onclick=()=>{button.onclick=null;setTimeout(()=>button.setAttribute('href','#'),0);};
+   feedback.textContent=t('handoffReady');
+  }
+ }catch(error){
+  target?.close();
+  if(version===choiceVersion)feedback.textContent=t(error.status===401?'handoffSession':error.status===429?'handoffLimit':'handoffFailed');
+ }finally{
+  clearTimeout(timeout);creatingHandoff=false;button.removeAttribute('aria-disabled');
+ }
+});
 $('wire-choice-get').addEventListener('click',event=>{
  if($('wire-choice-get').getAttribute('href')==='#'){event.preventDefault();$('wire-choice-stores').hidden=false;}
 });
@@ -195,7 +302,7 @@ function closePaymentWindow() {
  document.querySelector('.nimiq-payment-head button:last-child')?.click();
 }
 function openNimWindow() {
- if (!email || !nimOn) return;
+ if ((!email&&!scopedID) || !nimOn) return;
  choosingCoin=false;
  if(nimView)return;
  closePaymentWindow();
@@ -215,27 +322,21 @@ function openNimWindow() {
  const back = modal.querySelector('.wire-window-back'); back.textContent = t('back');
  let flow;
  // Keep the authenticated NIM tracker alive when the window is closed or another coin is selected.
- const dismiss = () => { closeWalletChoice();modal.remove(); document.removeEventListener('keydown', escape); nimView = null;if(root.classList.contains('wire-nim-complete')){flow?.destroy();nimCache=null;} $('pay').focus(); };
+ const dismiss = () => { closeWalletChoice();modal.remove(); document.removeEventListener('keydown', escape); nimView = null;if(root.classList.contains('wire-nim-complete')){flow?.destroy();nimCache=null;if(!scopedID)handoffPayment=null;} $(scopedID?'wire-handoff-open':'pay').focus(); };
  const escape = e => { if (e.key === 'Escape') { e.preventDefault(); dismiss(); } };
  back.onclick = dismiss; modal.querySelector('.wire-nim-close').onclick = dismiss;
  document.addEventListener('keydown', escape);
  document.body.append(modal); nimView = { root: modal, dismiss };
- const draft=handoff?.sender.toLowerCase()===email.toLowerCase()?handoff:null;
- if(draft){try{
-  sessionStorage.setItem('wire-request-id',draft.request_id);
-  if(draft.payment_id)sessionStorage.setItem('wire-pending-payment',draft.payment_id);
-  else{sessionStorage.removeItem('wire-pending-payment');sessionStorage.removeItem('wire-pending-wallet');sessionStorage.removeItem('wire-form');}
- }catch{}}
- const clearDraft=()=>{handoff=null;try{sessionStorage.removeItem('wire-nim-handoff');}catch{}};
- paintNim(modal);flow=mountNimFlow(root,{embedded:true,chooseWallet,initialDraft:draft,onDraftUsed:clearDraft,onStatus:(p,message)=>{
+ const prepared=handoffPayment;
+ paintNim(modal);flow=mountNimFlow(root,{embedded:true,chooseWallet,initialPayment:prepared,scopedPaymentID:scopedID,onStatus:(p,message)=>{
+  if(scopedID){handoffPayment=p;$('wire-handoff-state').textContent=message;return;}
   nimCards.set(p.id,p);
-  if(draft?.payment_id===p.id&&p.stage!=='ready')clearDraft();
   if(p.stage==='sent'){
    const notices=nimNotices();
    if(!notices.some(n=>n.id===p.id&&n.sender===email)){notices.push({id:p.id,sender:email,noticePending:true});save('wire-nim-notices',JSON.stringify(notices));}
   }
   renderCards();scheduleNimCards();
- },onClose:()=>{dismiss();renderCards();}});
+ },onClose:()=>{dismiss();if(!scopedID)renderCards();}});
  nimCache={modal,flow,escape,view:nimView};
  back.focus();
 }
@@ -450,7 +551,7 @@ function mountPayments() {
   back.addEventListener('click', () => { close.click(); $('pay').focus(); });
   head.prepend(back);
  };
- $('pay').addEventListener('click', () => { if (!email) return; closePaymentWindow(); if (!usdtOn) openNimWindow(); else{choosingCoin=true;addBack(payments.open('send', 'usdc_polygon'));} });
+ $('pay').addEventListener('click', () => { if (!email||fundingBlocked) return; closePaymentWindow(); if (!usdtOn) openNimWindow(); else{choosingCoin=true;addBack(payments.open('send', 'usdc_polygon'));} });
  // The copied window replaces itself when switching coins; enhance each replacement without editing pm/.
  const windows = new MutationObserver(changes => {
   for (const change of changes) for (const node of change.addedNodes) {
@@ -471,11 +572,16 @@ function showSender(verified, who) {
  $('wire-who').textContent = email;
  if (verified && enabled) {
   mountPayments();void startCards();
-  try { if (nimOn && !resumed && (handoff?.sender.toLowerCase()===email.toLowerCase()||/^[a-f0-9]{48}$/.test(sessionStorage.getItem('wire-pending-payment') || ''))) { resumed = true; openNimWindow(); } } catch { /* tab storage may be unavailable */ }
+  try { if (nimOn && !resumed && !fundingBlocked && !handoffError && (handoffPayment?.sender.toLowerCase()===email.toLowerCase()||/^[a-f0-9]{48}$/.test(sessionStorage.getItem('wire-pending-payment') || ''))) { resumed = true; openNimWindow(); } } catch { /* tab storage may be unavailable */ }
  }
  renderCards();
 }
 
+$('wire-handoff-open').addEventListener('click',()=>{if(!fundingBlocked&&!handoffError)openNimWindow();});
+$('wire-handoff-logout').addEventListener('click',async()=>{
+ try{await api('/api/logout',{});const cached=nimCache;nimView?.dismiss();cached?.flow.destroy();nimCache=null;scopedID='';handoffPayment=null;$('wire-handoff-home').hidden=true;$('wire-entry').hidden=false;showSender(false);say(t('handoffExpired'));}
+ catch{$('wire-handoff-state').textContent=t('handoffFailed');}
+});
 $('wire-language').addEventListener('change', e => setLanguage(e.target.value));
 $('wire-theme').addEventListener('click', () => { const v = document.documentElement.dataset.theme === 'light-paper' ? 'dark' : 'light'; applyTheme(v); save('wire-theme', v); });
 $('wire-palette').addEventListener('change',event=>{applyPalette(event.target.value);save('wire-palette',paletteMode);});
@@ -509,7 +615,7 @@ $('wire-logout').addEventListener('click', async () => {
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
  try{
   await api('/api/logout', {},controller.signal);closeWalletChoice();closePaymentWindow();showSender(false);
-  handoff=null;try{sessionStorage.removeItem('wire-nim-handoff');}catch{}
+  handoffPayment=null;scopedID='';fundingBlocked=false;$('wire-entry').hidden=false;$('wire-handoff-home').hidden=true;
   codeSentTo='';codeUntil=0;$('wire-email').value='';$('wire-code').value='';$('wire-code-box').hidden=true;paintCodeRequest();say('');$('wire-email').focus();
  }catch{say(t('fail'));}finally{clearTimeout(timeout);button.disabled=false;}
 });
@@ -521,17 +627,50 @@ setLanguage(preference);
 async function refreshGas() {
  try { const g = await api('/api/gas'); $('wire-gas').hidden = !(g.polygon?.available || g.ethereum?.available); } catch { $('wire-gas').hidden = true; }
 }
-refreshGas();
-setInterval(() => { if (!document.hidden) refreshGas(); }, 60000);
+setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
 (async () => {
  try {
+  // Redeem at most once. No retry or persistence of this bearer credential.
+  if(incomingToken!==null){
+   let result;
+   const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
+   try{result=await api('/api/handoff/redeem',{token:incomingToken},controller.signal);}
+   catch(error){
+    handoffError=error.code==='session_conflict'?'handoffConflict':error.code==='payment_not_fundable'?'handoffNotFundable':error.status===410?'handoffCardExpired':error.status===404?'handoffExpired':'handoffUnavailable';
+    fundingBlocked=error.code==='payment_not_fundable'||error.status===410;
+   }
+   finally{clearTimeout(timeout);incomingToken=null;}
+   if(result){
+    const p=result.payment;
+    if(p&&/^[a-f0-9]{48}$/.test(p.id)&&(result.scoped===true||result.already_signed_in===true)){
+     handoffPayment=p;
+     if(['fr','en','es','de','zh'].includes(p.language)){preference=p.language;save('wire-language',preference);setLanguage(preference);}
+    }else handoffError='handoffExpired';
+   }
+  }
   const config = await api('/api/config');
   usdtOn = config.mode === 'integrated' && (config.assets || []).some(a => /^USD[CT]_/.test(a));
   nimOn = config.mode === 'integrated' && config.payments_enabled === true && (config.assets || []).includes('NIM');
   enabled = usdtOn || nimOn;
   if (!enabled) { say(t('off')); return; }
-  if (usdtOn) await loadCashlink();
   const session = await api('/api/session');
-  showSender(Boolean(session.verified), session.email);
- } catch { say(t('off')); }
+  const scope=session.handoff?.payment_id;
+  if(!session.verified&&/^[a-f0-9]{48}$/.test(scope||'')){
+   scopedID=scope;usdtOn=false;stopCards();
+   if(handoffPayment?.id!==scope){
+    const list=await api('/api/payments');handoffPayment=list.payments?.find(p=>p.id===scope)||null;
+   }
+   $('wire-entry').hidden=true;$('wire-handoff-home').hidden=false;
+   $('wire-handoff-state').textContent=handoffError?t(handoffError):t('handoffLimited');
+   if(handoffPayment&&!handoffError){
+    if(['fr','en','es','de','zh'].includes(handoffPayment.language))setLanguage(handoffPayment.language);
+    openNimWindow();
+   }
+  }else{
+   if (usdtOn) await loadCashlink();
+   showSender(Boolean(session.verified), session.email);refreshGas();
+  }
+  $('pay').disabled=fundingBlocked;$('wire-handoff-open').hidden=fundingBlocked||Boolean(handoffError);
+  if(handoffError){say(t(handoffError));if(scopedID)$('wire-handoff-state').textContent=t(handoffError);}
+ } catch { say(t('off'));if(scopedID){$('wire-entry').hidden=false;$('wire-sender').hidden=false;} }
 })();
