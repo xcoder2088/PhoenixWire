@@ -1,7 +1,7 @@
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.3.0';
-import { mountNimFlow } from './flow.js?v=0.4.5';
+import { mountNimFlow } from './flow.js?v=0.4.7';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -130,12 +130,19 @@ function openNimWindow() {
  const back = modal.querySelector('.wire-window-back'); back.textContent = '← ' + t('back');
  let flow;
  // Keep the authenticated NIM tracker alive when the window is closed or another coin is selected.
- const dismiss = () => { closeWalletChoice();modal.remove(); document.removeEventListener('keydown', escape); nimView = null; $('pay').focus(); };
+ const dismiss = () => { closeWalletChoice();modal.remove(); document.removeEventListener('keydown', escape); nimView = null;if(root.classList.contains('wire-nim-complete')){flow?.destroy();nimCache=null;} $('pay').focus(); };
  const escape = e => { if (e.key === 'Escape') { e.preventDefault(); dismiss(); } };
  back.onclick = dismiss; modal.querySelector('.wire-nim-close').onclick = dismiss;
  document.addEventListener('keydown', escape);
  document.body.append(modal); nimView = { root: modal, dismiss };
- paintNim(modal);flow=mountNimFlow(root,{embedded:true,chooseWallet,onStatus:(p,message)=>{nimCards.set(p.id,p);renderCards();scheduleNimCards();say(message);},onClose:()=>{const message=root.querySelector('#nim-progress-message').textContent;dismiss();say(message);}});
+ paintNim(modal);flow=mountNimFlow(root,{embedded:true,chooseWallet,onStatus:(p,message)=>{
+  nimCards.set(p.id,p);
+  if(p.stage==='sent'){
+   const notices=nimNotices();
+   if(!notices.some(n=>n.id===p.id&&n.sender===email)){notices.push({id:p.id,sender:email,noticePending:true});save('wire-nim-notices',JSON.stringify(notices));}
+  }
+  renderCards();scheduleNimCards();say(message);
+ },onClose:()=>{const message=root.querySelector('#nim-progress-message').textContent;dismiss();renderCards();say(message);}});
  nimCache={modal,flow,escape,view:nimView};
  back.focus();
 }
@@ -166,11 +173,12 @@ function cardLabel(c){
  if(c.state==='awaiting_funds')return t(c.balanceUnits>0?'confirmingCard':'waitingCard');
  return t('checkingCard');
 }
+function nimNotices(){try{const value=JSON.parse(read('wire-nim-notices','[]'));return Array.isArray(value)?value:[];}catch{return [];}}
 function renderCards(){
  const panel=$('wire-cards');if(!panel)return;
  panel.hidden=!email; $('wire-cards-title').textContent=t('myCards');
  const all=cards().filter(c=>c.sender===email).map(c=>({...c,nim:false}));
- for(const p of nimCards.values())if(p.sender===email)all.push({id:p.id,nim:true,amount:p.amount,asset:'NIM',recipient:p.recipient,state:p.stage!=='sent'&&!nimPending(p)?'expired':p.stage,created:Date.parse(p.created)||0});
+ for(const p of nimCards.values())if(p.sender===email)all.push({id:p.id,nim:true,amount:p.amount,asset:'NIM',recipient:p.recipient,state:p.stage!=='sent'&&!nimPending(p)?'expired':p.stage,created:Date.parse(p.created)||0,invited:p.stage==='sent',noticePending:nimNotices().some(n=>n.id===p.id&&n.sender===email&&n.noticePending)});
  all.sort((a,b)=>(Number(b.created)||0)-(Number(a.created)||0));
  if(!nimView&&all.length)say(cardLabel(all[0]));
  const list=$('wire-cards-list');list.replaceChildren();
@@ -184,11 +192,11 @@ function renderCards(){
   list.append(row);
  }
  const notices=$('wire-card-notices');notices.replaceChildren();
- for(const c of all.filter(c=>!c.nim&&c.invited&&c.noticePending)){
+ for(const c of all.filter(c=>c.invited&&c.noticePending)){
   const banner=document.createElement('section');banner.className='wire-card-banner';
   const message=document.createElement('p');message.setAttribute('role','status');message.textContent=fill('bannerCard',c);
   const close=document.createElement('button');close.type='button';close.className='secondary-btn';close.textContent='×';close.setAttribute('aria-label',t('dismissCard'));
-  close.addEventListener('click',()=>{update(c.id,{noticePending:false});renderCards();$('wire-cards-title').focus();});
+  close.addEventListener('click',()=>{if(c.nim)save('wire-nim-notices',JSON.stringify(nimNotices().map(n=>n.id===c.id&&n.sender===email?{...n,noticePending:false}:n)));else update(c.id,{noticePending:false});renderCards();$('wire-cards-title').focus();});
   banner.append(message,close);notices.append(banner);
  }
  notices.hidden=!email||!notices.childElementCount;

@@ -23,7 +23,8 @@ const progressWords={
  de:{waiting:'Zahlung gesendet. Netzwerkbestätigung ausstehend…',checking:'Zahlung wird im Netzwerk geprüft…',mail:'Zahlung bestätigt. Die Karte wird an {email} gesendet…',sent:'Karte an {email} gesendet. Sie bleibt deine, bis sie eingelöst wird.',failed:'Zahlung bestätigt, aber die Karten-E-Mail konnte nicht gesendet werden. Du kannst sie ohne erneute Zahlung senden.',close:'Schließen',resend:'Erneut senden',offline:'Der Dienst antwortet nicht. Die Prüfung wird automatisch fortgesetzt. Bezahle nicht erneut.',session:'Bestätige deine Absender-E-Mail erneut, um die Karte weiterzuverfolgen. Bezahle nicht erneut.',expired:'Die Karte hat ihre Laufzeit von 24 Stunden erreicht. Prüfe den Verlauf, um übriges Guthaben zurückzuholen.'},
  zh:{waiting:'付款已发送。正在等待网络确认…',checking:'正在网络上检查付款…',mail:'付款已确认。正在向 {email} 发送卡片…',sent:'卡片已发送至 {email}。在被领取之前它仍属于你。',failed:'付款已确认，但卡片邮件未能发送。你可以重新发送，无需再次付款。',close:'关闭',resend:'重新发送',offline:'服务暂未响应。检查将自动恢复，请勿再次付款。',session:'请重新确认发件人邮箱以继续跟踪此卡片。请勿再次付款。',expired:'此卡片已达到 24 小时有效期。请查看历史记录以取回剩余资金。'}
 };
-const pt=key=>(progressWords[document.documentElement.lang]||progressWords.en)[key];
+const doneWords={fr:'Terminé',en:'Done',es:'Listo',de:'Fertig',zh:'完成'};
+const pt=key=>embedded&&key==='close'?(doneWords[document.documentElement.lang]||doneWords.en):(progressWords[document.documentElement.lang]||progressWords.en)[key];
 let fallbackCheckout=null,destroyed=false;
 const fallback=document.createElement('button');fallback.type='button';fallback.className='secondary-btn wire-nim-hub-fallback';fallback.hidden=true;
 $('feedback').after(fallback);
@@ -31,6 +32,7 @@ let configured=false,ready=false,verified=false,busy=false,claimMode=false,activ
 let receiveURL='',cooling=0,coolTimer=null;
 let paymentList=[];
 let displayed=null;
+const completedForms=new Set();
 const monitors=new Map(),checks=new Map(),controllers=new Set();
 let progress=$('nim-progress');
 if(!progress){
@@ -77,6 +79,12 @@ let usdtAssets=[];
 function senderUI(email){verified=Boolean(email);window.wireUsdtState={assets:usdtAssets,isVerified:verified};if(!embedded)window.WireUSDT?.configure(window.wireUsdtState);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');}
 function showPayment(p){
  displayed=p;
+ if(embedded&&p.stage==='sent'){
+  if(!completedForms.has(p.id)){completedForms.add(p.id);requestID=nextID();save('wire-request-id',requestID);save('wire-form','');}
+  for(const id of ['recipient','amount','message']){$(id).value='';$(id).readOnly=false;}
+  $('currency').disabled=false;
+  renderProgress();return;
+ }
  $('preview-empty').hidden=true;$('payment-card').hidden=false;$('preview-title').hidden=false;
  $('recipient').value=p.recipient;$('amount').value=p.amount;$('message').value=p.message;$('currency').value='NIM';
  for(const id of ['recipient','amount','message'])$(id).readOnly=true;$('currency').disabled=true;
@@ -101,7 +109,7 @@ async function loadHistory(){
  }
  active=data.payments.find(p=>!['sent'].includes(p.stage))||null;
  const pending=read('wire-pending-payment');
- const shown=data.payments.find(p=>p.id===pending)||data.payments.find(p=>p.id===displayed?.id)||active||data.payments[0];
+ const shown=data.payments.find(p=>p.id===pending)||data.payments.find(p=>p.id===displayed?.id)||active||(!embedded?data.payments[0]:null);
  for(const p of data.payments){const watch=monitors.get(p.id);if(watch){watch.payment=p;if(p.stage==='sent')stopMonitor(watch);}}
  if(shown)showPayment(shown);
  $('new-card').hidden=Boolean(active);refreshText();
@@ -130,12 +138,17 @@ function progressText(p){
 function renderProgress(){
  if(destroyed)return;
  const p=displayed,show=p&&['funding_started','funded','delivery_pending','delivery_failed','sent'].includes(p.stage);
+ const complete=embedded&&p?.stage==='sent';
+ const newlyComplete=complete&&!root.classList.contains('wire-nim-complete');
+ if(embedded)root.classList.toggle('wire-nim-complete',complete);
+ if(embedded){root.querySelector('.workspace').hidden=complete;$('notice').hidden=complete;$('my-payments').hidden=complete;}
  progress.hidden=!show;if(!claimMode)$('preview-submit').hidden=Boolean(show);if(!show)return;
  const text=progressText(p);$('nim-progress-message').textContent=text;
  $('nim-progress-close').textContent=pt('close');$('nim-progress-close').hidden=p.stage!=='sent'&&Date.now()<deadline(p);
  $('nim-progress-resend').textContent=pt('resend');$('nim-progress-resend').hidden=p.stage!=='delivery_failed'||Date.now()>=deadline(p);
  $('nim-progress-resend').disabled=checks.has(p.id)||busy;
  $('preview-submit').hidden=true;
+ if(newlyComplete&&root.isConnected)$('nim-progress-close').focus();
  onStatus(p,text);
 }
 function observe(p){

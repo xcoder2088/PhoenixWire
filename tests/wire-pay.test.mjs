@@ -497,14 +497,14 @@ async function tracked(options={}){
 }
 const checks=t=>t.calls.filter(([p])=>p.endsWith('/confirm')).length;
 
-test('NIM tracking continues beyond ten minutes, then stops at sent with an explicit Close action',async()=>{
+test('NIM tracking continues beyond ten minutes, then stops at sent with an explicit Done action',async()=>{
   const t=await tracked();
   await t.clock.advance(12*60000);
   assert.ok(checks(t)>20,'the old twenty-check limit is gone');
   assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);
   t.setStage('sent');await t.clock.advance(30000);
   assert.equal(t.$('nim-progress-message').textContent,'Card sent to friend@example.test. It stays yours until it is claimed.');
-  assert.equal(t.$('nim-progress-close').hidden,false);assert.equal(t.$('nim-progress-close').textContent,'Close');
+  assert.equal(t.$('nim-progress-close').hidden,false);assert.equal(t.$('nim-progress-close').textContent,'Done');
   assert.equal(t.$('nim-progress-resend').hidden,true);assert.ok(!t.$('payment-list').textContent.includes('Resend'));
   const count=t.calls.length;await t.clock.advance(10*60000);
   t.window.dispatchEvent(new t.window.Event('pageshow'));await settle();assert.equal(t.calls.length,count,'sent cards are not polled again');
@@ -529,14 +529,14 @@ test('a funded card shows email delivery progress, then a clear failure and a re
   assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);assert.ok(!t.calls.some(([p])=>p.endsWith('/start')));
 });
 
-test('an approved payment shows the waiting status in each language; funded, sent, Close and Resend are translated',async()=>{
+test('an approved payment shows the waiting status in each language; funded, sent, Done and Resend are translated',async()=>{
   const t=await tracked({saved:{['wire-nim-approved:'+'a'.repeat(48)]:'yes'}});
   const expected={
-    fr:['Paiement envoyé. Confirmation sur le réseau en cours…','Paiement confirmé. Envoi de la carte à friend@example.test…','Carte envoyée à friend@example.test. Elle reste à vous tant qu’elle n’est pas réclamée.','Fermer','Renvoyer'],
-    en:['Payment sent. Waiting for network confirmation…','Payment confirmed. Sending the card to friend@example.test…','Card sent to friend@example.test. It stays yours until it is claimed.','Close','Resend'],
-    es:['Pago enviado. Esperando la confirmación de la red…','Pago confirmado. Enviando la tarjeta a friend@example.test…','Tarjeta enviada a friend@example.test. Sigue siendo tuya hasta que se reclame.','Cerrar','Reenviar'],
-    de:['Zahlung gesendet. Netzwerkbestätigung ausstehend…','Zahlung bestätigt. Die Karte wird an friend@example.test gesendet…','Karte an friend@example.test gesendet. Sie bleibt deine, bis sie eingelöst wird.','Schließen','Erneut senden'],
-    zh:['付款已发送。正在等待网络确认…','付款已确认。正在向 friend@example.test 发送卡片…','卡片已发送至 friend@example.test。在被领取之前它仍属于你。','关闭','重新发送']
+    fr:['Paiement envoyé. Confirmation sur le réseau en cours…','Paiement confirmé. Envoi de la carte à friend@example.test…','Carte envoyée à friend@example.test. Elle reste à vous tant qu’elle n’est pas réclamée.','Terminé','Renvoyer'],
+    en:['Payment sent. Waiting for network confirmation…','Payment confirmed. Sending the card to friend@example.test…','Card sent to friend@example.test. It stays yours until it is claimed.','Done','Resend'],
+    es:['Pago enviado. Esperando la confirmación de la red…','Pago confirmado. Enviando la tarjeta a friend@example.test…','Tarjeta enviada a friend@example.test. Sigue siendo tuya hasta que se reclame.','Listo','Reenviar'],
+    de:['Zahlung gesendet. Netzwerkbestätigung ausstehend…','Zahlung bestätigt. Die Karte wird an friend@example.test gesendet…','Karte an friend@example.test gesendet. Sie bleibt deine, bis sie eingelöst wird.','Fertig','Erneut senden'],
+    zh:['付款已发送。正在等待网络确认…','付款已确认。正在向 friend@example.test 发送卡片…','卡片已发送至 friend@example.test。在被领取之前它仍属于你。','完成','重新发送']
   };
   for(const[lang,labels]of Object.entries(expected)){
     t.$('wire-language').value=lang;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
@@ -774,4 +774,55 @@ test('the page scrolls: PhoenixMail’s stylesheet locks html, Wire’s frame fr
   const css = read('../internal/web/static/wire-pay.css'), app = read('../internal/web/static/pm/app.css');
   assert.match(app, /html\{overflow:hidden/, 'the copied stylesheet does lock the page (its mail app scrolls inside itself)');
   assert.match(css, /html\{[^}]*height:auto!important[^}]*overflow-y:auto!important/, 'Wire’s page is a normal page: it must scroll on a phone');
+});
+
+test('sent NIM replaces the form with one completion screen, clears its draft and Done removes the entire window',async()=>{
+ const t=await tracked();
+ const requestBefore=t.window.sessionStorage.getItem('wire-request-id');
+ assert.equal(t.$('recipient').value,'friend@example.test');assert.equal(t.$('amount').value,'2.5');
+ t.setStage('sent');await t.clock.advance(4000);
+ const host=t.doc.querySelector('.wire-nim-host');
+ assert.equal(host.classList.contains('wire-nim-complete'),true);
+ for(const id of ['recipient','amount','message'])assert.equal(t.$(id).value,'');
+ assert.equal(host.querySelector('.workspace').hidden,true);assert.equal(t.$('my-payments').hidden,true);assert.equal(t.$('notice').hidden,true);
+ assert.equal(t.$('nim-progress').hidden,false);assert.equal(t.$('nim-progress-resend').hidden,true);
+ assert.equal(t.doc.activeElement,t.$('nim-progress-close'));
+ assert.notEqual(t.window.sessionStorage.getItem('wire-request-id'),requestBefore);
+ assert.equal(t.window.sessionStorage.getItem('wire-form'),'');
+ t.$('nim-progress-close').click();await settle();
+ assert.equal(t.doc.querySelector('.wire-nim-window'),null);assert.equal(t.doc.querySelector('#nim-progress'),null);
+ assert.equal(t.doc.activeElement,t.$('pay'));
+ assert.match(t.$('wire-cards-list').textContent,/2.5 NIM.*friend@example.test.*Card sent to friend@example.test/s);
+ assert.equal(t.$('wire-card-notices').hidden,false);assert.match(t.$('wire-card-notices').textContent,/Email sent to friend@example.test/);
+ const local=t.snapshotLocal();
+ t.doc.querySelector('.wire-card-banner button').click();assert.equal(t.$('wire-card-notices').hidden,true);
+ const dismissed=t.snapshotLocal();
+ t.$('pay').click();await settle();
+ assert.equal(t.doc.querySelector('.wire-nim-host').classList.contains('wire-nim-complete'),false);
+ assert.equal(t.$('recipient').value,'');assert.equal(t.$('message').value,'');
+ assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);
+ assert.equal(t.calls.filter(([p,b])=>p==='/api/payments'&&b).length,0);
+ const restored=await start({clocked:true,nimStage:'sent',local});
+ assert.equal(restored.$('wire-card-notices').hidden,false);
+ const quiet=await start({clocked:true,nimStage:'sent',local:dismissed});
+ assert.equal(quiet.$('wire-card-notices').hidden,true);
+});
+
+test('at 375 px the NIM completion hides every other panel and has no sticky or floating success box',async()=>{
+ const t=await tracked();Object.defineProperty(t.window,'innerWidth',{value:375});
+ const css=read('../internal/web/static/wire-pay.css');
+ const style=t.doc.createElement('style');style.textContent=css;t.doc.head.append(style);
+ t.setStage('sent');await t.clock.advance(4000);
+ const visible=el=>!el.closest('[hidden]')&&t.window.getComputedStyle(el).display!=='none';
+ assert.equal(t.window.innerWidth,375);
+ assert.equal(t.window.getComputedStyle(t.$('nim-progress')).position,'static');
+ assert.equal(t.window.getComputedStyle(t.$('nim-progress')).textAlign,'center');
+ assert.equal(visible(t.doc.querySelector('.wire-nim-window>.nimiq-payment-head')),false);
+ assert.equal(visible(t.doc.querySelector('.wire-nim-assets')),false);
+ assert.equal(visible(t.doc.querySelector('.workspace')),false);
+ assert.deepEqual([...t.doc.querySelector('.wire-nim-host').children].filter(visible).map(el=>el.id),['nim-progress']);
+ t.$('nim-progress-close').click();await settle();assert.equal(t.doc.querySelector('.wire-nim-complete'),null);
+ assert.match(css,/\.wire-nim-window:has\(\.wire-nim-complete\)\{[^}]*width:min\(520px,calc\(100vw - 24px\)\);min-width:0;box-sizing:border-box/);
+ assert.match(css,/\.wire-nim-complete \.wire-nim-progress\{[^}]*position:static[^}]*align-items:center[^}]*width:100%[^}]*box-sizing:border-box/);
+ assert.match(css,/@media\(max-width:420px\)\{\.wire-nim-host\.wire-nim-complete\{padding:16px\}/);
 });
