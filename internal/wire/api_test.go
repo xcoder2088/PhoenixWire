@@ -539,3 +539,51 @@ func TestRecipientCodeCrossesToTheAppOnceAndOnlyForItsCard(t *testing.T) {
 		t.Fatal("token on disk")
 	}
 }
+
+func TestListSaysWhereACardsCoinsAre(t *testing.T) {
+	f := newFixture(t)
+	f.verifySender("sender@example.test")
+	p := f.create()
+	good(f.call("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t)
+	f.rpcMu.Lock()
+	f.funded = true
+	f.rpcMu.Unlock()
+	good(f.call("POST", "/api/payments/"+p.ID+"/confirm", map[string]string{}), t)
+	state := func() string {
+		w := f.call("GET", "/api/payments", nil)
+		good(w, t)
+		var out struct {
+			Payments []payment `json:"payments"`
+		}
+		json.Unmarshal(w.Body.Bytes(), &out)
+		return out.Payments[0].ClaimState
+	}
+	if state() != "" { // the first list only starts the look: it never waits for the chain
+		t.Fatal("a state appeared before the chain was asked")
+	}
+	f.api.lookCardState(p.ID, time.Now())
+	f.api.stateMu.Lock()
+	for id, e := range f.api.cardStates { // let the wait pass without sleeping
+		e.Looking = false
+		f.api.cardStates[id] = e
+	}
+	f.api.stateMu.Unlock()
+	if got := state(); got != "unclaimed" {
+		t.Fatal("a funded card still holding its coins reads", got)
+	}
+	// The coins leave the card (claimed, or recovered): the next look says so, and it is final.
+	f.rpcMu.Lock()
+	f.funded = false
+	f.rpcMu.Unlock()
+	f.api.lookCardState(p.ID, time.Now())
+	if got := state(); got != "claimed" {
+		t.Fatal("an emptied card reads", got)
+	}
+	f.rpcMu.Lock()
+	f.funded = true
+	f.rpcMu.Unlock()
+	f.api.lookCardState(p.ID, time.Now())
+	if got := state(); got != "claimed" {
+		t.Fatal("coins cannot come back to a card, but it reads", got)
+	}
+}

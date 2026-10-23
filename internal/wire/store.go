@@ -38,10 +38,13 @@ type payment struct {
 	// and a card that was sent before this was kept has none (it is not made up).
 	SentAt *time.Time `json:"sent_at,omitempty"`
 	// StartedAt is when the funding was started (the wallet was asked): a second request to a wallet waits long enough for the first one to show.
-	StartedAt    *time.Time `json:"started_at,omitempty"`
-	LastDelivery time.Time  `json:"-"`
-	Deliveries   int        `json:"-"`
-	Nimicon      string     `json:"-"`
+	StartedAt *time.Time `json:"started_at,omitempty"`
+	// ClaimState is where the coins are, read from the chain (nimstate.go): "unclaimed", "claiming" or "claimed". Set on the copies of the list
+	// only, never stored; absent while it is not known yet.
+	ClaimState   string    `json:"claim_state,omitempty"`
+	LastDelivery time.Time `json:"-"`
+	Deliveries   int       `json:"-"`
+	Nimicon      string    `json:"-"`
 }
 
 // Internal snapshot fields for delivery counters must persist across restart.

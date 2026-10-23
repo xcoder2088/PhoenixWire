@@ -29,6 +29,7 @@ type Engine interface {
 	Confirm(context.Context, string) (bool, error)
 	PublicHandler() http.Handler
 	Recovery(string) (string, error)
+	CardState(context.Context, string) (string, error)
 }
 type senderOTP interface {
 	IssueClaim(context.Context, string, string) error
@@ -56,6 +57,10 @@ type API struct {
 	// the hand-over to the Nimiq Pay app (handoff.go), under mu
 	handoffs    map[string]handoff
 	handoffAsks map[string][]time.Time
+	// where each NIM card's coins are, asked of the chain in the background (nimstate.go)
+	stateMu    sync.Mutex
+	looks      sync.WaitGroup // the background looks: Close waits for them before the engine goes
+	cardStates map[string]cardState
 	// the same for a recipient's code (claimhandoff.go), under mu
 	claimHandoffs map[string]claimHandoff
 	claimAsks     map[string][]time.Time
@@ -95,7 +100,7 @@ func New(c Config) (*API, error) {
 	ok = true
 	return &API{db: db, otp: otp, engine: c.Engine, mail: c.Mail, origin: strings.TrimSuffix(c.Origin, "/"), master: append([]byte(nil), c.Master...), unlock: unlock, now: func() time.Time { return time.Now().UTC() }}, nil
 }
-func (a *API) Close() { clear(a.master); a.unlock() }
+func (a *API) Close() { a.looks.Wait(); clear(a.master); a.unlock() }
 
 // USDTEngine is what the embedded engine offers when the USDC / USDT cashlinks run in the same process.
 type USDTEngine interface {
@@ -271,6 +276,7 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 			if len(list) > 50 {
 				list = list[:50]
 			}
+			a.withCardStates(list)
 			respond(w, 200, map[string]any{"payments": list})
 			return
 		}

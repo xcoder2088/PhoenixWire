@@ -138,6 +138,38 @@ func (e *Engine) IssuerCall(ctx context.Context, method, path string, body []byt
 	e.server.usdtRoutes(rec, req)
 	return rec.Code, rec.Body.Bytes(), nil
 }
+
+// CardState says where a NIM card's coins are, from the node and the payout journal, never from what a page claims: "unclaimed" (the card
+// still holds them), "claiming" (a payout to an address was sent and is not in a block yet) or "claimed" (they have left the card: paid
+// to the recipient's address, or taken with the Hub link, or recovered by the sender: the chain cannot tell these apart). Only a funded
+// card should be asked: an empty one that was never funded would read as "claimed".
+func (e *Engine) CardState(ctx context.Context, id string) (string, error) {
+	s := e.server
+	if s.chain == nil || s.cashlinkVault == nil || !s.cashlinkVault.Has(id) {
+		return "", errors.New("card_state_unavailable")
+	}
+	if rec, err := s.loadPayout(id); err != nil {
+		return "", err
+	} else if rec != nil {
+		if found, confirmations, executed := s.chain.TxState(ctx, rec.Hash); found && executed && confirmations >= 1 {
+			return "claimed", nil
+		}
+		return "claiming", nil
+	}
+	seed, address, err := s.cashlinkKey(id)
+	if err != nil {
+		return "", err
+	}
+	clear(seed)
+	balance, err := s.chain.Balance(ctx, address)
+	if err != nil {
+		return "", err
+	}
+	if balance == 0 {
+		return "claimed", nil
+	}
+	return "unclaimed", nil
+}
 func (e *Engine) Recovery(id string) (string, error) {
 	seed, err := e.server.cashlinkVault.Open(id)
 	if err != nil {
