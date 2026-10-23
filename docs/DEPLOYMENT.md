@@ -47,8 +47,9 @@ Automated tests do not demonstrate real delivery or receipt. After the owner has
 reviewed and enabled hosting, record each step without logging codes or secrets:
 
 1. Sender receives and enters their sign-in email code.
-2. For NIM, open `/classic.html` and use an owner-approved small amount. The current `/` window instead offers configured
-   USDC Polygon, USDT Polygon and USDT Ethereum; run each asset’s acceptance separately.
+2. Select NIM in the common `/` payment window and use an owner-approved small amount. The same window offers configured
+   USDC Polygon, USDT Polygon and USDT Ethereum; run each asset’s acceptance separately. Keep classic.html and NIM claim
+   links in the regression checks.
 3. Funding is confirmed, then the recipient receives the branded invitation.
 4. Check the card and footer. NIM uses an opaque invitation URL; USDC/USDT use a protected `#c=…` link. The sender submits
    that full link to Wire for validation and email delivery without persistence; recipient claim calls use proofs/signatures.

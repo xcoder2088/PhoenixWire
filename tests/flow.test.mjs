@@ -50,7 +50,7 @@ async function start({claim=false,verified=true,pending=false,mobile=false,retur
  window.HubApi=Hub;
  window.PhoenixNimiqIdenticons={async png(){return 'fixture-artwork';},paint(image){image.hidden=false;image.src='data:image/png;base64,test';}};
  Object.assign(dom.getInternalVMContext(),{flowText,addressValid,cardPresentation,paintCard});
- const source=fs.readFileSync(new URL('../internal/web/static/flow.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'');
+ const source=fs.readFileSync(new URL('../internal/web/static/flow.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'').replace(/^export /gm,'');
  vm.runInContext(source,dom.getInternalVMContext());await settle();
  const $=id=>window.document.getElementById(id);
  const submit=async()=>{$('card-form').dispatchEvent(new window.Event('submit',{cancelable:true}));await settle();};

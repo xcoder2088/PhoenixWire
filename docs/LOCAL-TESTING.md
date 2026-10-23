@@ -29,13 +29,15 @@ go test ./...
 The engine is a nested Go module, so root `go test ./...` alone does not run its full suite. RPC/mail fixtures do not spend money
 or prove a deployed service works. Record any unavailable tools and failed checks rather than treating them as passed.
 
-## Current page: USDC / USDT
+## Current page: NIM, USDC and USDT
 
 1. Open `/`. Confirm the PhoenixWire title, tab icon, mobile touch icon and links to both presentation sites.
 2. Before signing in, check the 24-hour explanation below the email field in FR/EN/ES/DE/ZH.
 3. Request and verify the sender email. Check the 24-hour confirmation next to the email. Reload within the same session:
    no new sender code should be needed. Explicit logout, expired sessions and other devices require confirmation again.
-4. Open Payments: check USDC Polygon, USDT Polygon and USDT Ethereum according to enabled assets, with protection required.
+4. Open Payments: check NIM, USDC Polygon, USDT Polygon and USDT Ethereum according to enabled assets, with protection required.
+   Switch to NIM without another sender-code request; validate its original Hub checkout and saved redirect/return.
+   Toggle light/dark before opening and inside the window; check neutral button fills and accent outlines.
    Exit using the return button; reopen and switch coins, then verify the return button still works.
 5. With local fixtures, create a card and check the locally verified Safe address, total including fees, funding QR and preview.
 6. Funding confirmation triggers the invitation. Wire receives the complete link for this mail, validates it and does not persist it.
@@ -50,7 +52,7 @@ Keep local recovery data; the browser-held USDC/USDT link is not restored solely
 
 ## Classic NIM regression checks
 
-Open `/classic.html` for NIM; open `/?claim=…` for its recipient path. Sender verification precedes an immutable payment intent.
+NIM is now available in the common Payments window. Also check `/classic.html` for compatibility and `/?claim=…` for its recipient path. Sender verification precedes an immutable payment intent.
 Official Hub funds the prepared address, including mobile redirect/return. Once checkout starts, reload follows the same address
 and does not automatically start a second checkout. After confirmed funding, the invitation uses the existing opaque claim URL.
 Recipient code verification releases the original Hub-compatible Cashlink link. Sender recovery only works while funds are unspent.

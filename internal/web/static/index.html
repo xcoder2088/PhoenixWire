@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" class="wire-app">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Phoenix Wire</title>
@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/pm/app.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/nimiq-payments.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/theme-light.css?v=0.4.0">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.1">
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.2">
 </head>
 <body class="wire-body">
   <main class="wire-shell">
@@ -33,19 +33,57 @@
       </div>
       <div id="wire-ready" hidden>
         <p class="wire-who"><span id="wire-as"></span> <strong id="wire-who"></strong> <span id="wire-session-confirmed" class="wire-session-confirmed"></span> <button id="wire-logout" type="button" class="secondary-btn"></button></p>
-        <button id="pay" type="button" class="secondary-btn wire-pay-button"><img src="/brand/usdc-coin.png?v=0.3.0" alt="" width="24" height="24"><img src="/brand/usdt-coin.png?v=0.4.0" alt="" width="24" height="24"><span id="wire-pay-label"></span></button>
+        <button id="pay" type="button" class="secondary-btn wire-pay-button"><img src="/brand/nimiq-logo.svg?v=0.3.0" alt="" width="24" height="24"><img src="/brand/usdc-coin.png?v=0.3.0" alt="" width="24" height="24"><img src="/brand/usdt-coin.png?v=0.4.0" alt="" width="24" height="24"><span id="wire-pay-label"></span></button>
       </div>
       <p id="wire-status" role="status" aria-live="polite"></p>
-      <p class="wire-note"><a id="wire-classic" href="/classic.html"></a></p>
+      
     </section>
     <footer class="wire-foot">Powered by <a href="https://phoenixmail.ca" rel="noopener">Phoenix Mail</a></footer>
   </main>
+  <template id="wire-nim-template">
+    <div class="nimiq-payment-modal">
+      <section class="nimiq-payment-window wire-nim-window" role="dialog" aria-modal="true" aria-label="Nimiq">
+        <div class="nimiq-payment-head"><button type="button" class="secondary-btn wire-window-back"></button><h3>Nimiq · <span data-nim-text="pay"></span></h3><button type="button" class="wire-nim-close">×</button></div>
+        <div class="nimiq-payment-controls nimiq-payment-assets wire-nim-assets"></div>
+        <div class="wire-nim-host">
+          <p id="notice" class="nimiq-payment-how" role="status"></p>
+          <div class="workspace">
+            <section class="panel nimiq-payment-panel">
+              <h2 data-nim-text="nimCard"></h2>
+              <form id="card-form">
+                <label hidden><input id="sender" type="email" autocomplete="email"></label>
+                <div id="sender-auth" hidden><button id="send-sender-code" type="button"></button><div id="sender-code-box" hidden><input id="sender-code"><button id="verify-sender-code" type="button"></button></div><button id="logout" type="button"></button><p id="sender-status"></p></div>
+                <label><span data-nim-text="nimRecipient"></span><input id="recipient" type="email" autocomplete="off" required maxlength="254"></label>
+                <label hidden><select id="currency"><option value="NIM">NIM · Nimiq</option></select></label>
+                <label><span data-nim-text="nimAmount"></span><input id="amount" type="text" inputmode="decimal" required maxlength="24" value="2.5"></label>
+                <label><span data-nim-text="nimMessage"></span><textarea id="message" maxlength="160" rows="2"></textarea></label>
+                <p class="security nimiq-payment-how" data-wire="security"></p>
+                <button id="preview-submit" class="secondary-btn" type="submit" data-wire="pay"></button>
+                <p id="feedback" role="status" aria-live="polite"></p>
+              </form>
+            </section>
+            <section class="preview-area">
+              <p id="preview-empty" data-nim-text="nimEmpty"></p><h2 id="preview-title" data-nim-text="nimPreview" hidden></h2>
+              <article class="payment-card nimiq-payment-card" id="payment-card" hidden>
+                <div class="nimiq-card-head"><img class="wire-nim-brand" src="/brand/phoenix-wire.webp?v=0.3.0" alt="Phoenix Wire"><span class="sample" data-nim-text="nimProtected"></span></div>
+                <p class="card-heading"></p><p id="card-network">Nimiq</p>
+                <p class="nimiq-payment-amount"><span id="card-amount"></span> <span id="card-unit">NIM</span></p>
+                <div class="nimiq-card-content"><div id="coin"></div><p class="lock"></p><p id="card-message"></p><p id="card-recipient"></p></div>
+              </article><p id="preview-note" hidden></p>
+            </section>
+          </div>
+          <section id="my-payments" hidden><h2 data-wire="history"></h2><div id="payment-list"></div><button id="new-card" type="button" class="secondary-btn" data-wire="newCard"></button></section>
+          <section id="claim-panel" hidden><article id="claim-card"><p id="claim-info"></p><p id="claim-amount"></p><p id="claim-message"></p><img id="claim-iqon" alt=""><form id="claim-form"><button id="request-claim-code" type="button"></button><p id="claim-status"></p><label><input id="claim-code"></label><button id="release-claim" type="submit"></button></form></article><a id="wallet-link" hidden></a></section>
+        </div>
+      </section>
+    </div>
+  </template>
   <script src="/pm/nimiq-hub.js?v=0.4.0"></script>
   <script src="/pm/phoenix-nimiq.js?v=0.4.0"></script>
   <script src="/pm/nimiq-iqons.js?v=0.4.0"></script>
   <script src="/pm/usdt-cashlink.js?v=0.4.0"></script>
   <script src="/pm/usdt-payments.js?v=0.4.0"></script>
   <script src="/pm/nimiq-payments.js?v=0.4.0"></script>
-  <script type="module" src="/wire-pay.js?v=0.4.1"></script>
+  <script type="module" src="/wire-pay.js?v=0.4.2"></script>
 </body>
 </html>

@@ -1,10 +1,12 @@
 import { flowText } from './flow-text.js?v=0.3.0';
 import { addressValid,cardPresentation,paintCard } from './model.js?v=0.3.0';
 
+// The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
+export function mountNimFlow(root=document,{embedded=false}={}){
 // The bundled official Iqons adapter validates public Nimiq addresses through this hook.
-window.PhoenixNimiqPayments={addressValid};
+if(!embedded)window.PhoenixNimiqPayments={addressValid};
 
-const $=id=>document.getElementById(id);
+const $=id=>root.querySelector('[id="'+id+'"]');
 const t=key=>flowText(document.documentElement.lang,key);
 let configured=false,ready=false,verified=false,busy=false,claimMode=false,active=null;
 let receiveURL='',cooling=0,coolTimer=null;
@@ -23,8 +25,8 @@ async function api(path,data){
 function status(id,key){$(id).textContent=t(key);}
 function explain(error){if(error.message==='funding_pending'||error.message==='funding_already_started')return t('pending');if(error.status===403)return t('invalid');if(error.status===410)return t('expired');if(error.status===401)return t('verifyFirst');return t('failed');}
 function refreshText(){
- document.querySelectorAll('[data-wire]').forEach(el=>el.textContent=t(el.dataset.wire));
- if(configured&&!claimMode){$('preview-submit').textContent=t(active&&active.stage!=='ready'?'retry':'pay');$('notice').textContent=t(ready?'note':'unavailable');document.querySelector('.security').textContent=t('security');document.querySelector('.lock').textContent=cardPresentation(document.documentElement.lang).locked;}
+ root.querySelectorAll('[data-wire]').forEach(el=>el.textContent=t(el.dataset.wire));
+ if(configured&&!claimMode){$('preview-submit').textContent=t(active&&active.stage!=='ready'?'retry':'pay');$('notice').textContent=t(ready?'note':'unavailable');root.querySelector('.security').textContent=t('security');root.querySelector('.lock').textContent=cardPresentation(document.documentElement.lang).locked;}
  if(receiveURL)$('release-claim').textContent=t('receive');
  if(cooling)updateClaimControls();
 }
@@ -34,7 +36,7 @@ async function task(run,target='feedback',cleanup){
  try{await run();}catch(error){$(target).textContent=explain(error);}finally{busy=false;cleanup?.();}
 }
 let usdtAssets=[];
-function senderUI(email){verified=Boolean(email);window.wireUsdtState={assets:usdtAssets,isVerified:verified};window.WireUSDT?.configure(window.wireUsdtState);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');}
+function senderUI(email){verified=Boolean(email);window.wireUsdtState={assets:usdtAssets,isVerified:verified};if(!embedded)window.WireUSDT?.configure(window.wireUsdtState);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');}
 function showPayment(p){
  $('preview-empty').hidden=true;$('payment-card').hidden=false;$('preview-title').hidden=false;
  $('recipient').value=p.recipient;$('amount').value=p.amount;$('message').value=p.message;$('currency').value='NIM';
@@ -42,8 +44,8 @@ function showPayment(p){
  $('card-amount').textContent=p.amount;$('card-unit').textContent='NIM';$('card-network').textContent='Nimiq';$('card-message').textContent=p.message;$('card-recipient').textContent=p.recipient;
  $('payment-card').dataset.currency='NIM';$('card-network').hidden=true;
  const words=paintCard($('payment-card'),document.documentElement.lang,p.id);
- document.querySelector('.card-heading').textContent='Nimiq · '+words.heading;document.querySelector('.sample').textContent=words.protected;
- document.querySelector('.lock').textContent=words.locked;
+ root.querySelector('.card-heading').textContent='Nimiq · '+words.heading;root.querySelector('.sample').textContent=words.protected;
+ root.querySelector('.lock').textContent=words.locked;
  $('preview-note').hidden=true;
  const image=document.createElement('img');image.width=62;image.height=62;image.alt='Nimiq Nimicon';$('coin').textContent='';$('coin').append(image);window.PhoenixNimiqIdenticons?.paint(image,p.address);
 }
@@ -127,16 +129,16 @@ $('claim-form').addEventListener('submit',event=>{event.preventDefault();if(rece
 },$('release-claim'));});
 function claimID(){const id=new URLSearchParams(location.search).get('claim');if(!/^[a-f0-9]{48}$/.test(id||''))throw Error('claim_unavailable');return id;}
 async function boot(){
- refreshText();claimMode=new URLSearchParams(location.search).has('claim');
+ refreshText();claimMode=!embedded&&new URLSearchParams(location.search).has('claim');
  if(claimMode){
-  document.querySelector('.workspace').hidden=true;$('notice').hidden=true;$('claim-panel').hidden=false;
+  root.querySelector('.workspace').hidden=true;$('notice').hidden=true;$('claim-panel').hidden=false;
   try{const p=await api('/api/claims/'+claimID());paintCard($('claim-card'),document.documentElement.lang,p.id);$('claim-info').textContent=t('from')+' '+p.sender;$('claim-amount').textContent=p.amount+' NIM';$('claim-message').textContent=p.message;
    window.PhoenixNimiqIdenticons?.paint($('claim-iqon'),p.address);
    if(new Date(p.expires_at).getTime()<=Date.now()){hideClaimInputs();status('claim-status','expired');}
   }catch(error){hideClaimInputs();$('claim-status').textContent=explain(error);}return;
  }
  try{const config=await api('/api/config');configured=config.mode==='integrated';ready=config.payments_enabled===true;usdtAssets=Array.isArray(config.assets)?config.assets:[];if(!configured)return;
-  $('sender-auth').hidden=false;refreshText();const session=await api('/api/session');senderUI(session.verified?session.email:'');if(verified)await loadHistory();
+  $('sender-auth').hidden=embedded;refreshText();const session=await api('/api/session');senderUI(session.verified?session.email:'');if(verified)await loadHistory();
   try{const draft=JSON.parse(read('wire-form')||'null');if(draft&&active?.id===draft.payment)showPayment(active);}catch{}
   const pending=read('wire-pending-payment');
   if(pending&&/^[a-f0-9]{48}$/.test(pending)&&window.HubApi){
@@ -146,5 +148,10 @@ async function boot(){
   }
  }catch{status('feedback','unavailable');}
 }
-void boot();
+const started=boot();
 function hideClaimInputs(){$('request-claim-code').hidden=true;$('release-claim').hidden=true;$('claim-code').closest('label').hidden=true;$('claim-code').disabled=true;}
+
+return {ready:started,destroy(){window.removeEventListener('wire-language',refreshText);clearInterval(coolTimer);}};
+}
+
+if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();

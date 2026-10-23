@@ -7,9 +7,9 @@ The imported engine keeps its own module path. Wire owns separate keys and priva
 
 | Route / files | Role |
 |---|---|
-| `/`, `index.html`, `wire-pay.js`, `wire-pay.css` | Current sender host: verify sender, open the payment window, monitor cards and invite recipients |
+| `/`, `index.html`, `wire-pay.js`, `wire-pay.css` | Current sender host: one sender verification for NIM/USDC/USDT, window, monitoring and invitations |
 | `/pm/*` | PhoenixMail payment-window mirror; see PAYMENT-WINDOW.md before changing it |
-| `/classic.html` | Earlier interface, still used for NIM sending and its design preview |
+| `/classic.html` | Compatibility sender interface and earlier design preview |
 | `/?claim=…` | Earlier interface in NIM recipient mode |
 | `/usdt.html#c=…` | Engine's USDC/USDT recipient page |
 
@@ -43,7 +43,12 @@ One logical invitation is sent on funding; uncertain responses/retries can resub
 All cards in this flow are protected. Assets are USDC Polygon, USDT Polygon and USDT Ethereum, according to enabled configuration.
 Sender free-gas support remains unavailable in the Wire host (`gas:false`).
 
-## NIM flow retained in classic.html
+## NIM flow shared with the current window
+
+`flow.js` exports `mountNimFlow(root, {embedded:true})`. Wire mounts that same existing protected flow in its NIM template
+from `index.html`, selected alongside the three stablecoin options. `classic.html` still mounts it in its original context;
+`/?claim=…` retains the recipient path. The host uses the same 24-hour sender cookie for every currency. No server security
+route or funding algorithm is replaced.
 
 The gateway persists an immutable sender/recipient/amount intent, then creates and seals a NIM Cashlink using the existing engine.
 Official Hub checkout funds that address. A started checkout is persisted before opening the wallet and is not automatically restarted.
@@ -59,3 +64,10 @@ the copied window's `o.brand` option. Historic design notes do not override the 
 
 Unconfigured startup does not enable payments. Follow LOCAL-TESTING.md and DEPLOYMENT.md for configuration and owner-run checks.
 Historical review documents under docs/ describe their pinned commits, not a current deployment certification.
+
+## Theme and host controls
+
+The saved preference remains `dark`/`light`, shared with the classic page. The current host maps `light` to PhoenixMail’s
+actual `light-paper` selector; this fixes the earlier toggle that only set an unused `light` value. `wire-pay.css` applies
+neutral button fills and accent outlines, including selected currency controls and the protection tile. Mirrored pm/ styles
+and code remain unchanged.

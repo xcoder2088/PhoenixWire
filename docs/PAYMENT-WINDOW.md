@@ -18,10 +18,11 @@ Three small, marked changes to the mirrored files (to re-apply after a new sync)
 
 1. `pm/nimiq-payments.js` `cardShell`: the card's emblem and name come from an `o.brand` option (PhoenixMail's by default).
 2. `pm/usdt-cashlink.js` and `pm/usdt-payments.js` `sw()`: the texts say `window.PhoenixBrandName` instead of "PhoenixMail".
-3. `wire-pay.css` hides what Wire's server does not do yet: NIM and "Request payment".
+3. `wire-pay.css` hides "Request payment". NIM is now visible: the host binds its currency button to Wire’s existing protected NIM flow, without modifying the copied files.
 
-Not yet in this window: NIM (still `classic.html`, which a `/?claim=…` link opens) and the sender's free gas (the window
-supports it; `/api/usdt/status` says `gas:false`).
+NIM now shares this entry point and sender verification. `flow.js` exports its existing flow for the NIM template in
+`index.html`; `classic.html` remains compatible and `/?claim=…` still opens it for NIM recipients. Sender free gas remains
+unavailable (`/api/usdt/status` says `gas:false`).
 
 ## Wire navigation, identity and session copy
 
@@ -30,7 +31,7 @@ close button so its listeners and observers are cleaned up. Asset switches recre
 replacement. The mirrored files remain unchanged. The page also links directly to the PhoenixWire presentation
 (`https://phoenixmail.ca/#phoenixwire`) and PhoenixMail (`https://phoenixmail.ca/#phoenixmail`). Classic NIM has a link back to `/`.
 
-The tab and mobile shortcut name is PhoenixWire. Icons derive from the existing emblem; normal static routing serves them with
+The tab and mobile shortcut name is Phoenix Wire, preserving the latest owner-side update. Icons derive from the existing emblem; normal static routing serves them with
 the existing CSP. Before sender verification and beside the signed-in address, five-language text explains the unchanged 24-hour
 session. `tests/wire-pay.test.mjs` covers those labels and navigation with the copied window and fake API.
 
@@ -41,3 +42,14 @@ refund routes. When inviting the recipient, it submits the **full claim URL** to
 without persisting it. A retry may submit it again. The recipient browser does not submit its fragment to claim routes.
 Do not extend that last property into a claim that Wire or its mail provider can never see the key. The transient invitation
 handoff and the service co-signer are separate parts of the trust model; no runtime behavior changed in this clarification.
+
+## NIM and theme follow-up
+
+All four assets sit behind the same sender session. The host replaces the visible payment window when switching between
+NIM and a stablecoin, just as the copied window replaces itself between stablecoins. NIM reuses `mountNimFlow` from `flow.js`
+with a scoped root; it does not call PhoenixMail’s legacy unprotected NIM creation path. Its immutable intent, official Hub
+checkout, artwork, history/recovery and mobile return handling are preserved. A saved Hub return reopens NIM automatically.
+
+`wire-pay.css` no longer hides NIM. `wire-pay.js` binds that button to the embedded NIM flow and removes the separate Send NIM
+exit link. Light mode maps to `light-paper`, the selector present in pm/; dark mode remains `dark`. Buttons have neutral fills
+and theme-accent outlines. These are host changes, not additional modifications under pm/.

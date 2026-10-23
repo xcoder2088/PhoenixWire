@@ -58,7 +58,7 @@ async function start({ answer = x => x, status = () => ({ state: 'awaiting_funds
   };
   window.confirm = () => true;
   Object.assign(ctx, { flowText, addressValid, cardPresentation, paintCard, usdtText });
-  const strip = s => '{' + s.replace(/^import[^\n]+\n/gm, '') + '\n}';
+  const strip = s => '{' + s.replace(/^import[^\n]+\n/gm, '').replace(/^export /gm, '') + '\n}';
   vm.runInContext(strip(read('../internal/web/static/flow.js')), ctx);
   vm.runInContext(strip(read('../internal/web/static/usdt-flow.js')), ctx);
   await settle();

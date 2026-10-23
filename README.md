@@ -9,12 +9,12 @@ claims it after confirming their own email. Wire runs its UI, gateway and import
 
 - `/` hosts **PhoenixMail's payment window**, copied into `internal/web/static/pm/`.
 - `wire-pay.js` handles sender verification, the window's options, card monitoring and invitation delivery;
-  `wire-pay.css` and `index.html` provide Wire's frame and visual overrides.
-- The window offers **USDC Polygon, USDT Polygon and USDT Ethereum**, subject to enabled server assets. All cards are protected.
-- NIM remains in `/classic.html`; `/?claim=…` also opens that earlier interface for NIM claims.
+  `wire-pay.css` and `index.html` provide Wire's frame and visual overrides. `flow.js` exports the existing NIM flow so it can mount in that same host.
+- The common payment window offers **NIM (Nimiq), USDC Polygon, USDT Polygon and USDT Ethereum**, subject to enabled server assets. All cards are protected.
+- NIM now uses its existing protected flow in the common window after the same sender confirmation; `classic.html` remains a compatibility page and `/?claim=…` continues serving NIM recipients.
 - Sender confirmation lasts **24 hours on this device**. A different device or an expired/cleared session requires a new code.
 - Explicit navigation returns to the PhoenixWire presentation or PhoenixMail; the payment window has a return button.
-- Five UI languages (FR/EN/ES/DE/ZH), light/dark appearance, pastel payment cards, favicon and mobile shortcut icons.
+- Five UI languages (FR/EN/ES/DE/ZH), working light/dark appearance, neutral buttons with theme-colored outlines, pastel payment cards, favicon and mobile shortcut icons.
 
 Do not edit the payment-window copies casually: [PAYMENT-WINDOW.md](docs/PAYMENT-WINDOW.md) documents the synchronization
 boundary and existing marked changes. Wire's own host should carry appearance and navigation changes.
