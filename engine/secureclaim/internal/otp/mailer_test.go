@@ -108,18 +108,77 @@ func TestCodeEmailWearsTheColourOfItsCard(t *testing.T) {
 	if err := json.Unmarshal(capture.body, &sent); err != nil {
 		t.Fatal(err)
 	}
-	for _, must := range []string{"background:#dcf5e9;", "#9bd8bc", "user-select:all", "123456"} {
+	for _, must := range []string{"max-width:520px;background:#dcf5e9;border:1px solid #9bd8bc", "background:#ffffff;border:1px solid #9bd8bc;", "user-select:all", "123456"} {
 		if !strings.Contains(sent.HTML, must) {
 			t.Fatalf("missing %q", must)
 		}
 	}
-	if strings.Contains(sent.HTML, "#eee7ff") || strings.Contains(sent.HTML, "#ded8ec") {
-		t.Fatal("the default colours must be replaced")
+	if strings.Contains(sent.HTML, "#eee7ff") || strings.Contains(sent.HTML, "#ded8ec") || strings.Contains(sent.HTML, "#f4f2fa") {
+		t.Fatal("the default colours must be replaced: the page is white, the card wears the colour")
+	}
+	if !strings.Contains(sent.HTML, `content="light only"`) {
+		t.Fatal("the e-mail must ask mail apps not to darken the card's colours")
 	}
 	// a malformed colour is ignored: the default e-mail is sent
 	capture2 := &captureTransport{}
 	m.Client = &http.Client{Transport: capture2}
 	if err := m.Send(WithEmailAccent(context.Background(), "red;x", "#9bd8bc"), "someone@example.com", "123456"); err != nil || !strings.Contains(string(capture2.body), "#eee7ff") {
 		t.Fatal("a malformed colour must leave the default e-mail untouched", err)
+	}
+}
+
+// Everything Wire sends looks like one thing: the code e-mail is drawn like the card it belongs to.
+func TestWireCodeEmailIsDrawnLikeItsCard(t *testing.T) {
+	send := func(m MailerSend, ctx context.Context) string {
+		t.Helper()
+		capture := &captureTransport{}
+		m.Client = &http.Client{Transport: capture}
+		if err := m.Send(ctx, "someone@example.com", "382526"); err != nil {
+			t.Fatal(err)
+		}
+		var sent struct {
+			HTML string `json:"html"`
+		}
+		if err := json.Unmarshal(capture.body, &sent); err != nil {
+			t.Fatal(err)
+		}
+		return sent.HTML
+	}
+	wire := MailerSend{APIKey: "k", From: "no-reply@phoenixmail.ca", BrandName: "Phoenix Wire", CardLayout: true}
+	for lang, chip := range map[string]string{"en": "Protected", "fr": "Protégé", "es": "Protegido", "de": "Geschützt", "zh": "受保护"} {
+		ctx := WithEmailLanguage(WithEmailAccent(context.Background(), "#ffe2ee", "#efaac7"), lang)
+		page := send(wire, ctx)
+		for _, must := range []string{
+			"border-radius:26px", "border:1px solid #efaac7", "background:#ffe2ee;background-image:linear-gradient(125deg,#ffe2ee 0%,#e2eeff 56%,#ffe8f4 100%)",
+			"border-radius:20px", "data:image/png;base64,", `alt="Phoenix Wire"`, ">" + chip + "<", "382526", "user-select:all", `<html lang="` + lang + `">`, `content="light only"`,
+		} {
+			if !strings.Contains(page, must) {
+				t.Fatalf("%s: missing %q", lang, must)
+			}
+		}
+		if strings.Contains(page, "@@") || strings.Contains(page, "#f4f2fa") || strings.Contains(page, "#eee7ff") {
+			t.Fatalf("%s: a placeholder or the old template is left", lang)
+		}
+	}
+	// the badge under the card is the one Wire puts under its cards, in the language of the e-mail
+	badged := wire
+	badged.Footer = func(lang string) string { return `<div data-footer="` + lang + `">powered</div>` }
+	if page := send(badged, WithEmailLanguage(WithEmailAccent(context.Background(), "#ffe2ee", "#efaac7"), "de")); !strings.Contains(page, `<div data-footer="de">powered</div></body></html>`) {
+		t.Fatal("the powered-by badge must come under the card, in the e-mail's language")
+	}
+	// a language that is not supported falls back to English, without a placeholder
+	if page := send(wire, WithEmailLanguage(WithEmailAccent(context.Background(), "#dcf5e9", "#9bd8bc"), "xx")); !strings.Contains(page, ">Protected<") || strings.Contains(page, "@@") {
+		t.Fatal("unsupported language")
+	}
+	// the sender's sign-in belongs to no card: same look, in the lavender family, without the "Protected" label
+	sender := wire
+	sender.Purpose = "sender"
+	page := send(sender, WithEmailLanguage(context.Background(), "en"))
+	if !strings.Contains(page, "background:#ece3ff;") || !strings.Contains(page, "border:1px solid #c7b1ee") || strings.Contains(page, "Protected") || strings.Contains(page, "@@") {
+		t.Fatal("the sender e-mail must wear the lavender card without a label")
+	}
+	// PhoenixMail's own e-mail is untouched
+	if old := send(MailerSend{APIKey: "k", From: "no-reply@phoenixmail.ca"}, context.Background()); !strings.Contains(old, "#f4f2fa") || strings.Contains(old, "border-radius:26px") {
+		t.Fatal("the default layout must not change")
 	}
 }

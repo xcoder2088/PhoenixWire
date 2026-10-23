@@ -33,7 +33,7 @@ func (m MailerSend) Validate() error {
 	return nil
 }
 func (m MailerSend) Send(ctx context.Context, to, code string) error {
-	return (service.MailerSend{APIKey: m.APIKey, From: m.From, BrandName: "Phoenix Wire", Purpose: "sender", Client: m.Client}).Send(ctx, to, code)
+	return (service.MailerSend{APIKey: m.APIKey, From: m.From, BrandName: "Phoenix Wire", CardLayout: true, Footer: cards.Footer, Purpose: "sender", Client: m.Client}).Send(ctx, to, code)
 }
 func (m MailerSend) Invite(ctx context.Context, p payment, claimURL string) error {
 	// Recipient gets an opaque claim URL only. No address QR, seed or bearer Cashlink.

@@ -16,6 +16,7 @@ import (
 	"github.com/xcoder2088/NimiqSecureClaim/internal/escrow"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/nimiq"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/otp"
+	"github.com/xcoder2088/NimiqSecureClaim/internal/usdtlink"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/vault"
 )
 
@@ -111,6 +112,10 @@ func TestHTTPClaimSealAndOTPReleaseSurviveRestartWithoutRecreatingPayment(t *tes
 		t.Fatal(sent.Code, sent.Body)
 	}
 	code := sender.code
+	// the code e-mail is dressed in the colour of its card (first byte of the claim id, twelve families)
+	if background, accent, ok := otp.EmailAccentOf(sender.ctx); !ok || [2]string{background, accent} != usdtlink.Palette(id) {
+		t.Fatalf("the code e-mail does not wear the colour of its card: %v %v %v", background, accent, ok)
+	}
 	s = open()
 	w := httptest.NewRecorder()
 	s.handler(w, httptest.NewRequest(http.MethodGet, "/api/v1/claims/"+id, nil))

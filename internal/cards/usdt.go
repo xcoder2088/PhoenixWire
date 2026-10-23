@@ -10,7 +10,6 @@ import (
 	"html"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -50,18 +49,6 @@ var usdtIntro = map[string]string{
 	"fr": "%s vous a envoyé %s %s.", "en": "%s sent you %s %s.", "es": "%s te ha enviado %s %s.", "de": "%s hat dir %s %s gesendet.", "zh": "%s 向您发送了 %s %s。",
 }
 
-// mixHex returns the colour `pct` percent of the way from a to b (both #rrggbb).
-func mixHex(a, b string, pct int) string {
-	parse := func(h string) (int, int, int) {
-		n, _ := strconv.ParseUint(strings.TrimPrefix(h, "#"), 16, 32)
-		return int(n >> 16 & 255), int(n >> 8 & 255), int(n & 255)
-	}
-	ar, ag, ab := parse(a)
-	br, bg, bb := parse(b)
-	mix := func(x, y int) int { return (x*(100-pct) + y*pct + 50) / 100 }
-	return fmt.Sprintf("#%02x%02x%02x", mix(ar, br), mix(ag, bg), mix(ab, bb))
-}
-
 func chainLabel(chain string) string { return strings.ToUpper(chain[:1]) + chain[1:] }
 
 // USDTCardHTML is the card of the invitation: the colour comes from the card's id (one of the twelve families), like the Nimiq cards.
@@ -84,7 +71,7 @@ func USDTCardHTML(c USDTCard, lang string) (string, error) {
 	}
 	colors := PaymentCardColorsFor(c.ID, true)
 	out := renderPaymentCard(paymentCardDesign{ID: c.ID, Heading: heading, Network: chip, Amount: c.Amount, BodyHTML: body, ActionURL: c.ClaimURL, ActionLabel: button,
-		Brand: c.Symbol + " · " + chainLabel(c.Chain), Unit: c.Symbol, Colors: colors, Mid: mixHex(colors[0], "#ffffff", 40), End: mixHex(colors[1], "#ffffff", 62)})
+		Brand: c.Symbol + " · " + chainLabel(c.Chain), Unit: c.Symbol, Colors: colors}) // the same gradient stops as the Nimiq card: every card of Wire has one look
 	return adaptWireCard(out)
 }
 

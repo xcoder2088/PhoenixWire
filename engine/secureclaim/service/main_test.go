@@ -10,10 +10,13 @@ import (
 	"testing"
 )
 
-type testSender struct{ code, to string }
+type testSender struct {
+	code, to string
+	ctx      context.Context // the context of the last send: what the code e-mail would be dressed with
+}
 
-func (s *testSender) Send(_ context.Context, to, code string) error {
-	s.to, s.code = to, code
+func (s *testSender) Send(ctx context.Context, to, code string) error {
+	s.to, s.code, s.ctx = to, code, ctx
 	return nil
 }
 

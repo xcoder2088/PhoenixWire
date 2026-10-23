@@ -48,6 +48,12 @@ func emailAccent(ctx context.Context) ([2]string, bool) {
 	return v, ok
 }
 
+// EmailAccentOf reads the colours WithEmailAccent set (background, accent), for senders that draw their own e-mail and for tests.
+func EmailAccentOf(ctx context.Context) (background, accent string, ok bool) {
+	v, ok := emailAccent(ctx)
+	return v[0], v[1], ok
+}
+
 func validHex(c string) bool {
 	if len(c) != 7 || c[0] != '#' {
 		return false

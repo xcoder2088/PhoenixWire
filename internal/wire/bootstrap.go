@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/xcoder2088/NimiqSecureClaim/service"
+	"github.com/xcoder2088/PhoenixWire/internal/cards"
 )
 
 // FromEnv starts the embedded engine in the same process. No console-code mode.
@@ -90,7 +91,7 @@ func FromEnv() (*API, func(), error) {
 	if rpc == "" {
 		return nil, nil, errors.New("set NIMIQ_CLAIM_MAINNET_RPC_URL")
 	}
-	engine, err := service.New(service.Config{Directory: filepath.Join(stateDir, "engine"), RPCURL: rpc, Master: digest(master, "Wire engine v1"), Sender: service.MailerSend{APIKey: delivery.APIKey, From: delivery.From, BrandName: "Phoenix Wire"}})
+	engine, err := service.New(service.Config{Directory: filepath.Join(stateDir, "engine"), RPCURL: rpc, Master: digest(master, "Wire engine v1"), Sender: service.MailerSend{APIKey: delivery.APIKey, From: delivery.From, BrandName: "Phoenix Wire", CardLayout: true, Footer: cards.Footer}})
 	if err != nil {
 		return nil, nil, err
 	}

@@ -171,6 +171,26 @@ func TestClaimPolicyAllowsOnlyTheInlineScriptsThePageShips(t *testing.T) {
 	}
 }
 
+// What a recipient sees is Wire's, and every card of Wire has the one gradient (the card colour, then #e2eeff, then #ffe8f4).
+func TestClaimPageWearsWireBrandAndTheCommonGradient(t *testing.T) {
+	page, err := claimweb.Claim.ReadFile("usdt.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(page)
+	for _, must := range []string{"Phoenix<strong>Wire</strong>", "/brand/phoenix-emblem.webp", `alt="Phoenix Wire"`, "<title>Phoenix Wire</title>", "--card-mid:#e2eeff", "--card-end:#ffe8f4",
+		"linear-gradient(125deg,var(--card-start) 0%,var(--card-mid) 56%,var(--card-end) 100%)"} {
+		if !strings.Contains(text, must) {
+			t.Fatalf("claim page: missing %q", must)
+		}
+	}
+	for _, mustNot := range []string{"Phoenix<strong>Mail</strong>", `alt="PhoenixMail"`, "phoenixmail-official-emblem.webp\"", "radial-gradient(ellipse at 4% 8%", "mx(p[0]"} {
+		if strings.Contains(text, mustNot) {
+			t.Fatalf("claim page still has %q", mustNot)
+		}
+	}
+}
+
 func TestUSDTRoutesArePublicOnlyForTheRecipient(t *testing.T) {
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
 	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")

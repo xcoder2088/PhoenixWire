@@ -25,6 +25,7 @@ import (
 	"github.com/xcoder2088/NimiqSecureClaim/internal/evmcard"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/nimiq"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/otp"
+	"github.com/xcoder2088/NimiqSecureClaim/internal/usdtlink"
 	"github.com/xcoder2088/NimiqSecureClaim/internal/vault"
 )
 
@@ -267,7 +268,13 @@ func (s *server) handler(w http.ResponseWriter, r *http.Request) {
 		if id == "demo" {
 			issue = s.otp.Issue
 		}
-		if err := issue(r.Context(), id, recipient); err != nil {
+		// The code e-mail wears the colour of its card: the same twelve families, chosen by the first byte of the claim id (as the card itself).
+		codeCtx := r.Context()
+		if id != "demo" {
+			pal := usdtlink.Palette(id)
+			codeCtx = otp.WithEmailAccent(codeCtx, pal[0], pal[1])
+		}
+		if err := issue(codeCtx, id, recipient); err != nil {
 			if errors.Is(err, otp.ErrRateLimited) {
 				write(w, 429, map[string]string{"error": "wait_before_resend"})
 				return
