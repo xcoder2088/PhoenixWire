@@ -1,5 +1,47 @@
 # The payment window is PhoenixMail's
 
+## Administration: invitations and blocks (cache 0.4.35)
+
+The access view displays only the total `registered_count`. It never lists,
+retains or derives a count from the deprecated `registered` array. Missing or
+empty `registered` does not affect the panel. If the count itself is unavailable,
+the counter displays a dash rather than guessing from addresses.
+
+The invited (`allowed`) list has Revoke (`POST /api/admin/revoke`) and Block
+(`/api/admin/block`) actions. Its invitation form calls `/api/admin/allow`.
+The blocked list has Remove (`/api/admin/remove`) and Invite (`/api/admin/allow`)
+actions, plus a separate block form for an address absent from either list.
+All four routes receive `{email}`. Each successful response replaces the view,
+including counts. Blocking and removing require confirmation; inviting and
+revoking do not. Opening access to everyone still requires its existing
+confirmation, and `locked_open` still disables the access switch.
+
+The five-language explanation distinguishes revocation from blocking: revoking
+removes the invitation; a sender who has already sent cards retains refund
+access. Blocking cuts off access even for an existing sender. Remove forgets the
+address from both manual lists. The server remains the authority for sessions
+and permissions. Administrator block buttons are disabled, and server errors
+remain short, translated messages.
+
+A case-insensitive substring search filters both lists locally without an API
+call or moving the search-field focus. It preserves total counts, the query and
+unfinished form values across mutations; a successful submitted form is cleared.
+Each list is keyboard-focusable and scrolls within a maximum height of 20rem.
+Addresses and confirmation messages use text, never HTML. The panel remains
+restricted to an exact `session.admin === true` authorization.
+
+No new static file, Go change, mirrored file change or deployment is included.
+Existing stylesheet and module references are versioned to 0.4.35 in the main
+and classic entry points. Regression tests cover all four actions, confirmation
+acceptance/refusal, counters without registered addresses, local search,
+hundreds of inert addresses, list bounds, translations, errors and busy-state
+request overlap protection. No physical device validation is claimed.
+
+Validation executed: `npm ci --ignore-scripts`, followed by
+`node --test --test-timeout=90000 tests/*.test.mjs engine/secureclaim/web/tests/*.cjs`.
+268 tests executed and passed, none failed or skipped, including 12 administrator
+panel tests.
+
 ## Public terms and privacy: owner details filled in (cache 0.4.34)
 
 The five owner fields are no longer placeholders: operator `operator` = Xcoder, `contact` = phoenixmail@proton.me, `law` = Québec (Canada) and the

@@ -213,6 +213,14 @@ html[data-palette="phoenixfire"] .wire-body button:hover:not(:disabled),html[dat
 .wire-lifetime-note,.wire-card-expiry{font-size:.85rem;line-height:1.5;white-space:normal;margin:.6rem 0;color:inherit}.wire-refund-form{display:flex;flex-wrap:wrap;gap:.7rem;align-items:end;margin-top:.8rem}.wire-refund-form label{flex:1;min-width:180px}.wire-refund-form input{display:block;width:100%;font-size:16px}.wire-refund-result{white-space:normal}
 
 .wire-admin-panel{margin-top:1rem}.wire-admin-list ul{padding:0;list-style:none}.wire-admin-list li{display:flex;gap:1rem;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:.5rem 0;overflow-wrap:anywhere}.wire-admin-panel input[type=email]{display:block;font-size:16px;width:100%;max-width:32rem}.wire-admin-panel form{display:flex;align-items:end;gap:.7rem;flex-wrap:wrap}.wire-admin-panel label{line-height:1.6}.wire-admin-panel input[role=switch]{width:auto;margin-right:.7rem}.wire-access-link{font-size:.85rem;padding:.35rem .6rem}
+.wire-admin-list ul{max-height:20rem;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.wire-admin-address{flex:1 1 180px;min-width:0;overflow-wrap:anywhere}
+.wire-admin-row-actions{display:flex;flex-wrap:wrap;gap:8px}
+.wire-admin-row-actions button{width:auto;min-height:40px;padding:8px 12px}
+.wire-admin-panel form label{flex:1 1 240px;min-width:0}
+.wire-admin-panel input[type=search]{display:block;width:100%;max-width:32rem;box-sizing:border-box;font-size:16px}
+#wire-admin-counts{font-weight:650;line-height:1.6}
+.wire-admin-help{font-size:.9rem;line-height:1.6;overflow-wrap:anywhere}
 
 /* PhoenixMail attribution has fixed brand colours, independent of Wire palettes. */
 .wire-foot{opacity:1;font-size:14px}
