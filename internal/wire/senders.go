@@ -57,7 +57,8 @@ func (a *API) senderAllowed(address string) bool {
 	return listHas(a.registeredSenders(), address)
 }
 
-// registeredSenders are the senders Wire already knows: of its NIM payments, of its USDC / USDT cards, and of verified sessions. Nothing new is
+// registeredSenders are the senders Wire already knows from what they did: the senders of its NIM payments and of its USDC / USDT cards (a signed-in
+// session alone does not count: someone who only signed in needs an invitation to come back, which is what "revoke" relies on). Nothing new is
 // stored for this: an existing sender keeps working and the limit needs no list to keep.
 func (a *API) registeredSenders() []string {
 	seen := map[string]bool{}
@@ -66,11 +67,6 @@ func (a *API) registeredSenders() []string {
 	}
 	for _, c := range a.db.state.USDT {
 		seen[strings.ToLower(c.Sender)] = true
-	}
-	for _, s := range a.db.state.Sessions {
-		if s.Verified {
-			seen[strings.ToLower(s.Email)] = true
-		}
 	}
 	delete(seen, "")
 	out := make([]string, 0, len(seen))

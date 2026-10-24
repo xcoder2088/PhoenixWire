@@ -786,7 +786,7 @@ func TestTheAdministratorOpensAndClosesAccess(t *testing.T) {
 		json.Unmarshal(w.Body.Bytes(), &out)
 		return out
 	}
-	if v := view(f.call("GET", "/api/admin/access", nil)); v["open"] != false || len(v["registered"].([]any)) < 2 {
+	if v := view(f.call("GET", "/api/admin/access", nil)); v["open"] != false || v["registered_count"] == nil || len(v["registered"].([]any)) != 0 {
 		t.Fatal("the panel", v)
 	}
 	enter := func(address string) int {
@@ -1012,5 +1012,87 @@ func TestPersonalDataGoesSixtyDaysAfterACardEndsAndOnlyWhenItHoldsNothing(t *tes
 	// a young card is never touched, empty or not
 	if _, ok := f.api.db.state.Payments[q.ID]; !ok {
 		t.Fatal("a young card was forgotten")
+	}
+}
+
+func TestTheAdministratorCanRevokeAndForgetAddressesAndOnlySeesHisOwnList(t *testing.T) {
+	t.Setenv("PHOENIXWIRE_ADMINS", "boss@example.test")
+	f := newFixture(t)
+	f.verifySender("boss@example.test")
+	boss := f.cookie
+	f.cookie = nil
+	f.verifySender("regular@example.test") // an ordinary sender, signed in while access was still open
+	regular := f.cookie
+	f.cookie = boss
+	t.Setenv("PHOENIXWIRE_SENDERS", "") // by invitation
+	view := func(w *httptest.ResponseRecorder) map[string]any {
+		var out map[string]any
+		json.Unmarshal(w.Body.Bytes(), &out)
+		return out
+	}
+	list := func(v map[string]any, key string) []string {
+		var out []string
+		for _, e := range v[key].([]any) {
+			out = append(out, e.(string))
+		}
+		return out
+	}
+	// the panel lists what the administrator entered, never the senders who signed in by themselves
+	f.api.mu.Lock()
+	for i := 0; i < 5; i++ {
+		id := fmt.Sprintf("%048x", 9000+i)
+		f.api.db.state.Payments[id] = savedPayment{Payment: payment{ID: id, Sender: fmt.Sprintf("user%d@example.test", i), Stage: "sent", Created: f.api.now()}}
+	}
+	f.api.mu.Unlock()
+	v := view(f.call("GET", "/api/admin/access", nil))
+	if len(v["registered"].([]any)) != 0 || v["registered_count"] != float64(5) || len(list(v, "allowed")) != 0 {
+		t.Fatal("the panel must count the registered senders and list only invitations", v)
+	}
+	enter := func(address string) int {
+		saved := f.cookie
+		f.cookie = nil
+		defer func() { f.cookie = saved }()
+		return f.call("POST", "/api/sender/request", map[string]string{"email": address}).Code
+	}
+	// invite, then revoke: the invitation is gone and so is the way in
+	good(f.call("POST", "/api/admin/allow", map[string]string{"email": "guest@example.test"}), t)
+	if got := list(view(f.call("GET", "/api/admin/access", nil)), "allowed"); len(got) != 1 || got[0] != "guest@example.test" {
+		t.Fatal("the invitation is not listed", got)
+	}
+	w := f.call("POST", "/api/admin/revoke", map[string]string{"email": "Guest@Example.test"})
+	if w.Code != 200 || len(list(view(w), "allowed")) != 0 {
+		t.Fatal("revoke", w.Code, w.Body)
+	}
+	if enter("guest@example.test") != 403 {
+		t.Fatal("a revoked guest still signs in")
+	}
+	// a sender who has cards is not locked out of his money by a revoke; a block does cut him off
+	good(f.call("POST", "/api/admin/allow", map[string]string{"email": "user1@example.test"}), t)
+	good(f.call("POST", "/api/admin/revoke", map[string]string{"email": "user1@example.test"}), t)
+	f.api.mu.Lock()
+	still := f.api.senderAllowed("user1@example.test")
+	f.api.mu.Unlock()
+	if !still {
+		t.Fatal("revoking an invitation must not lock a sender with cards out of his refunds")
+	}
+	good(f.call("POST", "/api/admin/block", map[string]string{"email": "user1@example.test"}), t)
+	if enter("user1@example.test") != 403 {
+		t.Fatal("a blocked sender signed in")
+	}
+	// remove forgets an address altogether, blocked ones included
+	w = f.call("POST", "/api/admin/remove", map[string]string{"email": "user1@example.test"})
+	v = view(w)
+	if w.Code != 200 || len(list(v, "blocked")) != 0 || len(list(v, "allowed")) != 0 {
+		t.Fatal("remove must empty both lists for that address", w.Code, v)
+	}
+	// an address that is not on any list can be removed without harm, and a bad one is refused
+	good(f.call("POST", "/api/admin/remove", map[string]string{"email": "nobody@example.test"}), t)
+	if w := f.call("POST", "/api/admin/revoke", map[string]string{"email": "not an address"}); w.Code != 400 {
+		t.Fatal("a bad address was accepted", w.Code)
+	}
+	// only administrators
+	f.cookie = regular
+	if w := f.call("POST", "/api/admin/remove", map[string]string{"email": "guest@example.test"}); w.Code != 403 {
+		t.Fatal("an ordinary sender used the panel", w.Code)
 	}
 }

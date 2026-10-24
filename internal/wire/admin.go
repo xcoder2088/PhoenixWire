@@ -8,9 +8,11 @@ import (
 // The administrator's panel: who may send with Phoenix Wire, changed in the app and not in a file. An administrator is a verified sender whose
 // address is named in PHOENIXWIRE_ADMINS; nobody else (and no hand-over session) reaches these routes.
 //
-//	GET  /api/admin/access   {open, allowed, blocked, registered, admins}
+//	GET  /api/admin/access   {open, locked_open, allowed, blocked, registered_count, admins}
 //	POST /api/admin/access   {"open": true|false}  open or close sending to everyone
-//	POST /api/admin/allow    {"email"}             let one address send (and lift a block on it)
+//	POST /api/admin/allow    {"email"}             invite one address (and lift a block on it)
+//	POST /api/admin/revoke   {"email"}             take an address off the invited list (a sender who has already sent cards stays able to sign in, to recover his money: block him to cut him off)
+//	POST /api/admin/remove   {"email"}             forget an address altogether: off the invited list AND off the blocked list
 //	POST /api/admin/block    {"email"}             refuse one address: its sessions end now, it cannot sign in again until it is allowed
 //
 // Closing never touches a card that was already sent: recipients open their cards without signing in.
@@ -29,8 +31,10 @@ func (a *API) accessView() map[string]any {
 		}
 		return l
 	}
+	// Only what the administrator entered by hand is listed. The senders who signed in on their own are counted, not listed: with hundreds of them the
+	// list would be unusable, and one is found by typing his address to block him.
 	return map[string]any{"open": a.accessOpen(), "locked_open": envList("PHOENIXWIRE_SENDERS") == "open", // the configuration forces it open: closing in the panel changes nothing until it is lifted
-		"allowed": nonNil(a.db.state.Access.Allowed), "blocked": nonNil(a.db.state.Access.Blocked), "registered": a.registeredSenders(), "admins": nonNil(admins)}
+		"allowed": nonNil(a.db.state.Access.Allowed), "blocked": nonNil(a.db.state.Access.Blocked), "registered_count": len(a.registeredSenders()), "registered": []string{}, "admins": nonNil(admins)} // "registered" stays an empty list only so that a page that still reads it does not break
 }
 
 func removeFrom(list []string, address string) []string {
@@ -68,7 +72,7 @@ func (a *API) adminServe(w http.ResponseWriter, r *http.Request, s session) {
 			return
 		}
 		a.db.state.Access.Open = *in.Open
-	case "allow", "block":
+	case "allow", "block", "revoke", "remove":
 		var in struct {
 			Email string `json:"email"`
 		}
@@ -82,6 +86,23 @@ func (a *API) adminServe(w http.ResponseWriter, r *http.Request, s session) {
 			return
 		}
 		acc := &a.db.state.Access
+		switch path {
+		case "revoke": // off the invited list; a block stays what it is
+			acc.Allowed = removeFrom(acc.Allowed, address)
+			if !listHas(a.registeredSenders(), address) { // he never sent a card: his session ends now. Someone who has cards keeps his, to recover his money.
+				for key, sess := range a.db.state.Sessions {
+					if strings.ToLower(sess.Email) == address {
+						delete(a.db.state.Sessions, key)
+					}
+				}
+			}
+		case "remove": // forgotten: neither invited nor blocked
+			acc.Allowed = removeFrom(acc.Allowed, address)
+			acc.Blocked = removeFrom(acc.Blocked, address)
+		}
+		if path == "revoke" || path == "remove" {
+			break
+		}
 		if path == "allow" {
 			if len(acc.Allowed) >= adminListMax {
 				failure(w, 429, "list_full")
