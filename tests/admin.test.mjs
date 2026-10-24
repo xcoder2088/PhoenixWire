@@ -4,11 +4,13 @@ import {JSDOM} from 'jsdom';
 import {mountAdmin,adminText} from '../internal/web/static/admin.js';
 const settle=async()=>{for(let i=0;i<6;i++)await new Promise(r=>setImmediate(r));};
 async function setup({authorized=true,language='en',confirm=true,error='',open=true,lockedOpen}={}){
- const dom=new JSDOM('<main></main>'),d=dom.window.document,calls=[],confirmations=[];let view={open,...(lockedOpen===undefined?{}:{locked_open:lockedOpen}),registered:['sender@example.test','admin@example.test'],allowed:['allowed@example.test'],blocked:['blocked@example.test'],admins:['admin@example.test']};
+ const dom=new JSDOM('<main></main>'),d=dom.window.document,calls=[],confirmations=[];let view={open,...(lockedOpen===undefined?{}:{locked_open:lockedOpen}),registered:[],registered_count:2,allowed:['allowed@example.test'],blocked:['blocked@example.test'],admins:['admin@example.test']};
  dom.window.confirm=text=>{confirmations.push(text);return confirm;};
  const request=async(path,data)=>{calls.push([path,data]);if(data&&error)throw Object.assign(Error(error),{code:error});
   if(path==='/api/admin/access'&&data)view={...view,open:data.open};
   if(path==='/api/admin/block'&&data)view={...view,allowed:view.allowed.filter(e=>e!==data.email),blocked:[...view.blocked,data.email]};
+  if(path==='/api/admin/revoke'&&data)view={...view,allowed:view.allowed.filter(e=>e!==data.email)};
+  if(path==='/api/admin/remove'&&data)view={...view,allowed:view.allowed.filter(e=>e!==data.email),blocked:view.blocked.filter(e=>e!==data.email)};
   if(path==='/api/admin/allow'&&data)view={...view,blocked:view.blocked.filter(e=>e!==data.email),allowed:[...view.allowed,data.email]};
   return JSON.parse(JSON.stringify(view));};
  const panel=mountAdmin({root:d.querySelector('main'),authorized,language:()=>language,request});await settle();return{dom,d,calls,confirmations,panel};
@@ -41,14 +43,21 @@ test('locked-open server configuration disables only the access switch and expla
  }
  const unlocked=await setup({lockedOpen:false});assert.equal(unlocked.d.getElementById('wire-admin-open').disabled,false);assert.equal(unlocked.d.getElementById('wire-admin-locked-open'),null);unlocked.dom.window.close();
 });
-test('registered, allowed and blocked lists expose safe allow/block actions and refresh from replies',async()=>{
+test('the panel lists only invitations and blocks, counts the registered senders, and can revoke, block, allow and forget',async()=>{
  const app=await setup(),d=app.d;
- const rows=[...d.querySelectorAll('[data-list=registered] li')];assert.equal(rows[1].querySelector('button').disabled,true);rows[0].querySelector('button').click();await settle();assert.deepEqual(app.calls.at(-1),['/api/admin/block',{email:'sender@example.test'}]);assert.equal(app.confirmations.length,1);
- d.querySelector('[data-list=allowed] button').click();await settle();assert.deepEqual(app.calls.at(-1),['/api/admin/block',{email:'allowed@example.test'}]);assert.ok(d.querySelector('[data-list=blocked]').textContent.includes('allowed@example.test'));
- d.querySelector('[data-list=blocked] button').click();await settle();assert.deepEqual(app.calls.at(-1),['/api/admin/allow',{email:'blocked@example.test'}]);
- const form=d.getElementById('wire-admin-allow');form.querySelector('input').value='new@example.test';form.dispatchEvent(new app.dom.window.Event('submit',{cancelable:true}));await settle();assert.deepEqual(app.calls.at(-1),['/api/admin/allow',{email:'new@example.test'}]);assert.ok(d.querySelector('[data-list=allowed]').textContent.includes('new@example.test'));app.dom.window.close();
- const refused=await setup({confirm:false});refused.d.querySelector('[data-list=registered] button').click();await settle();assert.equal(refused.calls.length,1);refused.dom.window.close();
+ assert.equal(d.querySelector('[data-list=registered]'),null,'the registered senders are not listed');
+ assert.match(d.getElementById('wire-admin').textContent,/2/,'they are counted');
+ const view=app.d.getElementById('wire-admin');
+ assert.equal(view.querySelectorAll('[data-list=allowed] li button').length,2);
+ d.querySelectorAll('[data-list=allowed] li button')[0].click();await settle();assert.deepEqual(app.calls.at(-1),['/api/admin/revoke',{email:'allowed@example.test'}]);assert.equal(app.confirmations.length,0,'revoking does not ask');
+ d.querySelectorAll('[data-list=allowed] li button')[1]?.click();await settle();
+ d.querySelectorAll('[data-list=blocked] li button')[0].click();await settle();assert.deepEqual(app.calls.at(-1),['/api/admin/allow',{email:'blocked@example.test'}]);
+ const forget=await setup(),f=forget.d;
+ f.querySelectorAll('[data-list=blocked] li button')[1].click();await settle();assert.deepEqual(forget.calls.at(-1),['/api/admin/remove',{email:'blocked@example.test'}]);assert.equal(forget.confirmations.length,1);
+ const refused=await setup({confirm:false});refused.d.querySelectorAll('[data-list=blocked] li button')[1].click();await settle();assert.equal(refused.calls.length,1,'a refused confirmation sends nothing');
+ refused.dom.window.close();forget.dom.window.close();app.dom.window.close();
 });
+
 test('administrator errors are plain words in all five languages and controls recover',async()=>{
  for(const language of ['fr','en','es','de','zh'])for(const error of ['admin_required','cannot_block_admin','list_full','invalid_email']){
   const app=await setup({language,error}),form=app.d.getElementById('wire-admin-allow');form.querySelector('input').value='new@example.test';form.dispatchEvent(new app.dom.window.Event('submit',{cancelable:true}));await settle();const message=app.d.getElementById('wire-admin-status').textContent;assert.equal(message,adminText(language,error));assert.doesNotMatch(message,/admin_required|cannot_block_admin|list_full|invalid_email|Mainnet|OTP|Hub/);assert.equal(app.d.querySelector('[aria-busy=true]'),null);app.dom.window.close();

@@ -1,4 +1,4 @@
-import { mountAdmin,adminText } from './admin.js?v=0.4.28';
+import { mountAdmin,adminText } from './admin.js?v=0.4.35';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.30';
 import { flowText } from './flow-text.js?v=0.4.29';
 import { addressValid,cardPresentation,paintCard,renderCardPreview } from './model.js?v=0.4.30';
