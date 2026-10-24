@@ -198,3 +198,7 @@ html[data-palette="phoenixfire"] .wire-body button:hover:not(:disabled),html[dat
 #nim-wallet-details p { margin:0; flex:none; min-height:0; height:auto; }
 #nim-wallet-details pre { max-width:100%; overflow-wrap:anywhere; white-space:pre-wrap; }
 .nim-row-actions { display:flex; flex-wrap:wrap; gap:8px; }
+
+.wire-lifetime-note,.wire-card-expiry{font-size:.85rem;line-height:1.5;white-space:normal;margin:.6rem 0;color:inherit}.wire-refund-form{display:flex;flex-wrap:wrap;gap:.7rem;align-items:end;margin-top:.8rem}.wire-refund-form label{flex:1;min-width:180px}.wire-refund-form input{display:block;width:100%;font-size:16px}.wire-refund-result{white-space:normal}
+
+.wire-admin-panel{margin-top:1rem}.wire-admin-list ul{padding:0;list-style:none}.wire-admin-list li{display:flex;gap:1rem;justify-content:space-between;align-items:center;flex-wrap:wrap;padding:.5rem 0;overflow-wrap:anywhere}.wire-admin-panel input[type=email]{display:block;font-size:16px;width:100%;max-width:32rem}.wire-admin-panel form{display:flex;align-items:end;gap:.7rem;flex-wrap:wrap}.wire-admin-panel label{line-height:1.6}.wire-admin-panel input[role=switch]{width:auto;margin-right:.7rem}.wire-access-link{font-size:.85rem;padding:.35rem .6rem}

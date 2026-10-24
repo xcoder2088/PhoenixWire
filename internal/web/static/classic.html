@@ -9,16 +9,16 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/brand/wire-icon-32.png?v=0.4.1">
   <link rel="apple-touch-icon" sizes="180x180" href="/brand/wire-icon-180.png?v=0.4.1">
   <link rel="manifest" href="/site.webmanifest?v=0.4.1">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.20">
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.24">
   <meta name="referrer" content="no-referrer">
-  <link rel="stylesheet" href="/style.css?v=0.3.0">
+  <link rel="stylesheet" href="/style.css?v=0.4.24">
   <link rel="stylesheet" href="/flow.css?v=0.3.0">
   <link rel="stylesheet" href="/design.css?v=0.3.0">
   <script src="/hub.js?v=0.3.0" defer></script>
   <script src="/iqons.js?v=0.3.0" defer></script>
-  <script type="module" src="/app.js?v=0.3.0"></script>
-  <script type="module" src="/flow.js?v=0.4.22"></script>
-  <script type="module" src="/usdt-flow.js?v=0.4.21"></script>
+  <script type="module" src="/app.js?v=0.4.24"></script>
+  <script type="module" src="/flow.js?v=0.4.24"></script>
+  <script type="module" src="/usdt-flow.js?v=0.4.24"></script>
 </head>
 <body>
   <div class="shell">
@@ -38,7 +38,7 @@
         <section class="panel">
           <h2 data-i18n="create">Votre carte de paiement</h2>
           <form id="card-form">
-            <label><span data-i18n="sender">Votre courriel</span><input id="sender" type="email" autocomplete="off" required maxlength="254" placeholder="vous@exemple.com"></label>
+            <label hidden><span data-i18n="sender">Votre courriel</span><input id="sender" type="email" autocomplete="off" required maxlength="254" placeholder="vous@exemple.com"></label>
             <div id="sender-auth" hidden>
               <button id="send-sender-code" type="button" data-wire="verifyEmail">Vérifier mon courriel</button>
               <div id="sender-code-box" hidden><label><span data-wire="code">Code à six chiffres</span><input id="sender-code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6"></label><button id="verify-sender-code" type="button" data-wire="verify">Confirmer le code</button></div>

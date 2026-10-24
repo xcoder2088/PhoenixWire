@@ -1,3 +1,4 @@
+import { mountAdmin,adminText } from '../internal/web/static/admin.js';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from '../internal/web/static/model.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -58,7 +59,7 @@ async function start({ answer = x => x, status = () => ({ state: 'awaiting_funds
     throw Error('unexpected API ' + path);
   };
   window.confirm = () => true;
-  Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,  flowText, addressValid, cardPresentation, paintCard, usdtText });
+  Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText,  flowText, addressValid, cardPresentation, paintCard, usdtText });
   const strip = s => '{' + s.replace(/^import[^\n]+\n/gm, '').replace(/^export /gm, '') + '\n}';
   vm.runInContext(strip(read('../internal/web/static/flow.js')), ctx);
   vm.runInContext(strip(read('../internal/web/static/usdt-flow.js')), ctx);

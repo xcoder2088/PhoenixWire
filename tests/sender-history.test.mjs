@@ -3,6 +3,13 @@ import assert from 'node:assert/strict';
 import {historyEntries,recoverableCard,unpaidCard,historyPending,nimHistoryLabel,senderHistoryWords,cancelUnpaidCard} from '../internal/web/static/model.js';
 const now=Date.parse('2026-10-23T14:00:00Z');
 const nim=(id,age=0,extra={})=>({id,nim:true,address:'NQ-test',created:new Date(now-age).toISOString(),stage:'sent',claim_state:'unclaimed',...extra});
+test('NIM refunds stay among the latest three without money actions; only pending refunds poll',()=>{
+ const entries=['refunding','refunded','refunded','refunded'].map((stage,i)=>nim(String(i),86400001+i,{stage}));assert.deepEqual(historyEntries(entries,now).map(p=>p.id),['0','1','2']);
+ for(const p of entries){assert.equal(recoverableCard(p),false);assert.equal(unpaidCard(p,now),false);assert.equal(historyPending(p,now),p.stage==='refunding');for(const lang of ['fr','en','es','de','zh'])assert.equal(nimHistoryLabel(p,lang,now),senderHistoryWords[lang][p.stage]);}
+});
+test('expired stablecoins remain visible while funds are still on the card',()=>{
+ const c={id:'stable',nim:false,created:now-90000000,state:'expired',balanceUnits:2500000};assert.equal(historyEntries([c],now).length,1);assert.equal(historyEntries([{...c,balanceUnits:0}],now).length,0);assert.equal(historyEntries([{...c,state:'withdrawn'}],now).length,0);
+});
 test('mixed history keeps only three newest transactions from the last 24 hours',()=>{
  const entries=[nim('old',86400001,{stage:'ready',claim_state:undefined}),nim('fourth',4000),nim('second',2000),nim('first',1000),{id:'third',nim:false,created:now-3000,state:'paid'}];
  assert.deepEqual(historyEntries(entries,now).map(p=>p.id),['first','second','third']);

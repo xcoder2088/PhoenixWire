@@ -115,6 +115,78 @@ const payoutWords={
     "openPay": "请在 Nimiq Pay 中继续。如果应用未打开，请重试或使用 Nimiq Wallet。"
   }
 };
+const lifetimeWords={
+ "fr": {
+  "life": "La carte est valable 24 heures. Si elle n'est pas ouverte, ton argent te revient : automatiquement pour le NIM, et pour l'USDC/USDT en ouvrant Phoenix Wire (les frais du relais sont conservés).",
+  "validUntil": "Valable jusqu'au {date}",
+  "expires": "Cette carte expire le {date}",
+  "ended": "Cette carte n'est plus disponible : elle a expiré et l'argent est retourné à l'expéditeur.",
+  "refunding": "Remboursement en cours…",
+  "refunded": "Remboursée automatiquement",
+  "refund": "Reprendre mon argent",
+  "refundTo": "Adresse de remboursement",
+  "refundWorking": "Remboursement en cours…",
+  "refundDone": "Remboursement envoyé.",
+  "refundFailed": "Le remboursement est indisponible pour le moment. Réessaie.",
+  "refundKey": "Ouvre Phoenix Wire dans le navigateur où cette carte a été créée pour reprendre ton argent."
+ },
+ "en": {
+  "life": "The card is valid for 24 hours. If it is not opened, your money comes back: automatically for NIM, and for USDC/USDT when you open Phoenix Wire (the relayer keeps its fees).",
+  "validUntil": "Valid until {date}",
+  "expires": "This card expires on {date}",
+  "ended": "This card is no longer available: it has expired and the money has returned to the sender.",
+  "refunding": "Refund in progress…",
+  "refunded": "Automatically refunded",
+  "refund": "Take my money back",
+  "refundTo": "Refund address",
+  "refundWorking": "Refund in progress…",
+  "refundDone": "Refund sent.",
+  "refundFailed": "The refund is unavailable right now. Please try again.",
+  "refundKey": "Open Phoenix Wire in the browser where this card was created to take your money back."
+ },
+ "es": {
+  "life": "La tarjeta es válida durante 24 horas. Si no se abre, recuperas tu dinero: automáticamente para NIM, y para USDC/USDT al abrir Phoenix Wire (el relé conserva sus comisiones).",
+  "validUntil": "Válida hasta {date}",
+  "expires": "Esta tarjeta caduca el {date}",
+  "ended": "Esta tarjeta ya no está disponible: ha caducado y el dinero ha vuelto al remitente.",
+  "refunding": "Reembolso en curso…",
+  "refunded": "Reembolsada automáticamente",
+  "refund": "Recuperar mi dinero",
+  "refundTo": "Dirección de reembolso",
+  "refundWorking": "Reembolso en curso…",
+  "refundDone": "Reembolso enviado.",
+  "refundFailed": "El reembolso no está disponible ahora. Inténtalo de nuevo.",
+  "refundKey": "Abre Phoenix Wire en el navegador donde creaste esta tarjeta para recuperar tu dinero."
+ },
+ "de": {
+  "life": "Die Karte ist 24 Stunden gültig. Wird sie nicht geöffnet, erhältst du dein Geld zurück: bei NIM automatisch, bei USDC/USDT beim Öffnen von Phoenix Wire (das Relay behält seine Gebühren).",
+  "validUntil": "Gültig bis {date}",
+  "expires": "Diese Karte läuft am {date} ab",
+  "ended": "Diese Karte ist nicht mehr verfügbar: Sie ist abgelaufen und das Geld wurde an den Absender zurückgegeben.",
+  "refunding": "Rückerstattung läuft…",
+  "refunded": "Automatisch zurückerstattet",
+  "refund": "Mein Geld zurückholen",
+  "refundTo": "Adresse für die Rückerstattung",
+  "refundWorking": "Rückerstattung läuft…",
+  "refundDone": "Rückerstattung gesendet.",
+  "refundFailed": "Die Rückerstattung ist gerade nicht verfügbar. Versuche es erneut.",
+  "refundKey": "Öffne Phoenix Wire in dem Browser, in dem diese Karte erstellt wurde, um dein Geld zurückzuholen."
+ },
+ "zh": {
+  "life": "卡片有效期为 24 小时。如果未被打开，资金将退回给你：NIM 自动退回；USDC/USDT 需打开 Phoenix Wire 退款（中继会保留其费用）。",
+  "validUntil": "有效期至 {date}",
+  "expires": "此卡片将于 {date} 过期",
+  "ended": "此卡片已不可用：卡片已过期，资金已退回给发送者。",
+  "refunding": "正在退款…",
+  "refunded": "已自动退款",
+  "refund": "取回我的钱",
+  "refundTo": "退款地址",
+  "refundWorking": "正在退款…",
+  "refundDone": "退款已发送。",
+  "refundFailed": "暂时无法退款，请重试。",
+  "refundKey": "请在创建此卡片的浏览器中打开 Phoenix Wire，以取回你的钱。"
+ }
+};
 const senderWords={
  fr:{inviteOnly:"Phoenix Wire est ouvert sur invitation pour le moment. Tu peux quand même ouvrir une carte que quelqu'un t'a envoyée."},
  en:{inviteOnly:'Phoenix Wire is invite-only for now. You can still open a card someone has sent you.'},
@@ -122,5 +194,5 @@ const senderWords={
  de:{inviteOnly:'Phoenix Wire ist zurzeit nur auf Einladung verfügbar. Du kannst weiterhin eine Karte öffnen, die dir jemand geschickt hat.'},
  zh:{inviteOnly:'Phoenix Wire 目前仅限受邀用户发送。你仍然可以打开别人发给你的卡片。'}
 };
-export function flowText(language,key){const row=rows[language]||rows.en;return (senderWords[language]||senderWords.en)[key]||(key.startsWith('claim_')?(payoutWords[language]||payoutWords.en)[key.slice(6)]:null)||(claimWords[language]||claimWords.en)[key]||row[keys.indexOf(key)]||key;}
+export function flowText(language,key){const row=rows[language]||rows.en;return (lifetimeWords[language]||lifetimeWords.en)[key]||(senderWords[language]||senderWords.en)[key]||(key.startsWith('claim_')?(payoutWords[language]||payoutWords.en)[key.slice(6)]:null)||(claimWords[language]||claimWords.en)[key]||row[keys.indexOf(key)]||key;}
 export const flowLanguages=Object.keys(rows);

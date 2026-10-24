@@ -1,6 +1,7 @@
-import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.20';
-import { flowText } from './flow-text.js?v=0.4.22';
-import { addressValid,cardPresentation,paintCard } from './model.js?v=0.4.20';
+import { mountAdmin,adminText } from './admin.js?v=0.4.24';
+import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.24';
+import { flowText } from './flow-text.js?v=0.4.24';
+import { addressValid,cardPresentation,paintCard } from './model.js?v=0.4.24';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
 export function mountNimFlow(root=document,{embedded=false,chooseWallet=null,onClose=null,onStatus=()=>{},initialDraft=null,onDraftUsed=()=>{},initialPayment=null,scopedPaymentID=''}={}){
@@ -9,7 +10,15 @@ if(!embedded)window.PhoenixNimiqPayments={addressValid};
 
 const $=id=>root.querySelector('[id="'+id+'"]');
 const t=key=>flowText(document.documentElement.lang,key);
-let senderInviteOnly=false;
+const expiryDate=value=>{const ms=typeof value==='number'?value:Date.parse(value||'');return Number.isFinite(ms)?new Intl.DateTimeFormat(document.documentElement.lang,{dateStyle:'medium',timeStyle:'short'}).format(ms):'';};
+const lifeNote=document.createElement('p');lifeNote.className='wire-lifetime-note';lifeNote.dataset.wire='life';$('amount').closest('label').after(lifeNote);
+const claimExpiry=document.createElement('p');claimExpiry.className='wire-card-expiry';claimExpiry.hidden=true;$('claim-amount').after(claimExpiry);
+let senderInviteOnly=false,adminPanel=null,inviteOnly=false,accessExpanded=false,accessKnown=false;
+const senderGate=document.createElement('div'),senderNotice=document.createElement('p'),senderAccess=document.createElement('button');senderGate.id='sender-invite-gate';senderGate.hidden=true;senderAccess.id='sender-existing-access';senderAccess.type='button';senderAccess.className='secondary-btn wire-access-link';senderAccess.setAttribute('aria-controls','sender-auth');senderGate.append(senderNotice,senderAccess);$('sender').closest('label').before(senderGate);
+function paintSenderAccess(){if(embedded||claimMode)return;senderGate.hidden=!accessKnown||verified||!inviteOnly;senderNotice.textContent=t('inviteOnly');senderAccess.textContent=adminText(document.documentElement.lang,'already');senderAccess.hidden=accessExpanded;senderAccess.setAttribute('aria-expanded',String(accessExpanded));$('sender').closest('label').hidden=!accessKnown||!verified&&inviteOnly&&!accessExpanded;$('sender-auth').hidden=!accessKnown||verified||inviteOnly&&!accessExpanded;}
+senderAccess.addEventListener('click',()=>{accessExpanded=true;paintSenderAccess();$('sender').focus();});
+function configureAdmin(allowed){if(embedded)return;adminPanel?.destroy();adminPanel=mountAdmin({root:root.querySelector('.app-window')||root.body||root,language:()=>document.documentElement.lang,request:api,authorized:allowed===true&&verified,onAccess:open=>{inviteOnly=!open;paintSenderAccess();}});}
+
 const walletWords={
  en:{cancelled:'Payment cancelled in Nimiq Pay.',failed:'Nimiq Pay could not complete the request. Check your wallet before using Nimiq Wallet: a payment may already have been sent.',hub:'Nimiq Wallet',confirm:'Only continue if your wallet shows that this card has NOT been paid. Pay the same card with Nimiq Wallet?',network:'Switch Nimiq Pay to the network used by this service before paying.'},
  fr:{cancelled:'Paiement annulé dans Nimiq Pay.',failed:'Nimiq Pay n’a pas pu terminer la demande. Vérifiez votre portefeuille avant d’utiliser Nimiq Wallet : un paiement peut déjà être parti.',hub:'Portefeuille Nimiq',confirm:'Continuez seulement si votre portefeuille indique que cette carte n’a PAS été payée. Alimenter la même carte avec Nimiq Wallet ?',network:'Choisissez dans Nimiq Pay le réseau utilisé par ce service avant de payer.'},
@@ -339,8 +348,9 @@ async function api(path,data,{timeout=false}={}){
  }finally{if(timer!==null)clearTimeout(timer);if(controller)controllers.delete(controller);}
 }
 function status(id,key){$(id).textContent=t(key);}
-function explain(error){if(error.message==='invite_only')return t('inviteOnly');if(error.message==='funding_pending'||error.message==='funding_already_started')return t('pending');if(error.status===403)return t('invalid');if(error.status===410)return t('expired');if(error.status===401)return t('verifyFirst');return t('failed');}
+function explain(error){if(error.message==='invite_only')return t('inviteOnly');if(error.message==='funding_pending'||error.message==='funding_already_started')return t('pending');if(['claim_unavailable','claim_expired','card_expired'].includes(error.message))return t('ended');if(error.status===403)return t('invalid');if(error.status===410)return t('expired');if(error.status===401)return t('verifyFirst');return t('failed');}
 function refreshText(){
+ paintSenderAccess();adminPanel?.render();
  if(senderInviteOnly)status('sender-status','inviteOnly');
  fallback.textContent=wt('hub');
  root.querySelectorAll('[data-wire]').forEach(el=>el.textContent=t(el.dataset.wire));
@@ -356,7 +366,7 @@ async function task(run,target='feedback',cleanup){
  try{await run();}catch(error){$(target).textContent=explain(error);}finally{busy=false;cleanup?.();renderProgress();}
 }
 let usdtAssets=[];
-function senderUI(email){verified=Boolean(email);window.wireUsdtState={assets:usdtAssets,isVerified:verified};if(!embedded)window.WireUSDT?.configure(window.wireUsdtState);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');}
+function senderUI(email,admin=false){verified=Boolean(email);window.wireUsdtState={assets:usdtAssets,isVerified:verified};if(!embedded)window.WireUSDT?.configure(window.wireUsdtState);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');configureAdmin(admin);paintSenderAccess();}
 function showPayment(p){
  if(isFolded(p))return;
  displayed=p;
@@ -417,7 +427,7 @@ function progressText(p){
   }
   return rt('unknown');
  }
- if(p.stage==='sent')return pt('sent').replace('{email}',p.recipient);
+ if(p.stage==='sent'){const date=expiryDate(Date.parse(p.created||'')+86400000);return pt('sent').replace('{email}',p.recipient)+(date?'\n'+t('validUntil').replace('{date}',date):'');}
  if(Date.now()>=(watch?.until??deadline(p)))return pt('expired');
  if(p.stage==='delivery_failed')return pt('failed');
  if(watch?.note)return pt(watch.note)||watch.note;
@@ -537,7 +547,7 @@ $('send-sender-code').addEventListener('click',()=>task(async()=>{
  $('sender-code-box').hidden=false;status('sender-status','codeSent');
 },'sender-status'));
 $('verify-sender-code').addEventListener('click',()=>task(async()=>{
- const result=await api('/api/sender/verify',{code:$('sender-code').value});$('sender-code').value='';senderUI(result.email);await loadHistory();
+ const result=await api('/api/sender/verify',{code:$('sender-code').value});$('sender-code').value='';senderUI(result.email);void api('/api/session').then(session=>configureAdmin(session.admin===true)).catch(()=>{});await loadHistory();
 },'sender-status'));
 $('logout').addEventListener('click',()=>task(async()=>{await api('/api/logout',{});location.reload();}));
 $('new-card').addEventListener('click',()=>newCard());
@@ -764,7 +774,7 @@ function refreshPayout(){
    if(error.status===404&&error.message==='payout_not_started'){
     reception.known=true;if(!reception.payout&&reception.message!=='claim_payout_already_started')reception.locked=false;
     if(!reception.locked){reception.retry=false;if(['claim_checkingPayout','claim_payoutUnavailable'].includes(reception.message))reception.message='';}
-   }else{reception.message='claim_payoutUnavailable';reception.retry=true;if(!reception.payout)reception.known=false;}
+   }else if(['claim_unavailable','claim_expired','card_expired'].includes(error.message)){reception.expired=true;reception.message='ended';}else{reception.message='claim_payoutUnavailable';reception.retry=true;if(!reception.payout)reception.known=false;}
   }finally{reception.read=null;updateClaimControls();schedulePayout();}
  })();
  return reception.read;
@@ -774,12 +784,13 @@ async function claimTask(run,button){
  try{await run();}
  catch(error){
   const code=error.message;
-  if(code==='payout_already_started'){
+  if(['claim_unavailable','claim_expired','card_expired'].includes(code)){reception.expired=true;reception.message='ended';}
+  else if(code==='payout_already_started'){
    reception.locked=true;reception.message='claim_payout_already_started';reception.retry=true;await refreshPayout();
   }else if(code==='invalid_destination'||code==='cashlink_not_confirmed_or_invalid'){
    reception.locked=false;reception.message='claim_'+code;
   }else if(error.status===403){reception.code='';$('claim-code').value='';reception.locked=false;reception.message='invalid';}
-  else if(error.status===410){reception.expired=true;reception.message='expired';}
+  else if(error.status===410){reception.expired=true;reception.message='ended';}
   else{await refreshPayout();if(!reception.payout){reception.message='claim_payoutUnavailable';reception.retry=true;}}
  }finally{busy=false;button.removeAttribute('aria-busy');updateClaimControls();}
 }
@@ -866,9 +877,9 @@ async function boot(){
    }catch{/* A used or expired right is a normal code-entry screen, not an alarm. */}
    finally{handoffToken='';}
   }
-  try{const p=await api('/api/claims/'+claimID());paintCard($('claim-card'),document.documentElement.lang,p.id);$('claim-info').textContent=t('from')+' '+p.sender;$('claim-amount').textContent=p.amount+' NIM';$('claim-message').textContent=p.message;
+  try{const p=await api('/api/claims/'+claimID());paintCard($('claim-card'),document.documentElement.lang,p.id);$('claim-info').textContent=t('from')+' '+p.sender;$('claim-amount').textContent=p.amount+' NIM';$('claim-message').textContent=p.message;const expires=expiryDate(p.expires_at);claimExpiry.textContent=expires?t('expires').replace('{date}',expires):'';claimExpiry.hidden=!expires;
    window.PhoenixNimiqIdenticons?.paint($('claim-iqon'),p.address);
-   if(new Date(p.expires_at).getTime()<=Date.now()&&!reception.payout){reception.expired=true;reception.message='expired';}
+   if(new Date(p.expires_at).getTime()<=Date.now()&&!reception.payout){reception.expired=true;reception.message='ended';}
    if(reception.known&&!reception.payout&&!reception.expired){
     // Redeeming is a one-shot continuation of the explicit browser choice.
     if(reception.code&&window.nimiq)await chooseReception('pay');
@@ -876,11 +887,11 @@ async function boot(){
     else await claimTask(requestClaimCode,$('request-claim-code'));
    }
    updateClaimControls();
-  }catch(error){if(!reception.payout){reception.expired=true;reception.message='failed';updateClaimControls();}}return;
+  }catch(error){if(!reception.payout){reception.expired=true;reception.message=['claim_unavailable','claim_expired','card_expired'].includes(error.message)?'ended':'failed';updateClaimControls();}}return;
  }
- try{const config=await api('/api/config');configured=config.mode==='integrated';ready=config.payments_enabled===true;usdtAssets=Array.isArray(config.assets)?config.assets:[];if(!configured)return;
+ try{const config=await api('/api/config');accessKnown=true;inviteOnly=config.invite_only===true;configured=config.mode==='integrated';ready=config.payments_enabled===true;usdtAssets=Array.isArray(config.assets)?config.assets:[];if(!configured)return;
   $('sender-auth').hidden=embedded;refreshText();const session=await api('/api/session');const limited=scopedPaymentID&&session.handoff?.payment_id===scopedPaymentID;
-  senderUI(session.verified?session.email:limited?(initialPayment?.sender||'handoff'):'');
+  senderUI(session.verified?session.email:limited?(initialPayment?.sender||'handoff'):'',session.admin);
   if(preparedContext){
    root.classList.add('wire-nim-prepared');
    $('nim-handoff-card').append($('payment-card'));

@@ -55,12 +55,17 @@ document.documentElement.lang=WORDS[lang]?lang:'en';
 const $=id=>document.getElementById(id),C=window.PhoenixCashlink;
 function labels(){$('useWallet').textContent=W.useWallet;$('scanBtn').textContent=W.scan;$('scanHelp').textContent=W.scanHelp;$('scanStop').textContent=W.scanStop;$('pasteBtn').textContent=W.paste;$('eyebrow').textContent=W.eyebrow;$('where').textContent=W.where;$('addrHelp').textContent=W.addrHelp;$('next').textContent=W.receive;$('emailTitle').textContent=W.emailTitle;$('emailHelp').textContent=W.emailHelp;$('sendCode').textContent=W.sendCode;$('resend').textContent=W.resend;$('pasteCode').textContent=W.paste;$('codeSent').textContent=W.codeSent;$('codeLabel').textContent=W.code;$('verify').textContent=W.confirmCode;$('whereMoney').textContent=W.whereMoney}
 labels();$('msg').textContent=W.loading;
+const expiryWords={"fr":{"expires":"Cette carte expire le {date}","ended":"Cette carte n'est plus disponible : elle a expiré et l'argent est retourné à l'expéditeur."},"en":{"expires":"This card expires on {date}","ended":"This card is no longer available: it has expired and the money has returned to the sender."},"es":{"expires":"Esta tarjeta caduca el {date}","ended":"Esta tarjeta ya no está disponible: ha caducado y el dinero ha vuelto al remitente."},"de":{"expires":"Diese Karte läuft am {date} ab","ended":"Diese Karte ist nicht mehr verfügbar: Sie ist abgelaufen und das Geld wurde an den Absender zurückgegeben."},"zh":{"expires":"此卡片将于 {date} 过期","ended":"此卡片已不可用：卡片已过期，资金已退回给发送者。"}};
+const expiryCopy=expiryWords[lang]||expiryWords.en;
+const expiryNode=document.createElement('p');expiryNode.id='card-expiry';$('amount').after(expiryNode);
+function showExpiry(value){const ms=Date.parse(value||'');expiryNode.textContent=Number.isFinite(ms)?expiryCopy.expires.replace('{date}',new Intl.DateTimeFormat(lang,{dateStyle:'medium',timeStyle:'short'}).format(ms)):'';}
+const gone=e=>['claim_unavailable','claim_expired','card_expired','expired'].includes(e?.code);
 const say=(el,text,kind)=>{el.textContent=text||'';el.className='status'+(kind?' '+kind:'')};
-const err=e=>W.errors[e&&e.code]||W.errors.generic;
+const err=e=>gone(e)?expiryCopy.ended:W.errors[e&&e.code]||W.errors.generic;
 async function api(method,path,body){
  const res=await fetch(path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined,credentials:'same-origin'});
  let data={};try{data=await res.json()}catch{}
- if(!res.ok){const e=Error(data.error||'generic');e.code=data.error||'generic';e.status=res.status;throw e}
+ if(!res.ok){const e=Error(data.code||data.error||'generic');e.code=data.code||data.error||'generic';e.status=res.status;throw e}
  data._status=res.status;return data}
 const fail=text=>{$('msg').textContent=text;$('amount').innerHTML='&nbsp;'};
 let link;try{link=C.parseFragment(location.hash)}catch{fail(W.badLink);return}
@@ -112,7 +117,7 @@ function walletTools(){
    const a=document.createElement('a');a.className='btn secondary';a.href=href;a.textContent=W.openApp.replace('{app}',name);box.append(a)}
   return}
 }
-const stateMessage=()=>({expired:W.expired,cancelled:W.cancelled,paid:W.already,withdrawn:W.withdrawn,settled_elsewhere:W.other});
+const stateMessage=()=>({expired:expiryCopy.ended,cancelled:W.cancelled,paid:W.already,withdrawn:W.withdrawn,settled_elsewhere:W.other});
 // The payout the service describes is checked against the card's own description and a short list of known tokens BEFORE anything
 // is signed: a service answer that is merely self-consistent is not enough (the hash check below proves only that the batch matches
 // the fields, not that the fields are right).
@@ -126,7 +131,7 @@ const unitsText=u=>(u/1e6).toFixed(6).replace(/0+$/,'').replace(/\.$/,'');
 const quoteChanged=()=>Object.assign(Error('quote_changed'),{code:'quote_changed'});
 const safeOf=()=>C.cardAddress({id:link.id,owners:card.owners,threshold:2},card.chain_id);
 function showCard(c){
- $('amount').textContent=c.amount;const small=document.createElement('small');small.textContent=' '+(c.symbol||'USDT');$('amount').append(small);
+ showExpiry(c.expires_at);$('amount').textContent=c.amount;const small=document.createElement('small');small.textContent=' '+(c.symbol||'USDT');$('amount').append(small);
  $('sub').textContent=(c.chain||'').charAt(0).toUpperCase()+(c.chain||'').slice(1);
  $('cardMsg').textContent=c.message||''}
 // where to pick the journey up again after a reload: a payment already sent, an authorized attempt, a confirmed e-mail check, a mailed code
@@ -139,7 +144,7 @@ function resume(c){
  if(ck&&!ck.verifiedAt&&Date.now()-ck.at<9*MIN){check=ck;showStep('step-code');return}
  $('step-email').hidden=false}
 async function load(){
- let c;try{c=await api('GET','/api/v1/usdt/cards/'+idHex)}catch(e){fail(e.status===404?W.notFound:err(e));return}
+ let c;try{c=await api('GET','/api/v1/usdt/cards/'+idHex)}catch(e){fail(gone(e)?expiryCopy.ended:e.status===404?W.notFound:err(e));return}
  // The card must be exactly what its owners say, and the link key must be one of them: never trust the server blindly.
  const safe=C.checksum(C.cardAddress({id:link.id,owners:c.owners,threshold:2},c.chain_id));
  if(safe!==c.safe||!c.owners.includes(linkOwner)||c.owners.length!==2){fail(W.badLink);return}

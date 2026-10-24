@@ -62,6 +62,10 @@ const urlClaim=new URLSearchParams(location.search).get('claim')||'demo';
 const claimId=/^(?:demo|[a-f0-9]{48})$/.test(urlClaim)?urlClaim:null;
 const previewMode=claimId==='demo';
 const amountNode=document.querySelector('.amount');
+const lifetimeWords={"fr":{"expires":"Cette carte expire le {date}","ended":"Cette carte n'est plus disponible : elle a expiré et l'argent est retourné à l'expéditeur."},"en":{"expires":"This card expires on {date}","ended":"This card is no longer available: it has expired and the money has returned to the sender."},"es":{"expires":"Esta tarjeta caduca el {date}","ended":"Esta tarjeta ya no está disponible: ha caducado y el dinero ha vuelto al remitente."},"de":{"expires":"Diese Karte läuft am {date} ab","ended":"Diese Karte ist nicht mehr verfügbar: Sie ist abgelaufen und das Geld wurde an den Absender zurückgegeben."},"zh":{"expires":"此卡片将于 {date} 过期","ended":"此卡片已不可用：卡片已过期，资金已退回给发送者。"}},lifetime=lifetimeWords[locale]||lifetimeWords.en;
+const expiryNode=document.createElement('p');expiryNode.id='card-expiry';amountNode.after(expiryNode);
+const gone=code=>['claim_unavailable','claim_expired','card_expired'].includes(code);
+function showExpiry(value){const ms=Date.parse(value||'');expiryNode.textContent=Number.isFinite(ms)?lifetime.expires.replace('{date}',new Intl.DateTimeFormat(document.documentElement.lang,{dateStyle:'medium',timeStyle:'short'}).format(ms)):'';}
 const descriptionNode=document.querySelector('.card .sub');
 let canVerify=false,requestBusy=false;
 let cooling=0,coolTimer=null,receiveUrl='';
@@ -150,7 +154,8 @@ async function loadClaim(){
  try{
   const r=await fetch('/api/v1/claims/'+encodeURIComponent(claimId),{cache:'no-store'});
   const v=await r.json();
-  if(!r.ok)throw Error(v.error||'Claim unavailable');
+  if(!r.ok)throw Error(v.code||v.error||'Claim unavailable');
+  showExpiry(v.expires_at);
   if(typeof v.asset==='string'&&v.asset.startsWith('usdt_')){loadEVM(v);return}
   amountNode.firstChild.textContent=v.amount+' ';
   showPalette(previewMode?previewPalette:paletteForClaimId(v.id));
@@ -166,7 +171,7 @@ async function loadClaim(){
   canVerify=!previewMode&&(v.status==='otp_required'||v.status==='otp_released');
   updateControls();
  }catch(e){
-  status.textContent='Cannot open claim: '+e.message;send.disabled=verify.disabled=true;
+  status.textContent=gone(e.message)?lifetime.ended:feedback[3];send.disabled=verify.disabled=true;
  }
 }
 loadClaim();
@@ -191,6 +196,7 @@ async function action(name,data={}){
   const r=await fetch('/api/v1/claims/'+encodeURIComponent(claimId)+'?action='+name,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   const v=await r.json().catch(()=>({}));
   if(!r.ok){
+   if(gone(v.code||v.error)){canVerify=false;setStatus(lifetime.ended,'error');return;}
    if(v.error==='wait_before_resend'){setStatus(more.wait,'error');startCooldown(60);}
    else setStatus(v.error==='invalid_or_expired_code'?feedback[1]:v.error==='otp_rate_limited'?feedback[2]:feedback[3],'error');
    return;

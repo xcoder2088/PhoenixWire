@@ -1,3 +1,4 @@
+import { mountAdmin,adminText } from '../internal/web/static/admin.js';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from '../internal/web/static/model.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -51,7 +52,7 @@ async function start({claim=false,verified=true,pending=false,mobile=false,retur
  Hub.RedirectRequestBehavior=class{constructor(url,state){behaviors.push({url,state});}};
  window.HubApi=Hub;
  window.PhoenixNimiqIdenticons={async png(){return 'fixture-artwork';},paint(image){image.hidden=false;image.src='data:image/png;base64,test';}};
- Object.assign(dom.getInternalVMContext(), { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard, flowText,addressValid,cardPresentation,paintCard});
+ Object.assign(dom.getInternalVMContext(), { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText, flowText,addressValid,cardPresentation,paintCard});
  const source=fs.readFileSync(new URL('../internal/web/static/flow.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'').replace(/^export /gm,'');
  vm.runInContext(source,dom.getInternalVMContext());await settle();
  const $=id=>window.document.getElementById(id);
@@ -132,7 +133,7 @@ test('iPhone return restores the original form and confirms without a second che
 });
 test('expired claim keeps its explanation visible while disabling code actions',async()=>{
  const s=await start({claim:true,expired:true});
- assert.match(s.$('claim-status').textContent,/period has ended/);
+ assert.match(s.$('claim-status').textContent,/expired and the money has returned/);
  assert.equal(s.$('claim-form').hidden,false);
  assert.equal(s.$('request-claim-code').hidden,true);
  assert.equal(s.$('claim-choices').hidden,true);s.dom.window.close();

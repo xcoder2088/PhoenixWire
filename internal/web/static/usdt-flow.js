@@ -1,7 +1,8 @@
+import { flowText } from './flow-text.js?v=0.4.24';
 // The sender's side of a USDC / USDT card. The browser makes the card id and the link key and KEEPS them: they are what lets the sender
 // take the money back. Wire's server never stores the claim link; the browser hands it over once, to be e-mailed, after the card is funded.
 import { usdtText } from './usdt-text.js?v=0.4.21';
-import { paintCard } from './model.js?v=0.3.0';
+import { paintCard } from './model.js?v=0.4.24';
 
 const $ = id => document.getElementById(id);
 const STORE = 'wire-usdt-cards';
@@ -93,7 +94,7 @@ async function showPay(entry) {
  current = entry;
  $('usdt-panel').hidden = false;
  $('usdt-title').textContent = fill(t.payTitle, { amount: entry.payAmount, symbol: entry.symbol, chain: entry.chain });
- $('usdt-help').textContent = fill(t.payHelp, { fee: unitsText(entry.feeUnits), symbol: entry.symbol });
+ $('usdt-help').textContent = fill(t.payHelp, { fee: unitsText(entry.feeUnits), symbol: entry.symbol })+' '+flowText(document.documentElement.lang,'life');
  $('usdt-address').textContent = entry.safe;
  const wallet = $('usdt-wallet');
  wallet.textContent = t.openWallet; wallet.href = entry.payLink; wallet.hidden = !entry.payLink.startsWith('ethereum:0x');
@@ -117,6 +118,7 @@ function watch(id) {
 }
 
 // One look at the card: what the chain says, and, when it is funded, the invitation. Returns true when there is nothing more to watch.
+function expiryLabel(entry){const date=typeof entry.created==='number'?entry.created:Date.parse(entry.created||'');return Number.isFinite(date)?' '+flowText(document.documentElement.lang,'validUntil').replace('{date}',new Intl.DateTimeFormat(document.documentElement.lang,{dateStyle:'medium',timeStyle:'short'}).format(date+86400000)):'';}
 async function check(entry, tries = 0) {
  const t = words();
  let st;
@@ -126,9 +128,9 @@ async function check(entry, tries = 0) {
   case 'awaiting_funds': setStatus((st.balance_units || 0) >= needed ? t.seen : t.waiting); return false;
   case 'verifying': setStatus(t.verifying); return false;
   case 'ready': {
-   if (entry.invited) { setStatus(fill(t.invited, { email: entry.recipient }), 'ok'); return true; }
+   if (entry.invited) { setStatus(fill(t.invited, { email: entry.recipient })+expiryLabel(entry), 'ok'); return true; }
    setStatus(t.funded);
-   try { await api('/api/usdt/card/' + entry.id + '/invite', { claim_url: claimURL(entry) }); updateCard(entry.id, { invited: true }); setStatus(fill(t.invited, { email: entry.recipient }), 'ok'); renderList(); return true; }
+   try { await api('/api/usdt/card/' + entry.id + '/invite', { claim_url: claimURL(entry) }); updateCard(entry.id, { invited: true }); setStatus(fill(t.invited, { email: entry.recipient })+expiryLabel(entry), 'ok'); renderList(); return true; }
    catch (e) { setStatus(e.code === 'rate_limited' ? t.inviteRetry : errorText(e), 'error'); return tries > 20; }
   }
   case 'paid': setStatus(t.paid, 'ok'); return true;
@@ -140,22 +142,26 @@ async function check(entry, tries = 0) {
 }
 
 // ---- taking the money back: the service co-signs, this browser adds the link key's signature ----
-async function refund(entry, to) {
+async function refund(entry, to, automatic=false) {
  const C = await library(), t = words();
  const r = await api('/api/usdt/card/' + entry.id + '/refund', { to });
  // The fee a refund pays is the flat gas fee fixed at the card's creation: the service may never ask for more.
  const legacy = entry.refundFeeUnits === undefined, flat = FLAT_GAS_FEE[entry.asset];
  const accepted = legacy ? (Number.isSafeInteger(flat) && Number.isSafeInteger(entry.feeUnits) ? Math.min(flat, entry.feeUnits) : NaN) : entry.refundFeeUnits;
  if (!(Number.isSafeInteger(accepted) && accepted > 0 && r.fee_units === accepted && Number.isSafeInteger(r.units) && r.units > 0)) throw fail('invalid_service_answer');
- if (!confirm(fill(t.refundConfirm, { net: unitsText(r.units), fee: unitsText(accepted), symbol: entry.symbol }))) throw fail('cancelled');
+ if (!automatic&&!confirm(fill(t.refundConfirm, { net: unitsText(r.units), fee: unitsText(accepted), symbol: entry.symbol }))) throw fail('cancelled');
  const { id, key } = C.parseFragment(entry.fragment);
  const tx = C.payout({ token: entry.token, recipient: to, relayer: entry.relayer, amount: BigInt(r.units), fee: BigInt(accepted), nonce: BigInt(r.nonce || 0) });
  const mine = await C.signTx(tx, entry.chainId, C.cardAddress({ id, owners: entry.owners, threshold: 2 }, entry.chainId), key);
  const raw = hexBytes(C, r.signature), theirs = { owner: hexBytes(C, r.owner), sig: { r: raw.slice(0, 32), s: raw.slice(32, 64), v: raw[64] } };
  const packed = C.packSignatures([mine, theirs]);
- return api('/api/usdt/card/' + entry.id + '/refund-claim', { signatures: '0x' + C.hex(packed) });
+ const result=await api('/api/usdt/card/' + entry.id + '/refund-claim', { signatures: '0x' + C.hex(packed) });
+ if(['refunded','refunding','verifying','withdrawn'].includes(result.status||result.state)){try{localStorage.setItem('wire-refund-address:'+entry.chain,to);}catch{}}return result;
 }
 
+const expiredRefunds=new Set();
+const validRefund=value=>typeof value==='string'&&/^0x[0-9a-fA-F]{40}$/.test(value)&&!/^0x0{40}$/i.test(value);
+function knownRefund(c){let saved='';try{saved=localStorage.getItem('wire-refund-address:'+c.chain)||'';}catch{}return validRefund(c.fundingAddress)?c.fundingAddress:validRefund(saved)?saved:'';}
 // ---- the list of my cards ----
 async function renderList() {
  const t = words(), list = $('usdt-list');
@@ -170,11 +176,18 @@ async function renderList() {
   const row = document.createElement('div'); row.className = 'history-row';
   const label = document.createElement('p'); label.textContent = `${c.amount} ${c.symbol} · ${c.recipient}`; row.append(label);
   const status = document.createElement('small'); row.append(status);
+  let currentState;try{currentState=await api('/api/usdt/card/'+c.id+'/status',{});Object.assign(c,{state:currentState.state,balanceUnits:Number(currentState.balance_units??currentState.balanceUnits)||0});if(c.here)updateCard(c.id,c);}catch{}
+  const expiredFunds=Boolean(currentState)&&c.state==='expired'&&c.balanceUnits>0&&!currentState.stale;
+  if(expiredFunds&&c.here&&!c.recovering&&knownRefund(c)&&!expiredRefunds.has(c.id)){
+   expiredRefunds.add(c.id);status.textContent=flowText(document.documentElement.lang,'refundWorking');
+   try{const result=await refund(c,knownRefund(c),true);status.textContent=flowText(document.documentElement.lang,result.status==='refunded'?'refundDone':'refundWorking');updateCard(c.id,{recovering:true});}
+   catch{status.textContent=flowText(document.documentElement.lang,'refundFailed');}
+  }
   const button = (text, run) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.addEventListener('click', async () => { b.disabled = true; try { await run(); } catch (e) { status.textContent = e.code === 'cancelled' ? '' : errorText(e); } finally { b.disabled = false; } }); row.append(b); return b; };
   button(t.status, async () => { const st = await api('/api/usdt/card/' + c.id + '/status', {}); status.textContent = ({ ready: t.funded, awaiting_funds: t.waiting, paid: t.paid, withdrawn: t.withdrawn, cancelled: t.cancelled, expired: t.expired, verifying: t.verifying })[st.state] || ''; if (c.here && st.state === 'ready' && !c.invited) await check(c); });
-  if (c.here) {
-   button(t.resend, async () => { await api('/api/usdt/card/' + c.id + '/invite', { claim_url: claimURL(c) }); updateCard(c.id, { invited: true }); status.textContent = fill(t.invited, { email: c.recipient }); });
-   const input = document.createElement('input'); input.type = 'text'; input.autocomplete = 'off'; input.spellcheck = false; input.placeholder = t.refundTo + ' (0x…)';
+  if (c.here && !['paid','withdrawn','cancelled'].includes(c.state)) {
+   if(c.state!=='expired')button(t.resend, async () => { await api('/api/usdt/card/' + c.id + '/invite', { claim_url: claimURL(c) }); updateCard(c.id, { invited: true }); status.textContent = fill(t.invited, { email: c.recipient }); });
+   const input = document.createElement('input');input.value=knownRefund(c); input.type = 'text'; input.autocomplete = 'off'; input.spellcheck = false; input.placeholder = t.refundTo + ' (0x…)';
    const go = document.createElement('button'); go.type = 'button'; go.textContent = t.refund;
    go.addEventListener('click', async () => { const to = input.value.trim(); if (!/^0x[0-9a-fA-F]{40}$/.test(to)) { status.textContent = t.refundTo; return; } go.disabled = true; try { await refund(c, to); status.textContent = t.refundDone; } catch (e) { status.textContent = e.code === 'cancelled' ? '' : errorText(e); } finally { go.disabled = false; } });
    row.append(input, go);

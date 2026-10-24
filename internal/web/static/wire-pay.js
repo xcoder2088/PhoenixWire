@@ -1,9 +1,10 @@
-import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.20';
+import { mountAdmin,adminText } from './admin.js?v=0.4.24';
+import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.24';
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
-import { resolveLanguage } from './model.js?v=0.4.20';
-import { mountNimFlow } from './flow.js?v=0.4.22';
-import { flowText } from './flow-text.js?v=0.4.22';
+import { resolveLanguage } from './model.js?v=0.4.24';
+import { mountNimFlow } from './flow.js?v=0.4.24';
+import { flowText } from './flow-text.js?v=0.4.24';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -136,6 +137,14 @@ function read(key, fallback) { try { return localStorage.getItem(key) || fallbac
 function save(key, value) { try { localStorage.setItem(key, value); } catch { /* storage may be unavailable */ } }
 let preference = read('wire-language', 'auto'), lang = 'en', email = '', payments = null, usdtOn = false, nimOn = false, enabled = false, nimView = null, resumed = false;
 let nimCache=null;
+let adminPanel=null,inviteOnly=false,accessExpanded=false;
+const inviteGate=document.createElement('div'),inviteNotice=document.createElement('p'),accessLink=document.createElement('button');
+inviteGate.id='wire-invite-gate';inviteGate.hidden=true;inviteNotice.setAttribute('role','status');accessLink.id='wire-existing-access';accessLink.type='button';accessLink.className='secondary-btn wire-access-link';accessLink.setAttribute('aria-controls','wire-sender');
+inviteGate.append(inviteNotice,accessLink);$('wire-sender').before(inviteGate);
+accessLink.addEventListener('click',()=>{accessExpanded=true;paintSenderAccess();$('wire-email').focus();});
+function paintSenderAccess(){inviteGate.hidden=Boolean(email)||!enabled||!inviteOnly;inviteNotice.textContent=flowText(lang,'inviteOnly');accessLink.textContent=adminText(lang,'already');accessLink.hidden=accessExpanded;accessLink.setAttribute('aria-expanded',String(accessExpanded));$('wire-sender').hidden=Boolean(email)||!enabled||inviteOnly&&!accessExpanded;}
+function configureAdmin(allowed){adminPanel?.destroy();adminPanel=mountAdmin({root:document.querySelector('.wire-shell'),language:()=>lang,request:api,authorized:allowed===true&&Boolean(email),onAccess:open=>{inviteOnly=!open;paintSenderAccess();}});}
+
 let choosingCoin=false,codeSending=false,codeSentTo='',codeUntil=0,codeTimer=null,senderInviteOnly=false;
 const t = key => (words[lang] || words.en)[key];
 // Only an opaque, one-use credential crosses contexts. Remove it before any request.
@@ -191,7 +200,7 @@ function paint() {
  document.querySelectorAll('.wire-window-back').forEach(button => { button.textContent = t('back'); });
  document.querySelectorAll('.wire-coin-picker .nimiq-payment-head h3').forEach(title=>{title.textContent=t('chooseCoin');});
  document.querySelectorAll('[data-wallet-text]').forEach(el=>{el.textContent=t(el.dataset.walletText);});
- renderCards();
+ renderCards();paintSenderAccess();adminPanel?.render();document.querySelectorAll('.nimiq-payment-window:not(.wire-nim-window)').forEach(enhanceStableWindow);
 }
 // iOS cannot reliably disclose whether another app is installed. Ask, without timers or blur heuristics.
 const iosStore='https://apps.apple.com/app/nimiq-pay/id6471844738';
@@ -364,6 +373,41 @@ const assetNames={usdc_polygon:'USDC · Polygon',usdt_polygon:'USDT · Polygon',
 let cardEpoch=0,ownedPromise=null,nimPromise=null,nimTimer=null;
 const ht=key=>senderHistoryText(lang,key);
 const nimActions=new Map();
+const stableActions=new Map(),autoRefunds=new Set();
+const life=key=>flowText(lang,key);
+const validRefundAddress=value=>typeof value==='string'&&/^0x[0-9a-fA-F]{40}$/.test(value)&&!/^0x0{40}$/i.test(value);
+const refundMemoryKey=asset=>'wire-refund-address:'+String(asset).split('_').at(-1);
+function knownRefundAddress(c){const saved=read(refundMemoryKey(c.asset),'');return validRefundAddress(c.fundingAddress)?c.fundingAddress:validRefundAddress(saved)?saved:'';}
+function localRefundEntry(id){try{return JSON.parse(read('phoenixmail.usdt.sent.v2','[]')).find(e=>e.card?.id===id&&e.senderToken&&e.cashlink&&/^#c=/.test(new URL(e.card.claimURL).hash));}catch{return null;}}
+function stableFunds(c){return c.state==='expired'&&!c.stale&&!c.claimedAt&&Number(c.balanceUnits)>0;}
+function appendStableActions(row,c){
+ if(!stableFunds(c)&&!stableActions.has(c.id))return;
+ const state=stableActions.get(c.id)||(c.refundPending?{sent:true,message:'refundWorking'}:{}),note=document.createElement('p');note.className='wire-refund-result';note.setAttribute('role','status');note.textContent=state.message?life(state.message):'';
+ if(stableFunds(c)&&!state.sent){
+  if(!localRefundEntry(c.id))note.textContent=life('refundKey');
+  else{const form=document.createElement('form'),label=document.createElement('label'),input=document.createElement('input'),go=document.createElement('button');
+   form.className='wire-refund-form';label.textContent=life('refundTo');input.type='text';input.autocomplete='off';input.spellcheck=false;input.value=state.address||knownRefundAddress(c);input.required=true;input.pattern='0x[0-9a-fA-F]{40}';label.append(input);
+   go.type='submit';go.className='primary-btn';go.textContent=life('refund');go.disabled=Boolean(state.loading);input.disabled=Boolean(state.loading);
+   input.addEventListener('input',()=>{stableActions.set(c.id,{...stableActions.get(c.id),address:input.value});});
+   form.addEventListener('submit',e=>{e.preventDefault();if(validRefundAddress(input.value.trim()))void refundStable(c,input.value.trim(),false);});form.append(label,go);row.append(form);
+  }
+ }row.append(note);
+}
+async function refundStable(c,to,automatic){
+ if(stableActions.get(c.id)?.loading||!stableFunds(c)||!validRefundAddress(to))return;
+ const entry=localRefundEntry(c.id);if(!entry)return;
+ const epoch=cardEpoch,owner=email;stableActions.set(c.id,{loading:true,address:to,message:'refundWorking'});renderCards();
+ try{
+  const CL=window.PhoenixUSDTCashlink.create({language:()=>lang});
+  const result=await CL.refund(entry,to,{confirm:({units,fee})=>epoch===cardEpoch&&owner===email&&(automatic||window.confirm(CL.fmt(CL.words(assetNames[c.asset]?.startsWith('USDC')?'USDC':'USDT').refundConfirm,{net:String(units/1e6),fee:String(fee/1e6)})))});
+  if(epoch!==cardEpoch||email!==owner)return;
+  if(!['refunded','refunding','verifying','withdrawn'].includes(result.status||result.state))throw Error('unconfirmed_refund');
+  save(refundMemoryKey(c.asset),to);stableActions.set(c.id,{address:to,message:result.status==='refunded'?'refundDone':'refundWorking',sent:true});
+  update(c.id,{state:result.status==='refunded'?'withdrawn':'expired',recovering:true,refundPending:true,refundPendingAt:Date.now()});
+ }catch{if(epoch===cardEpoch&&owner===email)stableActions.set(c.id,{address:to,message:'refundFailed'});}
+ finally{if(epoch===cardEpoch&&owner===email){const state=stableActions.get(c.id);if(state)state.loading=false;renderCards();}}
+}
+
 const fill=(key,entry)=>t(key).replace('{email}',entry.recipient||'');
 const nimPendingWords={fr:'En attente de confirmation du paiement',en:'Awaiting payment confirmation',es:'Esperando confirmación del pago',de:'Zahlungsbestätigung ausstehend',zh:'等待付款确认'};
 function cardLabel(c){
@@ -405,14 +449,15 @@ function renderCards(){
   const heading=document.createElement('div');heading.className='wire-card-heading';heading.append(coinIcon(c.nim?'nim':c.asset),amount);
   const recipient=document.createElement('p');recipient.className='wire-card-recipient';recipient.textContent=c.recipient||'—';
   const state=document.createElement('p');state.className='wire-card-state';state.textContent=cardLabel(c);row.append(heading,recipient,state);appendDates(row,c);
-  if(c.nim)appendNimActions(row,c);
+  if(c.nim)appendNimActions(row,c);else appendStableActions(row,c);
   if(c.stale){const stale=document.createElement('p');stale.className='wire-card-stale';stale.textContent=t('staleCard');row.append(stale);}
   list.append(row);
  }
+ for(const [id,result]of stableActions)if(result.message&&!all.some(c=>c.id===id)){const note=document.createElement('p');note.className='wire-refund-result';note.setAttribute('role','status');note.textContent=life(result.message);list.append(note);}
  const notices=$('wire-card-notices');notices.replaceChildren();
  for(const c of all.filter(c=>c.invited&&c.noticePending)){
   const banner=document.createElement('section');banner.className='wire-card-banner';
-  const message=document.createElement('p');message.setAttribute('role','status');message.textContent=fill('bannerCard',c);
+  const message=document.createElement('p');message.setAttribute('role','status');message.textContent=fill('bannerCard',c);const end=dateValue(c.createdAt||c.created);if(end)message.textContent+=' '+life('validUntil').replace('{date}',new Intl.DateTimeFormat(lang,{dateStyle:'medium',timeStyle:'short'}).format(end+86400000));
   const close=document.createElement('button');close.type='button';close.className='secondary-btn';close.textContent='×';close.setAttribute('aria-label',t('dismissCard'));
   close.addEventListener('click',()=>{if(c.nim)save('wire-nim-notices',JSON.stringify(nimNotices().map(n=>n.id===c.id&&n.sender===email?{...n,noticePending:false}:n)));else update(c.id,{noticePending:false});renderCards();$('wire-cards-title').focus();});
   banner.append(message,close);notices.append(banner);
@@ -493,8 +538,15 @@ function tickCard(watch){
   try{
    const st=await cardCall('/api/usdt/cashlink/status',{id});if(epoch!==cardEpoch||owner!==email)return;
    if(!cardStates.has(st.state))throw Error('invalid_card_state');
-   update(id,{sender:owner,state:st.state,balanceUnits:Number(st.balanceUnits??st.balance_units)||0,stale:st.stale===true,checkedAt:Date.now(),...serverDates(st)});renderCards();
+   const previous=cards().find(c=>c.id===id);
+   const refundFinished=previous?.refundPending&&st.state==='withdrawn';
+   const refundStopped=previous?.refundPending&&st.state==='expired'&&st.recovering===false&&!st.stale&&Date.now()-(previous.refundPendingAt||0)>60000;
+   update(id,{sender:owner,state:st.state,balanceUnits:Number(st.balanceUnits??st.balance_units)||0,stale:st.stale===true,checkedAt:Date.now(),...serverDates(st),expiresAt:st.expires_at||null,recovering:st.recovering===true,...(refundFinished||refundStopped?{refundPending:false}:{})});
+   if(refundFinished)stableActions.set(id,{message:'refundDone',sent:true});
+   if(refundStopped){autoRefunds.add(id);stableActions.set(id,{message:'refundFailed',address:knownRefundAddress(previous)});}
+   renderCards();
    let entry=cards().find(c=>c.id===id);
+   if(stableFunds(entry)&&!entry.recovering&&!entry.refundPending&&!stableActions.get(id)?.sent&&!autoRefunds.has(id)){const to=knownRefundAddress(entry);if(to&&localRefundEntry(id)){autoRefunds.add(id);await refundStable(entry,to,true);}}
    if(st.state==='ready'&&!st.stale&&!entry.invited&&Date.now()>=(entry.nextInviteAt||0)){
     // Read the persisted invitation flag before retrying a request whose reply might have been lost.
     await syncOwnedCards();if(epoch!==cardEpoch||owner!==email)return;
@@ -536,7 +588,7 @@ function syncNimCards(){
 }
 function stopCards(){
  cardEpoch++;for(const w of watching.values())clearTimeout(w.timer);watching.clear();clearTimeout(nimTimer);nimTimer=null;
- for(const c of cardControllers)c.abort();cardControllers.clear();ownedPromise=null;nimPromise=null;nimCards.clear();nimActions.clear();
+ for(const c of cardControllers)c.abort();cardControllers.clear();ownedPromise=null;nimPromise=null;nimCards.clear();nimActions.clear();stableActions.clear();autoRefunds.clear();
 }
 async function startCards(){
  const epoch=cardEpoch;renderCards();
@@ -547,7 +599,7 @@ async function startCards(){
 function resumeCards(){
  if(!email||document.hidden)return;
  for(const c of cards())if(c.sender===email)watch(c.id,true);
- if([...nimCards.values()].some(nimPending))void syncNimCards();
+ if(nimOn)void syncNimCards();
 }
 document.addEventListener('visibilitychange',()=>{if(document.hidden){for(const w of watching.values()){clearTimeout(w.timer);w.timer=null;}clearTimeout(nimTimer);}else resumeCards();});
 window.addEventListener('pageshow',resumeCards);window.addEventListener('online',resumeCards);
@@ -563,7 +615,7 @@ function attach(files) {
    if (!/^[0-9a-f]{32}$/.test(card.id) || !/^#c=[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(hash)) continue;
    const all = cards().filter(c => c.id !== card.id);
    let entry;try{entry=JSON.parse(read('phoenixmail.usdt.sent.v2','[]')).find(e=>e.card?.id===card.id);}catch{}
-   all.unshift({ id: card.id, fragment: hash, recipient: String(entry?.protectedRecipient||entry?.to||card.recipient||''),amount:String(card.amount||''),asset:entry?.asset||card.asset,sender:email, invited: false, state:'awaiting_funds',created: Date.now() });
+   all.unshift({ id: card.id, fragment: hash, recipient: String(entry?.protectedRecipient||entry?.to||card.recipient||''),amount:String(card.amount||''),asset:entry?.asset||card.asset,sender:email, invited: false, state:'awaiting_funds',created: entry?.at||0,fundingAddress:validRefundAddress(entry?.senderAddress)?entry.senderAddress:'' });
    keep(all);renderCards();watch(card.id);void syncOwnedCards().catch(()=>{});
   } catch { /* not a card of ours */ }
  }
@@ -575,9 +627,24 @@ function loadCashlink() {
  return new Promise((ok, no) => { const s = document.createElement('script'); s.src = '/cashlink.js'; s.onload = ok; s.onerror = no; document.head.append(s); });
 }
 
+
+function enhanceStableWindow(win){
+ const amount=win.querySelector('input[inputmode="decimal"]');
+ const host=amount?.closest('label')||win.querySelector('.usdt-pay');
+ if(host){let note=host.querySelector('.wire-lifetime-note');if(!note){note=document.createElement('p');note.className='wire-lifetime-note';host.append(note);}if(note.textContent!==life('life'))note.textContent=life('life');}
+ const funded=win.querySelector('.usdt-funded');if(!funded)return;
+ const selected=win.querySelector('.nimiq-payment-assets button[aria-pressed="true"]'),asset=selected?buttonAsset(selected):'';
+ let sent=[];try{sent=JSON.parse(read('phoenixmail.usdt.sent.v2','[]'));}catch{}
+ const entry=sent.filter(e=>e.asset===asset).sort((a,b)=>b.at-a.at)[0],c=entry&&cards().find(c=>c.id===entry.card?.id);
+ const created=c&&dateValue(c.createdAt||c.created);if(!created)return;
+ let expiry=funded.parentElement.querySelector('.wire-card-expiry');if(!expiry){expiry=document.createElement('p');expiry.className='wire-card-expiry';funded.after(expiry);}
+ const text=life('validUntil').replace('{date}',new Intl.DateTimeFormat(lang,{dateStyle:'medium',timeStyle:'short'}).format(created+86400000));if(expiry.textContent!==text)expiry.textContent=text;
+}
+
 function mountPayments() {
  if (payments) return;
  const addBack = win => {
+  enhanceStableWindow(win);
   const head = win.querySelector('.nimiq-payment-head');
   if (!head || head.querySelector('.wire-window-back')) return;
   win.classList.toggle('wire-coin-picker',choosingCoin);
@@ -605,18 +672,21 @@ function mountPayments() {
    if (node.nodeType === 1 && node.matches('.nimiq-payment-modal')) node.querySelectorAll('.nimiq-payment-window').forEach(addBack);
   }
  });
+ const lifetimeWindows=new MutationObserver(()=>{if(document?.body)document.querySelectorAll('.nimiq-payment-window:not(.wire-nim-window)').forEach(enhanceStableWindow);});
+ lifetimeWindows.observe(document.body,{childList:true,subtree:true});
  windows.observe(document.body, { childList: true });
  payments = window.PhoenixNimiqPayments.create({ language: () => lang, account: () => 'wire', senderEmail: () => email, attach, status: ()=>{renderCards();},
   brand: { icon: '/brand/phoenix-emblem.webp', alt: 'Phoenix Wire', first: 'Phoenix', second: 'Wire' }, snapshot: () => null, recipient: () => '', bindOTPRecipient: () => true, openRecoveredClaim: () => false });
 }
 
-function showSender(verified, who) {
+function showSender(verified, who,admin=false) {
+ if(!verified)accessExpanded=false;
  if(verified){codeSentTo='';codeUntil=0;paintCodeRequest();}
  if(!verified||email&&email!==who)stopCards();
  if(!verified&&nimCache){const cached=nimCache;nimView?.dismiss();cached.flow.destroy();cached.modal.remove();nimCache=null;resumed=false;}
  email = verified ? who : '';
  $('wire-sender').hidden = verified || !enabled; $('wire-ready').hidden = !verified || !enabled;
- $('wire-who').textContent = email;
+ $('wire-who').textContent = email;configureAdmin(verified&&admin===true);paintSenderAccess();
  if (verified && enabled) {
   mountPayments();void startCards();
   try { if (nimOn && !resumed && !fundingBlocked && !handoffError && (handoffPayment?.sender.toLowerCase()===email.toLowerCase()||/^[a-f0-9]{48}$/.test(sessionStorage.getItem('wire-pending-payment') || ''))) { resumed = true; openNimWindow(); } } catch { /* tab storage may be unavailable */ }
@@ -654,7 +724,7 @@ $('wire-send-code').addEventListener('click', async () => {
  finally{clearTimeout(timeout);codeSending=false;$('wire-email').disabled=false;$('wire-verify').disabled=false;paintCodeRequest();}
 });
 $('wire-verify').addEventListener('click', async () => {
- try { const r = await api('/api/sender/verify', { code: $('wire-code').value.trim() }); $('wire-code').value = ''; $('wire-code-box').hidden = true; say(''); showSender(true, r.email); }
+ try { const r = await api('/api/sender/verify', { code: $('wire-code').value.trim() }); $('wire-code').value = ''; $('wire-code-box').hidden = true; say(''); showSender(true, r.email);void api('/api/session').then(session=>{if(email===session.email)configureAdmin(session.admin===true);}).catch(()=>{}); }
  catch { say(t('wrong')); }
 });
 $('wire-logout').addEventListener('click', async () => {
@@ -695,7 +765,7 @@ setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
     }else handoffError='handoffExpired';
    }
   }
-  const config = await api('/api/config');
+  const config = await api('/api/config');inviteOnly=config.invite_only===true;
   usdtOn = config.mode === 'integrated' && (config.assets || []).some(a => /^USD[CT]_/.test(a));
   nimOn = config.mode === 'integrated' && config.payments_enabled === true && (config.assets || []).includes('NIM');
   enabled = usdtOn || nimOn;
@@ -715,7 +785,7 @@ setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
    }
   }else{
    if (usdtOn) await loadCashlink();
-   showSender(Boolean(session.verified), session.email);refreshGas();
+   showSender(Boolean(session.verified), session.email,session.admin);refreshGas();
   }
   $('pay').disabled=fundingBlocked;$('wire-handoff-open').hidden=fundingBlocked||Boolean(handoffError);
   if(handoffError){say(t(handoffError));if(scopedID)$('wire-handoff-state').textContent=t(handoffError);}

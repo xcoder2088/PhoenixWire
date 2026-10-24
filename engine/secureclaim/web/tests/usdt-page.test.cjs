@@ -4,7 +4,7 @@ const html=fs.readFileSync(__dirname+'/../usdt.html','utf8'),script=[...html.mat
 const lib=fs.readFileSync(__dirname+'/../cashlink.js','utf8');
 const PROXY=script.match(/PROXY_CREATION_CODE='(0x[0-9a-f]+)'/)[1];
 const tick=()=>new Promise(r=>setImmediate(r));
-function node(){return{hidden:false,disabled:false,textContent:'',className:'',value:'',href:'',innerHTML:'',onclick:null,children:[],append(...k){this.children.push(...k)},play(){return Promise.resolve()}}}
+function node(){return{hidden:false,disabled:false,textContent:'',className:'',value:'',href:'',innerHTML:'',onclick:null,children:[],append(...k){this.children.push(...k)},after(n){this.next=n},play(){return Promise.resolve()}}}
 
 function world(){ // a card, its link key, the service's co-signer key, all made with the real library
  const ctx={crypto:webcrypto,TextEncoder,TextDecoder,btoa,atob,BigInt,Uint8Array,console};ctx.globalThis=ctx;vm.createContext(ctx);vm.runInContext(lib,ctx);
@@ -21,7 +21,8 @@ async function start(w,{view,routes={},extra={}}){
  const doc={documentElement:{lang:''},getElementById:get,createElement:()=>node()};
  const fetchStub=async(path,init={})=>{
   const method=init.method||'GET',body=init.body?JSON.parse(init.body):undefined;calls.push({method,path,body});
-  const out=method==='GET'?{status:200,body:view()}:await (routes[path.replace(/\/cards\/[0-9a-f]{32}\//,'/cards/ID/')]||(()=>({status:404,body:{error:'not_found'}})))(body,path);
+  const current=method==='GET'?view():null;
+  const out=method==='GET'?{status:current._http||200,body:current}:await (routes[path.replace(/\/cards\/[0-9a-f]{32}\//,'/cards/ID/')]||(()=>({status:404,body:{error:'not_found'}})))(body,path);
   return{ok:out.status>=200&&out.status<300,status:out.status,json:async()=>out.body};
  };
  const context={document:doc,window:null,URLSearchParams,fetch:fetchStub,crypto:webcrypto,TextEncoder,TextDecoder,btoa,atob,BigInt,Uint8Array,setTimeout:()=>1,clearTimeout(){},console,
@@ -32,6 +33,16 @@ async function start(w,{view,routes={},extra={}}){
 }
 const TOKEN='0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359',RELAYER='0x1111111111111111111111111111111111111111';
 const cardView=(w,extra={})=>({id:w.idHex,symbol:'USDC',chain:'polygon',chain_id:137,amount:'1',units:1000000,fee_units:100000,token:TOKEN,relayer:RELAYER,state:'ready',owners:w.owners,safe:w.C.checksum(w.safe),explorer:'https://polygonscan.com/tx/',message:'',...extra});
+test('stablecoin recipient expiry dates and unavailable/expired responses cover five languages',async()=>{
+ const {flowText}=await import('../../../../internal/web/static/flow-text.js');
+ for(const language of ['fr','en','es','de','zh']){
+  const w=world(),expires_at='2026-10-25T15:42:00Z',extra={globals:{location:{search:'?lang='+language,hash:w.fragment,replace(){}}}};
+  const s=await start(w,{view:()=>cardView(w,{expires_at}),extra});
+  assert.equal(s.get('amount').next.textContent,flowText(language,'expires').replace('{date}',new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'short'}).format(new Date(expires_at))));
+  for(const code of ['claim_unavailable','claim_expired','card_expired']){const gone=await start(w,{view:()=>({_http:code==='claim_unavailable'?404:410,code}),extra});assert.equal(gone.get('msg').textContent,flowText(language,'ended'));assert.equal(gone.get('step-email').hidden,true);}
+  const expired=await start(w,{view:()=>cardView(w,{state:'expired',expires_at}),extra});assert.equal(expired.get('msg').textContent,flowText(language,'ended'));
+ }
+});
 
 test('a card that is not paid yet says so and offers nothing',async()=>{
  const w=world(),s=await start(w,{view:()=>cardView(w,{state:'awaiting_funds'})});

@@ -1,5 +1,63 @@
 # The payment window is PhoenixMail's
 
+## Administrator access (server c0f0cad and later)
+
+The shared Wire-only `admin.js` panel is mounted only for a verified session with
+`admin === true`. It is removed on sign-out and re-reads the session after email
+verification. A scoped recipient/payment handoff does not gain administration.
+The panel reads `/api/admin/access`, displays the server's `open` switch and
+registered/allowed/blocked lists, and applies each POST response as the new view.
+Closing public sending and blocking/removing an address require a confirmation.
+Administrators listed by the server cannot be blocked through the panel.
+`admin_required`, `cannot_block_admin`, `list_full`, and `invalid_email` have
+friendly FR/EN/ES/DE/ZH messages; API authorization remains server-enforced.
+
+For signed-out visitors, `config.invite_only === true` shows the invitation
+notice and an “I already have access” control before the email form. Opening
+that control only unfolds and focuses the form: it sends no request. Open-mode
+configuration shows the normal form directly. Classic and payment-window
+entry points share this behavior. Public card reception remains available.
+
+## Card lifetime: 24 hours (server b176bd3)
+
+Read `docs/FIN-DES-CARTES.md` for the server contract. All currencies have a
+24-hour lifetime measured from creation. Before payment, both Wire sender
+interfaces show the five-language lifetime/refund notice by the amount. NIM
+completion and the stablecoin window/notification show the local expiry date;
+completion dates use creation plus 24 hours, never the time the UI saw payment.
+Recipient pages show `expires_at` below the amount. `claim_unavailable`,
+`claim_expired` and `card_expired` produce the friendly unavailable-card message.
+
+`refunding` and `refunded` NIM records have translated labels and no recovery,
+retry or cancellation actions. They participate in the three latest displayed
+records even after 24 hours. Pending refunds continue polling; a foreground
+refresh also discovers server refunds after the original funding view expired.
+Expired stablecoin cards with a remaining balance stay visible beyond 24 hours.
+
+Wire's dashboard signs an expired stablecoin refund using its local card entry,
+with the existing checked cashlink refund implementation. It needs both the
+browser key and an explicit valid refund address: a recorded sender-wallet
+address, or the last successful refund address stored locally for that chain.
+The card's own funding destination, a recipient address, and arbitrary wallet
+accounts are never used as refund destinations. If no such address is available,
+one address field and a clear recovery button are shown. Missing local keys
+produce a browser-recovery explanation. No address is guessed.
+
+Automatic recovery is attempted once per card per signed-in page session, only
+after a fresh non-stale expired status with funds. In-flight requests are guarded,
+accepted refunds are remembered across reloads, and failures remain visible with
+manual retry. Manual recovery retains the existing confirmation about retained
+relayer fees; that confirmation text is unchanged. The classic stablecoin flow
+also remembers successful refund addresses and can reuse them for expired cards.
+Neither private card keys nor verification codes are stored in the new address
+memory or sent as part of a refund request. No mirrored `pm/` file is changed.
+
+The PhoenixMail presentation FAQ has the 24-hour explanation in five languages,
+selectable within that FAQ; the main FR/EN page choice also updates it. No new
+screenshots are published. Tests cover the sender notices, local deadlines,
+recipient errors, refund stages, old funded stablecoins, explicit and automatic
+refunds, missing browser keys, repeated foreground events and the FAQ languages.
+
 ## Sender access by invitation
 
 As of server `f25eb40`, `POST /api/sender/request` returns HTTP 403 with
