@@ -71,25 +71,31 @@ func quoteFor(t *testing.T, s *Service, amount string) (uint64, uint64, error) {
 
 func gwei100() *big.Int { return big.NewInt(100_000_000_000) }
 
-func TestFeeFollowsThePriceOfGas(t *testing.T) {
-	// 450 000 gas at 100 gwei is 0.045 POL; at $2 that is 9 cents, three times is 27 cents: above the flat fee and the percentage.
+func TestFeeIsTheGasPlusThePercentage(t *testing.T) {
+	// 450 000 gas at 100 gwei is 0.045 POL; at $2 that is 9 cents, 1.5 times is 13.5 cents; 6 % of 2.50 is 15 cents: 28.5 cents.
 	s := feeService(t, &feedNode{usd: 2, maxFee: gwei100()})
 	fee, refund, err := quoteFor(t, s, "2.50")
-	if err != nil || fee < 270_000 || fee > 270_010 {
-		t.Fatal("fee should be about 0.27", fee, err)
+	if err != nil || fee < 285_000 || fee > 285_010 {
+		t.Fatal("fee should be about 0.285", fee, err)
 	}
-	// A refund pays the gas of a refund with the same margin (200 000 gas: 4 cents, 12 cents), never more than the card's fee.
-	if refund < 120_000 || refund > 120_010 || refund > fee {
-		t.Fatal("refund fee", refund)
+	// A refund keeps the whole fee for the relayer.
+	if refund != fee {
+		t.Fatal("refund fee", refund, fee)
 	}
 }
 
-func TestQuietGasNeverLowersTheFeeBelowItsFloors(t *testing.T) {
-	// $0.09: the gas of a card costs a fraction of a cent. The flat fee (0.10) and 6 % of the amount (0.15) stay.
+func TestThePercentageStaysWhateverGasCosts(t *testing.T) {
+	// $0.09: the gas of a card costs under a cent; the percentage (15 cents) is still added on top of it.
 	s := feeService(t, &feedNode{usd: 0.09, maxFee: gwei100()})
-	fee, refund, err := quoteFor(t, s, "2.50")
-	if err != nil || fee != 150_000 || refund != DefaultFee[evm.AssetUSDTPolygon] {
-		t.Fatal("quiet gas", fee, refund, err)
+	quiet, _, err := quoteFor(t, s, "2.50")
+	if err != nil || quiet < 156_000 || quiet > 156_100 {
+		t.Fatal("quiet gas", quiet, err)
+	}
+	// Gas ten times dearer: only the gas part moves; the percentage is the same 15 cents.
+	s2 := feeService(t, &feedNode{usd: 0.9, maxFee: gwei100()})
+	busy, _, err := quoteFor(t, s2, "2.50")
+	if err != nil || busy-quiet < 54_000 || busy-quiet > 55_000 {
+		t.Fatal("busy gas", busy, quiet, err)
 	}
 }
 
@@ -110,7 +116,7 @@ func TestFeeWhenTheFeedIsDownUsesCoinGeckoThenAHighFallback(t *testing.T) {
 	c.CoinGeckoID = "polygon-ecosystem-token"
 	s.chains[evm.AssetUSDTPolygon] = c
 	fee, _, err := quoteFor(t, s, "2.50")
-	if err != nil || fee < 270_000 || fee > 270_010 {
+	if err != nil || fee < 285_000 || fee > 285_010 {
 		t.Fatal("CoinGecko price not used", fee, err)
 	}
 	// Neither source answers: a HIGH fallback price (0.50 here) is used, so the fee is higher than at the real price, never lower.
@@ -120,7 +126,7 @@ func TestFeeWhenTheFeedIsDownUsesCoinGeckoThenAHighFallback(t *testing.T) {
 	c2.CoinGeckoID = "polygon-ecosystem-token"
 	s2.chains[evm.AssetUSDTPolygon] = c2
 	fee, _, err = quoteFor(t, s2, "2.50")
-	if err != nil || fee != 150_000 { // 0.045 POL * $0.50 * 3 = 6.75 cents: the floors still hold
+	if err != nil || fee < 183_000 || fee > 184_000 { // 0.045 POL * $0.50 * 1.5 = 3.4 cents of gas + 15 cents
 		t.Fatal("fallback", fee, err)
 	}
 }
@@ -128,8 +134,8 @@ func TestFeeWhenTheFeedIsDownUsesCoinGeckoThenAHighFallback(t *testing.T) {
 func TestAStaleFeedIsNotTrusted(t *testing.T) {
 	node := &feedNode{usd: 2, age: 30 * time.Hour, maxFee: gwei100()}
 	s := feeService(t, node)
-	fee, _, err := quoteFor(t, s, "2.50") // falls back to $0.50: below the percentage
-	if err != nil || fee != 150_000 {
+	fee, _, err := quoteFor(t, s, "2.50") // falls back to $0.50, not the $2 of the stale feed
+	if err != nil || fee < 183_000 || fee > 184_000 {
 		t.Fatal("a feed older than a day was trusted", fee, err)
 	}
 }
@@ -158,7 +164,7 @@ func TestACardKeepsItsRefundFee(t *testing.T) {
 	s := feeService(t, node)
 	c := newCard(t, s)
 	rec := s.records[c.Issuer.ID]
-	if rec.RefundFeeUnits < 120_000 || rec.RefundFeeUnits > rec.FeeUnits || s.refundFee(rec) != rec.RefundFeeUnits {
+	if rec.RefundFeeUnits != rec.FeeUnits || s.refundFee(rec) != rec.RefundFeeUnits {
 		t.Fatal("refund fee not kept with the card", rec.RefundFeeUnits, rec.FeeUnits)
 	}
 	// Gas changes later: the card's fees do not.

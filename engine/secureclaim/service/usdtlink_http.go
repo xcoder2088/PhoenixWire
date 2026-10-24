@@ -619,7 +619,10 @@ func setupUSDTLink(s *server, stateDir string) (*usdtHTTP, error) {
 			return nil, err
 		}
 		log.Printf("USDT cashlink %s: relayer address %s (fund it with the chain's native coin for gas)", name, rl.Address().Hex())
-		chainCfg := usdtlink.Chain{Network: n, Node: node, Relayer: rl, MinFee: spec.minFee, MinFloat: spec.floor, PriceFeed: spec.feed, CoinGeckoID: spec.gecko, FallbackUSD: spec.safeUSD}
+		chainCfg := usdtlink.Chain{Network: n, Node: node, Relayer: rl, MinFee: spec.minFee, MinFloat: spec.floor, PriceFeed: spec.feed, FallbackUSD: spec.safeUSD}
+		if os.Getenv("NIMIQ_CLAIM_USDTLINK_COINGECKO") != "off" { // CoinGecko is the second price source, after the chain's own feed
+			chainCfg.CoinGeckoID = spec.gecko
+		}
 		// The minimum float below which no NEW card is taken can be lowered (even to 0) while the relayer is still being funded:
 		// only for a service whose users are the owner alone.
 		// NIMIQ_CLAIM_USDTLINK_MIN_FLOAT_WEI_<NAME> (ETHEREUM, POLYGON, POLYGON_USDC) sets one chain, the unsuffixed variable all of them.

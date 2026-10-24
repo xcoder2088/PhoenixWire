@@ -100,6 +100,7 @@ func TestUSDCSentAndClaimedDates(t *testing.T) {
 	rpc := node.serve()
 	defer rpc.Close()
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_COINGECKO", "off") // tests never ask the internet for a price
 	t.Setenv("NIMIQ_CLAIM_EVM_RPC_POLYGON", rpc.URL)
 	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
 	f := newFixture(t)

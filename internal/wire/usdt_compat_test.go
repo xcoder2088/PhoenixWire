@@ -17,6 +17,7 @@ func TestPaymentWindowRoutes(t *testing.T) {
 	rpc := node.serve()
 	defer rpc.Close()
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_COINGECKO", "off") // tests never ask the internet for a price
 	t.Setenv("NIMIQ_CLAIM_EVM_RPC_POLYGON", rpc.URL)
 	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
 	f := newFixture(t)
@@ -66,8 +67,8 @@ func TestPaymentWindowRoutes(t *testing.T) {
 		ClaimBase   string
 		SenderToken string
 	}
-	if json.Unmarshal(w.Body.Bytes(), &made) != nil || made.Card.ID != cardID || len(made.Card.Owners) != 2 || made.Card.ChainID != 137 || made.Card.Units != 2_500_000 || made.Card.FeeUnits != 150_000 || made.Card.RefundFeeUnits != 100_000 ||
-		made.Pay.Recipient != made.Card.Safe || made.Pay.Units != 2_650_000 || made.Pay.Amount != "2.65" || made.ClaimBase != "https://wire.example.test/usdt.html" || !strings.HasPrefix(made.Pay.Link, "ethereum:0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359@137/") {
+	if json.Unmarshal(w.Body.Bytes(), &made) != nil || made.Card.ID != cardID || len(made.Card.Owners) != 2 || made.Card.ChainID != 137 || made.Card.Units != 2_500_000 || made.Card.FeeUnits <= 150_000 || made.Card.FeeUnits > 400_000 || made.Card.RefundFeeUnits != made.Card.FeeUnits ||
+		made.Pay.Recipient != made.Card.Safe || made.Pay.Units != 2_500_000+made.Card.FeeUnits || made.Pay.Amount != formatUnits(made.Pay.Units) || made.ClaimBase != "https://wire.example.test/usdt.html" || !strings.HasPrefix(made.Pay.Link, "ethereum:0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359@137/") {
 		t.Fatalf("the card the window shows: %s", w.Body)
 	}
 	if png, err := base64.StdEncoding.DecodeString(made.Pay.QR); err != nil || len(png) < 100 || string(png[1:4]) != "PNG" {
@@ -103,6 +104,7 @@ func TestPaymentWindowSaysWhenTheRelayerIsNotReady(t *testing.T) {
 	rpc := node.serve()
 	defer rpc.Close()
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_COINGECKO", "off") // tests never ask the internet for a price
 	t.Setenv("NIMIQ_CLAIM_EVM_RPC_POLYGON", rpc.URL)
 	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
 	f := newFixture(t)
@@ -126,6 +128,7 @@ func TestPaymentWindowGasForTheSender(t *testing.T) {
 	rpc := node.serve()
 	defer rpc.Close()
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_COINGECKO", "off") // tests never ask the internet for a price
 	t.Setenv("NIMIQ_CLAIM_EVM_RPC_POLYGON", rpc.URL)
 	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_GAS", "on")
@@ -183,6 +186,7 @@ func TestGasLightIsPublic(t *testing.T) {
 	rpc := node.serve()
 	defer rpc.Close()
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_COINGECKO", "off") // tests never ask the internet for a price
 	t.Setenv("NIMIQ_CLAIM_EVM_RPC_POLYGON", rpc.URL)
 	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_GAS", "on")

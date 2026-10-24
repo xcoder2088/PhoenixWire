@@ -273,7 +273,7 @@ func TestEveryCardIsProtected(t *testing.T) {
 	if len(prot.Owners) != 2 || prot.Threshold != 2 || !prot.Protected {
 		t.Fatalf("owners %d, threshold %d", len(prot.Owners), prot.Threshold)
 	}
-	if prot.State != StateAwaitingFunds || prot.FeeUnits != FeeFor(evm.AssetUSDTPolygon, 2_500_000) || prot.Units != 2_500_000 {
+	if prot.State != StateAwaitingFunds || prot.FeeUnits != 250_000 || prot.Units != 2_500_000 {
 		t.Fatalf("unexpected card: %+v", prot.Public)
 	}
 	// The card address must be the one rebuilt from the stored owners (the browser checks the same thing).
@@ -708,7 +708,7 @@ func TestRefundIsAFullSweepWithOneFixedDestination(t *testing.T) { // UL-04, C4
 	s, node := newService(t)
 	c := newCard(t, s)
 	ctx := context.Background()
-	node.balance = big.NewInt(2_600_000) // 2.50 + 0.10 fee
+	node.balance = big.NewInt(2_750_000) // 2.50 + 0.25 fee (0.10 gas + 6 %)
 	r1, r2 := "0x4444444444444444444444444444444444444444", "0x5555555555555555555555555555555555555555"
 	_, sig, units, err := s.Refund(ctx, c.ID, c.SenderToken, r1)
 	if err != nil || len(sig) != 65 || units != 2_500_000 {
@@ -744,7 +744,7 @@ func TestSurplusIsRecoverableAfterThePayout(t *testing.T) { // C3
 	rec.Op = &Operation{Kind: "claim", To: "0x1111111111111111111111111111111111111111", Units: c.Units, Tx: "0xaaa", Started: s.now()}
 	s.mu.Unlock()
 	node.receipts["0xaaa"] = payoutReceipt(c, "0x1111111111111111111111111111111111111111", c.Units, 100)
-	node.nonce, node.balance = 1, big.NewInt(500_000) // 0.40 + 0.10 fee
+	node.nonce, node.balance = 1, big.NewInt(650_000) // 0.40 + 0.25 fee
 	p, _ := s.Refresh(ctx, c.ID)
 	if p.State != StatePaid || p.TxHash != "0xaaa" || p.TxKind != "claim" {
 		t.Fatalf("after the payout: %+v", p)
@@ -756,7 +756,7 @@ func TestSurplusIsRecoverableAfterThePayout(t *testing.T) { // C3
 	if r, _ := s.get(c.ID); r.Refund == nil || r.Refund.Nonce != 1 {
 		t.Fatal("the refund must be made for the Safe's current nonce")
 	}
-	if in, _ := s.Status(ctx, c.ID); in.BalanceUnits != 500_000 || in.State != StatePaid {
+	if in, _ := s.Status(ctx, c.ID); in.BalanceUnits != 650_000 || in.State != StatePaid {
 		t.Fatalf("status %+v", in)
 	}
 }
@@ -1188,23 +1188,24 @@ func TestGasLightIsGreenOnlyWhenPhoenixWireCanPay(t *testing.T) {
 	}
 }
 
-func TestTheServiceFeeIsSixPercentWithAFlatGasMinimum(t *testing.T) {
+func TestTheServiceFeeIsTheGasPlusSixPercent(t *testing.T) {
+	// A chain with no price source: the flat gas fee of the chain (0.10 / 0.75) stands for the gas, and 6 % is ADDED to it.
+	s, _ := newService(t)
 	for _, c := range []struct {
 		asset string
 		units uint64
 		want  uint64
 	}{
-		{evm.AssetUSDTPolygon, 1_000_000, 100_000},      // 1 USDT: 6% is 0.06, the flat gas fee (0.10) applies
-		{evm.AssetUSDTPolygon, 10_000_000, 600_000},     // 10 USDT: 0.60
-		{evm.AssetUSDTPolygon, 100_000_000, 6_000_000},  // 100 USDT: 6
-		{evm.AssetUSDTPolygon, 500_000_000, 30_000_000}, // 500 USDT: 30
-		{evm.AssetUSDTEthereum, 5_000_000, 750_000},     // Ethereum: the flat gas fee (0.75) is above 6% of 5
-		{evm.AssetUSDTEthereum, 100_000_000, 6_000_000}, // and 6% above it
-		{evm.AssetUSDTPolygon, 1_234_567, 100_000},      // rounding never goes under the flat fee
-		{evm.AssetUSDTPolygon, 3_333_333, 200_000},      // 6% of 3.333333 = 0.19999998, rounded up to 0.200000
+		{evm.AssetUSDTPolygon, 1_000_000, 160_000},      // 1 USDT: 0.10 gas + 0.06
+		{evm.AssetUSDTPolygon, 10_000_000, 700_000},     // 10 USDT: 0.10 + 0.60
+		{evm.AssetUSDTPolygon, 100_000_000, 6_100_000},  // 100 USDT: 0.10 + 6
+		{evm.AssetUSDTPolygon, 500_000_000, 30_100_000}, // 500 USDT: 0.10 + 30
+		{evm.AssetUSDTPolygon, 1_234_567, 174_075},      // the percentage is rounded up: 74 074.02 -> 74 075
+		{evm.AssetUSDTPolygon, 3_333_333, 300_000},      // 6 % of 3.333333 = 0.19999998 -> 0.200000
 	} {
-		if got := FeeFor(c.asset, c.units); got != c.want {
-			t.Errorf("%s %d: fee %d, want %d", c.asset, c.units, got, c.want)
+		fee, refund, err := s.quote(context.Background(), c.asset, s.chains[evm.AssetUSDTPolygon], c.units)
+		if err != nil || fee != c.want || refund != fee {
+			t.Errorf("%s %d: fee %d refund %d (%v), want %d", c.asset, c.units, fee, refund, err, c.want)
 		}
 	}
 	if MaxFeeFor(1_000_000) != 10_000_000 || MaxFeeFor(1_000_000_000) != 100_000_000 {
@@ -1212,22 +1213,22 @@ func TestTheServiceFeeIsSixPercentWithAFlatGasMinimum(t *testing.T) {
 	}
 }
 
-func TestARefundPaysOnlyTheGasNeverTheServiceFee(t *testing.T) {
+func TestARefundKeepsTheWholeFeeForTheRelayer(t *testing.T) {
 	s, node := newService(t)
 	id := make([]byte, 16)
 	rand.Read(id)
 	key, link, _ := cl.GenerateKey()
 	linkKeys.Store(hex.EncodeToString(id), key)
 	c, err := s.Create(Input{Asset: evm.AssetUSDTPolygon, CardID: hex.EncodeToString(id), LinkOwner: link, Amount: "500", Protected: true, Email: "friend@example.com"})
-	if err != nil || c.FeeUnits != 30_000_000 {
+	if err != nil || c.FeeUnits != 30_100_000 {
 		t.Fatalf("a 500 card: fee %d, %v", c.FeeUnits, err)
 	}
-	node.balance = big.NewInt(int64(c.Units + c.FeeUnits)) // 530 paid
+	node.balance = big.NewInt(int64(c.Units + c.FeeUnits)) // 530.1 paid
 	_, _, units, err := s.Refund(context.Background(), c.ID, c.SenderToken, "0x4444444444444444444444444444444444444444")
-	if err != nil || units != 529_900_000 {
-		t.Fatalf("the sender takes back everything but the flat gas fee (0.10): got %d, %v", units, err)
+	if err != nil || units != 500_000_000 {
+		t.Fatalf("the sender takes back the amount and the relayer keeps the whole fee: got %d, %v", units, err)
 	}
-	if fee, _ := s.RefundFeeUnits(c.ID); fee != 100_000 {
+	if fee, _ := s.RefundFeeUnits(c.ID); fee != 30_100_000 {
 		t.Fatalf("refund fee %d", fee)
 	}
 }
@@ -1252,7 +1253,7 @@ func TestTheOwnerSeesTheRelayerAndCanTakeOutWhatIsNotNeeded(t *testing.T) {
 		t.Fatalf("relayers: %v %v", infos, err)
 	}
 	i := infos[0]
-	if i.Chain != "polygon" || i.NativeSymbol != "POL" || i.NativeWei != "5000000000000000000" || len(i.Tokens) != 1 || i.Tokens[0].Units != "2650000" || i.PendingCards != 1 || i.LiveCards != 1 {
+	if i.Chain != "polygon" || i.NativeSymbol != "POL" || i.NativeWei != "5000000000000000000" || len(i.Tokens) != 1 || i.Tokens[0].Units != "2750000" || i.PendingCards != 1 || i.LiveCards != 1 {
 		t.Fatalf("relayer info: %+v", i)
 	}
 	// one live card keeps gas back (0.15 POL) on top of the minimum float (0.2 POL)

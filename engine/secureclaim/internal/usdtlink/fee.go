@@ -15,24 +15,24 @@ import (
 	cl "github.com/xcoder2088/NimiqSecureClaim/internal/cashlink/evm"
 )
 
-// The fee a new card pays follows the price of gas, so that the relayer keeps a margin whatever the network costs.
+// The fee a new card pays is what its gas costs NOW plus the service percentage, always both:
 //
-//	fee = the largest of: the flat fee of the chain (DefaultFee), FeeBps of the amount, and FeeMargin times what the gas of one card costs NOW
+//	fee = FeeMargin x (the gas of one card at today's price) + FeeBps of the amount
 //
 // "What the gas costs now" is the node's own fee estimate (the highest fee per gas a transaction would be sent with) times the gas one card
 // is assumed to use, in the chain's coin, converted to token units by the price of that coin. The price is read from the chain itself
-// (a Chainlink USD feed, one read-only call), remembered for priceTTL, and, when the feed cannot be read, the last good price is kept for
-// priceStale. When the feed fails, CoinGecko's public price is asked next; past that, a deliberately HIGH fallback price is used, so an outage makes fees higher, never lower. The flat fee and the
-// percentage are floors: a quiet network never lowers a fee below what it already was.
+// (a Chainlink USD feed, one read-only call), remembered for priceTTL, and, when the feed cannot be read, CoinGecko's public price is
+// asked next; the last good price is kept for priceStale; past that, a deliberately HIGH fallback price is used, so an outage makes fees
+// higher, never lower. When a chain has no price source at all, the flat gas fee of the chain (DefaultFee) stands for the gas.
+// The percentage is therefore a margin that stays whatever gas costs, and a quiet or a busy network moves only the gas part.
 //
-// A refund pays the relayer the gas of a refund with the same margin, never more than the card's fee, fixed when the card is created
-// (the sender's page checks it) and kept in the record.
+// A REFUND keeps the whole fee, gas and percentage: the relayer is paid for the card whatever becomes of it, and the sender gets back the
+// amount. The refund fee is fixed when the card is created (the sender's page checks it) and kept in the record.
 var (
-	// FeeMargin is how many times the estimated gas cost the fee must cover (default 3).
-	FeeMargin = 3.0
-	// CardGas is the gas assumed for one card's whole life (deployment of its Safe and the payout), RefundGas for a refund.
-	CardGas   uint64 = 450_000
-	RefundGas uint64 = 200_000
+	// FeeMargin multiplies the estimated gas cost (default 1.5: the estimate is already a high one, this covers the gas moving before the claim).
+	FeeMargin = 1.5
+	// CardGas is the gas assumed for one card's whole life (deployment of its Safe and the payout).
+	CardGas uint64 = 450_000
 )
 
 const (
@@ -201,26 +201,19 @@ func margined(units uint64) uint64 {
 	return uint64(float64(units)*FeeMargin) + 1
 }
 
-// quote is the fee and the refund fee a new card of this many token units carries.
+// quote is the fee a new card of this many token units carries, and the refund fee (the same: a refund keeps it all).
 func (s *Service) quote(ctx context.Context, asset string, c Chain, units uint64) (fee, refund uint64, err error) {
-	fee = FeeFor(asset, units)
-	flat := DefaultFee[asset]
-	refund = flat
+	gas := DefaultFee[asset]
 	if cost, ok := s.gasCostUnits(ctx, asset, c, CardGas); ok {
-		if dyn := margined(cost); dyn > fee {
-			fee = dyn
-		}
+		gas = margined(cost)
 	}
-	if cost, ok := s.gasCostUnits(ctx, asset, c, RefundGas); ok {
-		if dyn := margined(cost); dyn > refund {
-			refund = dyn
-		}
+	pct := (units*FeeBps + 9999) / 10000
+	fee = gas + pct
+	if fee < c.MinFee {
+		fee = c.MinFee
 	}
 	if fee > MaxFeeFor(units) {
 		return 0, 0, ErrFeeTooHigh
 	}
-	if refund > fee {
-		refund = fee
-	}
-	return fee, refund, nil
+	return fee, fee, nil
 }

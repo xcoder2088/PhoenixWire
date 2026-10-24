@@ -99,6 +99,7 @@ func TestUSDCCardFromTheSenderToTheInvitation(t *testing.T) {
 	rpc := node.serve()
 	defer rpc.Close()
 	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_COINGECKO", "off") // tests never ask the internet for a price
 	t.Setenv("NIMIQ_CLAIM_EVM_RPC_POLYGON", rpc.URL)
 	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
 	f := newFixture(t)
@@ -150,7 +151,8 @@ func TestUSDCCardFromTheSenderToTheInvitation(t *testing.T) {
 		} `json:"pay"`
 	}
 	json.Unmarshal(w.Body.Bytes(), &made)
-	if made.Card.ID != cardID || made.Card.Units != 2_500_000 || made.Card.FeeUnits != 150_000 || made.Card.RefundFeeUnits != 100_000 || made.Pay.Units != 2_650_000 || made.Pay.Amount != "2.65" ||
+	if made.Card.ID != cardID || made.Card.Units != 2_500_000 || made.Card.FeeUnits <= 150_000 || made.Card.FeeUnits > 400_000 || made.Card.RefundFeeUnits != made.Card.FeeUnits || made.Pay.Units != 2_500_000+made.Card.FeeUnits || made.Pay.Amount != formatUnits(made.Pay.Units) || // the gas of the card plus 6 %, all kept on a refund
+
 		!strings.HasPrefix(made.Pay.Link, "ethereum:0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359@137/transfer?address="+made.Card.Safe) {
 		t.Fatalf("created card: %s", w.Body)
 	}
@@ -171,7 +173,7 @@ func TestUSDCCardFromTheSenderToTheInvitation(t *testing.T) {
 	}
 	// the payment arrives
 	node.mu.Lock()
-	node.balance = word(2_650_000)
+	node.balance = word(2_500_000 + made.Card.FeeUnits)
 	node.mu.Unlock()
 	if w := f.call("POST", card+"/status", map[string]string{}); w.Code != 200 || !strings.Contains(w.Body.String(), `"state":"ready"`) {
 		t.Fatalf("status after the payment: %d %s", w.Code, w.Body)

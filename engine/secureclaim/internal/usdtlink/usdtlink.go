@@ -84,19 +84,9 @@ const (
 // default the sender's page proposes; the relayer's own floor (Network.MinFee) always applies.
 var DefaultFee = map[string]uint64{evm.AssetUSDTPolygon: 100_000, evm.AssetUSDTEthereum: 750_000, evm.AssetUSDCAmoyTest: 100_000, evm.AssetUSDCSepoliaTest: 100_000, evm.AssetUSDCPolygon: 100_000}
 
-// FeeBps is the service fee, in basis points of the card's amount (600 = 6%). A card pays the larger of this and the flat gas fee
-// (DefaultFee) of its chain. The sender sees ONE amount to pay, never a percentage.
+// FeeBps is the service fee, in basis points of the card's amount (600 = 6%). It is ADDED to the gas of the card (fee.go): a quiet
+// network does not lower it and a busy one does not eat it. The sender sees ONE amount to pay, never a percentage.
 var FeeBps uint64 = 600
-
-// FeeFor is the fee a new card of this many token units pays the relayer: the larger of the flat gas fee and FeeBps of the amount
-// (rounded up). It pays the gas the relayer advances and the service itself.
-func FeeFor(asset string, units uint64) uint64 {
-	flat := DefaultFee[asset]
-	if pct := (units*FeeBps + 9999) / 10000; pct > flat {
-		return pct
-	}
-	return flat
-}
 
 // MaxFeeFor is the highest fee a card of this amount may carry: 10 token units or a tenth of the amount, whichever is larger.
 func MaxFeeFor(units uint64) uint64 {
@@ -106,8 +96,8 @@ func MaxFeeFor(units uint64) uint64 {
 	return 10_000_000
 }
 
-// refundFee is what a REFUND pays the relayer: only the flat gas fee, never the percentage. A sender who takes the money back
-// gets back everything but the gas.
+// refundFee is what a REFUND pays the relayer. Cards made since the fee followed the price of gas keep their whole fee (gas and
+// percentage: RefundFeeUnits, fixed at creation); older cards, which have none, pay only the flat gas fee.
 func (s *Service) refundFee(r *Record) uint64 {
 	if r.RefundFeeUnits > 0 && r.RefundFeeUnits <= r.FeeUnits {
 		return r.RefundFeeUnits
@@ -569,17 +559,17 @@ func (s *Service) Create(in Input) (Created, error) {
 	if err != nil {
 		return Created{}, err
 	}
-	fee, refundFee := in.FeeUnits, uint64(0)
-	if fee == 0 {
-		qctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-		var qerr error
-		fee, refundFee, qerr = s.quote(qctx, in.Asset, c, units)
-		cancel()
-		if qerr != nil {
-			return Created{}, qerr
+	qctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	fee, refundFee, qerr := s.quote(qctx, in.Asset, c, units)
+	cancel()
+	if qerr != nil {
+		return Created{}, qerr
+	}
+	if in.FeeUnits != 0 { // a page that names its own fee may not go below what the service asks
+		if in.FeeUnits < fee {
+			return Created{}, errors.New("invalid_fee")
 		}
-	} else if fee < FeeFor(in.Asset, units) { // a page that names its own fee may not go below what the service asks
-		return Created{}, errors.New("invalid_fee")
+		fee, refundFee = in.FeeUnits, in.FeeUnits
 	}
 	if fee < c.MinFee || fee > MaxFeeFor(units) { // a typo must not burn money
 		return Created{}, errors.New("invalid_fee")
