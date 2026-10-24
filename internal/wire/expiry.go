@@ -119,8 +119,10 @@ func (a *API) sweepNIM(ctx context.Context, p payment, now time.Time) {
 		state, err := a.engine.RefundExpired(rctx, p.ID, p.Luna)
 		cancel()
 		if err != nil {
+			log.Printf("expiry: NIM card %s: refund not decided (%v)", p.ID[:8], err)
 			return // the node or the engine is not ready: next pass
 		}
+		log.Printf("expiry: NIM card %s (%s NIM, %s old): %s", p.ID[:8], p.Amount, age.Round(time.Minute), state)
 		switch state {
 		case "pending":
 			if p.Stage != "refunding" {
