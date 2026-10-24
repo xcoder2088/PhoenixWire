@@ -1,9 +1,9 @@
-import { mountAdmin,adminText } from './admin.js?v=0.4.24';
+import { mountAdmin,adminText } from './admin.js?v=0.4.25';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.24';
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.4.24';
-import { mountNimFlow } from './flow.js?v=0.4.24';
+import { mountNimFlow } from './flow.js?v=0.4.25';
 import { flowText } from './flow-text.js?v=0.4.24';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in

@@ -7,7 +7,13 @@ The shared Wire-only `admin.js` panel is mounted only for a verified session wit
 verification. A scoped recipient/payment handoff does not gain administration.
 The panel reads `/api/admin/access`, displays the server's `open` switch and
 registered/allowed/blocked lists, and applies each POST response as the new view.
-Closing public sending and blocking/removing an address require a confirmation.
+The switch has a fixed five-language ‘Invitation-only access’ label: checked means
+`open === false`; unchecked means `open === true`. It posts `{open: !checked}`.
+A separate sentence below explains whether only registered/allowed senders can
+send (existing cards remain accessible), or anyone can sign up and send.
+Only opening access to everyone asks ‘Open Phoenix Wire to everyone?’; closing
+access does not ask for confirmation.
+Blocking/removing an address still requires a confirmation.
 Administrators listed by the server cannot be blocked through the panel.
 `admin_required`, `cannot_block_admin`, `list_full`, and `invalid_email` have
 friendly FR/EN/ES/DE/ZH messages; API authorization remains server-enforced.

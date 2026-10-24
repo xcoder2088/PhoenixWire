@@ -883,7 +883,7 @@ test('open access presents email immediately; only a server-designated signed-in
  for(const classic of [false,true]){
   const publicApp=await start({classic,clocked:true,inviteOnly:false,session:{verified:false}});assert.equal(publicApp.$(classic?'sender-invite-gate':'wire-invite-gate').hidden,true);assert.equal(publicApp.doc.getElementById('wire-admin'),null);assert.equal(classic?publicApp.$('sender').closest('label').hidden:publicApp.$('wire-sender').hidden,false);
   const member=await start({classic,clocked:true});assert.equal(member.doc.getElementById('wire-admin'),null);assert.equal(member.calls.some(([p])=>p.startsWith('/api/admin/')),false);
-  const admin=await start({classic,clocked:true,session:{verified:true,email:'sender@example.test',admin:true}});assert.ok(admin.doc.getElementById('wire-admin'));assert.equal(admin.doc.getElementById('wire-admin-open').checked,true);
+  const admin=await start({classic,clocked:true,session:{verified:true,email:'sender@example.test',admin:true}});assert.ok(admin.doc.getElementById('wire-admin'));assert.equal(admin.doc.getElementById('wire-admin-open').checked,false);
  }
 });
 test('24-hour sender terms and local completion deadlines cover NIM and stablecoin windows in five languages',async()=>{
