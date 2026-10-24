@@ -110,10 +110,17 @@ unavailable (`/api/usdt/status` says `gas:false`).
 
 ## Wire navigation, identity and session copy
 
+The two top PhoenixWire/PhoenixMail navigation buttons have been removed from
+both sender pages. PhoenixMail is linked once in the footer through the whole
+“Powered by PhoenixMail” pill: a fixed orange outline, dark surface, white
+Phoenix and orange Mail, slightly larger text. These brand colours do not follow
+Wire's palette rotation. The payment-window return controls are retained.
+
 Wire adds an explicit return control to each payment-window instance from `wire-pay.js`. It invokes the copied window's own
 close button so its listeners and observers are cleaned up. Asset switches recreate the window; a host observer enhances each
-replacement. Beyond the marked hooks, the mirrored files remain unchanged. The page also links directly to the PhoenixWire presentation
-(`https://phoenixmail.ca/#phoenixwire`) and PhoenixMail (`https://phoenixmail.ca/#phoenixmail`). Classic NIM has a link back to `/`.
+replacement. Beyond the marked hooks, the mirrored files remain unchanged. The
+footer attribution links to `https://phoenixmail.ca`; the redundant top navigation
+is removed from both the main and classic sender pages.
 
 The tab and mobile shortcut name is Phoenix Wire, preserving the latest owner-side update. Icons derive from the existing emblem; normal static routing serves them with
 the existing CSP. Before sender verification and beside the signed-in address, five-language text explains the unchanged 24-hour

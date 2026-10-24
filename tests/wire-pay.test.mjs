@@ -281,8 +281,8 @@ test('the two 24-hour notices render in all five languages before and after send
 
 test('return controls work on direct entry and after replacing the payment window', async () => {
   const t = await start();
-  const links = [...t.doc.querySelectorAll('.wire-navigation a')].map(a => a.href);
-  assert.deepEqual(links, ['https://phoenixmail.ca/#phoenixwire', 'https://phoenixmail.ca/#phoenixmail']);
+  assert.equal(t.doc.querySelector('.wire-navigation'),null);
+  assert.equal(t.doc.querySelector('footer .wire-powered').href,'https://phoenixmail.ca/');
   t.$('pay').click(); await settle();
   const before = t.doc.querySelector('.nimiq-payment-window');
   const assets = [...before.querySelectorAll('.nimiq-payment-assets button')];
@@ -307,7 +307,7 @@ test('both sender pages declare the approved shortcut icons and PhoenixWire tab 
     assert.equal(doc.querySelector('link[rel="apple-touch-icon"]').getAttribute('href'), '/brand/wire-icon-180.png?v=0.4.1');
     assert.ok(doc.querySelector('link[rel="icon"]'));
     assert.equal(doc.querySelector('link[rel="manifest"]').getAttribute('href'), '/site.webmanifest?v=0.4.1');
-    assert.ok(doc.querySelector('.wire-navigation a'));
+    assert.equal(doc.querySelector('.wire-navigation'),null);assert.ok(doc.querySelector('footer .wire-powered'));
     doc.defaultView.close();
   }
   const manifest = JSON.parse(read('../internal/web/static/site.webmanifest'));
@@ -1529,7 +1529,7 @@ test('classic NIM also folds its pending card into a new form without cancelling
 
 test('navigation has no decorative arrows, the close control is a large rounded square, and mobile controls avoid Safari focus zoom',async()=>{
  const t=await start({width:375});t.$('pay').click();await settle();
- assert.deepEqual([...t.doc.querySelectorAll('.wire-navigation a')].map(a=>a.textContent),['PhoenixWire','PhoenixMail']);
+ assert.equal(t.doc.querySelector('.wire-navigation'),null);
  assert.ok(!/[←↗⤢]/.test(t.doc.querySelector('.nimiq-payment-head').textContent));
  const css=read('../internal/web/static/wire-pay.css'),style=t.doc.createElement('style');style.textContent=css;t.doc.head.append(style);
  const close=t.doc.querySelector('.nimiq-payment-head>button:last-child'),computed=t.window.getComputedStyle(close);
@@ -1543,6 +1543,14 @@ test('navigation has no decorative arrows, the close control is a large rounded 
  Object.defineProperty(t.window,'visualViewport',{value:{width:375,height:500,offsetTop:20,offsetLeft:0},configurable:true});
  t.window.PhoenixViewport.center(win);
  assert.equal(win.style.left,'12px');assert.equal(win.style.top,'70px');assert.equal(win.style.maxHeight,'484px');
+});
+test('the compact footer attribution keeps fixed PhoenixMail colours across Wire themes and palettes',async()=>{
+ const app=await start({clocked:true}),style=app.doc.createElement('style');style.textContent=read('../internal/web/static/wire-pay.css');app.doc.head.append(style);
+ const link=app.doc.querySelector('footer .wire-powered');assert.equal(link.textContent,'Powered by PhoenixMail');assert.equal(link.href,'https://phoenixmail.ca/');assert.equal(link.rel,'noopener noreferrer');
+ for(const theme of ['dark','light-paper'])for(const palette of ['phoenixfire','aurora','ocean']){
+  app.doc.documentElement.dataset.theme=theme;app.doc.documentElement.dataset.palette=palette;
+  const css=app.window.getComputedStyle(link);assert.equal(css.borderTopColor,'rgb(255, 138, 24)');assert.equal(css.backgroundColor,'rgb(23, 27, 34)');assert.equal(css.fontSize,'14px');assert.equal(css.borderRadius,'999px');assert.equal(app.window.getComputedStyle(link.querySelector('span')).color,'rgb(255, 138, 24)');
+ }
 });
 
 test('sent NIM replaces the form with one completion screen, clears its draft and Done removes the entire window',async()=>{

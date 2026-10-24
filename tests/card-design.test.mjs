@@ -24,6 +24,6 @@ test('window opens empty, then shows the pastel card shell and correct token art
   assert.equal($('card-unit').textContent,assets[currency].unit);
  }
  assert.equal($('payment-card').querySelectorAll('canvas').length,0);
- assert.match(d.querySelector('footer').textContent,/Powered by Phoenix Mail/);
+ assert.match(d.querySelector('footer').textContent,/Powered by PhoenixMail/);
  dom.window.close();
 });
