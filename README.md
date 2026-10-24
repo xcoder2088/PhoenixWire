@@ -1,6 +1,6 @@
 # PhoenixWire
 
-**Rapide. Simple. Sécuritaire.** — Powered by Phoenix Mail.
+**Fast. Simple. Secure.** — Powered by Phoenix Mail.
 
 Email payment cards without a password. The sender confirms an email address, funds a protected card once, and the recipient
 claims it after confirming their own email. Wire runs its UI, gateway and imported SecureClaim engine in one Go process.
