@@ -24,8 +24,9 @@ boundary and existing marked changes. Wire's own host should carry appearance an
 
 ## Start locally
 
-Needs Go (the manifests say 1.22; build releases with the latest patch release of the current Go, the standard library receives security fixes).
-No npm installation is needed to run the application.
+Needs Go. `go.mod` pins `toolchain go1.26.10`: with Go 1.21 or newer installed, the right compiler is fetched automatically, and releases must be
+built with it or a newer one (the standard library, TLS above all, receives security fixes: a binary built with an old Go keeps its flaws).
+Check a build with `go version -m ./phoenixwire` and `govulncheck -mode=binary ./phoenixwire`. No npm installation is needed to run the application.
 
 ```sh
 ./run-local.sh

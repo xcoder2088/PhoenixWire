@@ -95,6 +95,7 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 CGO_ENABLED=0 go build -trimpath -o "$tmp/phoenixwire-new" ./cmd/phoenixwire
 sha="$(sha256sum "$tmp/phoenixwire-new" | cut -d' ' -f1)"
+echo "built with: $(go version -m "$tmp/phoenixwire-new" | head -1 | sed 's/^.*: //')"
 echo "program: $(du -h "$tmp/phoenixwire-new" | cut -f1), sha256 $sha"
 
 if [ "$mode" = dry ]; then

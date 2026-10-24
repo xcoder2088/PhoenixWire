@@ -174,7 +174,29 @@ sudo journalctl -u phoenixwire --no-pager | grep "ledger"
 
 Ce n'est pas le même programme : ce sont des fichiers statiques du dépôt PhoenixMail (`website/public/`), copiés dans `/var/www/phoenixmail/public/` du portable. Le mainteneur le fait ; en cas de besoin, copie `index.html`, `site.css`, `site.js` (et les images ajoutées) dans ce dossier avec `sudo install -o root -g root -m 644`, après avoir gardé une copie dans un dossier `.backup-<date>`. Cloudflare garde l'ancienne page jusqu'à 4 heures : *Caching → Purge Everything* pour tout voir tout de suite.
 
-## 10. Problèmes courants
+## 10. Compiler soi-même
+
+Le script compile pour toi. À la main, depuis le dossier du projet :
+
+```bash
+CGO_ENABLED=0 go build -trimpath -o phoenixwire ./cmd/phoenixwire
+```
+
+Le projet impose le compilateur **Go 1.26.10 ou plus récent** (ligne `toolchain` de `go.mod`) : si ton Go est plus ancien, il télécharge tout seul le bon. C'est important : la bibliothèque standard de Go reçoit des correctifs de sécurité (surtout le TLS), et un programme compilé avec une version ancienne les garde en défaut.
+
+Vérifier avec quel Go un programme a été compilé, puis s'il a des failles connues :
+
+```bash
+go version -m ./phoenixwire | head -1
+```
+
+```bash
+go run golang.org/x/vuln/cmd/govulncheck@latest -mode=binary ./phoenixwire
+```
+
+La deuxième commande doit répondre `No vulnerabilities found.` À refaire de temps en temps, et à chaque nouvelle version de Go (nouveau `toolchain` dans `go.mod`, puis déploiement). Le script affiche `built with: go…` à chaque déploiement.
+
+## 11. Problèmes courants
 
 | Symptôme | Cause probable | Quoi faire |
 |---|---|---|
