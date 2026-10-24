@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -310,5 +311,33 @@ func TestUSDTRoutesArePublicOnlyForTheRecipient(t *testing.T) {
 	status, body, err := api.USDT().IssuerCall(context.Background(), "POST", "/api/v1/usdt/issuer/relayers", []byte("{}"))
 	if err != nil || status != 200 && status != 503 {
 		t.Fatalf("in-process issuer call: %d %s %v", status, body, err)
+	}
+}
+
+// Every script, style and image a page names must be served: a file added to a page and not to the server's list breaks the page for everyone.
+func TestEveryFileAPageNamesIsServed(t *testing.T) {
+	h := NewHandler()
+	refs := regexp.MustCompile(`(?:src|href)="(/?[A-Za-z0-9_./-]+\.(?:js|css|png|webp|svg|ico|webmanifest))(?:\?[^"]*)?"`)
+	for _, page := range []string{"/", "/classic.html"} {
+		r := httptest.NewRecorder()
+		h.ServeHTTP(r, httptest.NewRequest("GET", page, nil))
+		if r.Code != 200 {
+			t.Fatalf("%s: %d", page, r.Code)
+		}
+		found := refs.FindAllStringSubmatch(r.Body.String(), -1)
+		if len(found) < 3 {
+			t.Fatalf("%s names too few files (%d): the test is not reading the page", page, len(found))
+		}
+		for _, m := range found {
+			path := m[1]
+			if !strings.HasPrefix(path, "/") {
+				path = "/" + path
+			}
+			f := httptest.NewRecorder()
+			h.ServeHTTP(f, httptest.NewRequest("GET", path, nil))
+			if f.Code != 200 {
+				t.Errorf("%s names %s, which the server answers with %d", page, path, f.Code)
+			}
+		}
 	}
 }
