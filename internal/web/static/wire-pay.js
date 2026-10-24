@@ -758,7 +758,7 @@ $('wire-send-code').addEventListener('click', async () => {
  senderInviteOnly=false;codeSending=true;$('wire-email').disabled=true;$('wire-verify').disabled=true;paintCodeRequest();
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
  try {const to=$('wire-email').value.trim();await api('/api/sender/request', { email: to, language: lang },controller.signal);codeSentTo=to;codeUntil=Date.now()+30000;$('wire-code-box').hidden = false;say(t('codeSent'));$('wire-code').focus();}
- catch(error){senderInviteOnly=error.code==='invite_only';codeSentTo='';codeUntil=0;$('wire-code-box').hidden=true;$('wire-code').value='';say(senderInviteOnly?flowText(lang,'inviteOnly'):t('fail'));}
+ catch(error){senderInviteOnly=error.code==='invite_only';codeSentTo='';codeUntil=0;$('wire-code-box').hidden=true;$('wire-code').value='';say(senderInviteOnly?flowText(lang,'inviteOnly'):error.code==='wait_before_resend'?flowText(lang,'waitCode'):t('fail'));}
  finally{clearTimeout(timeout);codeSending=false;$('wire-email').disabled=false;$('wire-verify').disabled=false;paintCodeRequest();}
 });
 $('wire-verify').addEventListener('click', async () => {

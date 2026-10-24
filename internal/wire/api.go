@@ -513,13 +513,13 @@ func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
 	// Per-email persistent counters cannot be bypassed by changing cookies.
 	challenge := hex.EncodeToString(digest(a.master, "sender:"+to))
 	if err = a.otp.IssueClaim(service.WithEmailLanguage(r.Context(), cards.Language(input.Language)), challenge, to); err != nil {
-		status := 502
+		status, code := 502, "wait_or_delivery_unavailable"
 		if errors.Is(err, service.ErrOTPRateLimited) {
-			status = 429
+			status, code = 429, "wait_before_resend" // too many codes asked for this address: the page says to wait, it is not a failure
 		} else {
 			log.Printf("sender code not sent: %v", err) // the reason of a delivery failure (no address, no code)
 		}
-		failure(w, status, "wait_or_delivery_unavailable")
+		failure(w, status, code)
 		return
 	}
 	raw := token()

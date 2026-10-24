@@ -188,11 +188,11 @@ const lifetimeWords={
  }
 };
 const senderWords={
- fr:{inviteOnly:"Phoenix Wire est ouvert sur invitation pour le moment. Tu peux quand même ouvrir une carte que quelqu'un t'a envoyée."},
- en:{inviteOnly:'Phoenix Wire is invite-only for now. You can still open a card someone has sent you.'},
- es:{inviteOnly:'Por ahora, Phoenix Wire está disponible solo por invitación. Aun así, puedes abrir una tarjeta que alguien te haya enviado.'},
- de:{inviteOnly:'Phoenix Wire ist zurzeit nur auf Einladung verfügbar. Du kannst weiterhin eine Karte öffnen, die dir jemand geschickt hat.'},
- zh:{inviteOnly:'Phoenix Wire 目前仅限受邀用户发送。你仍然可以打开别人发给你的卡片。'}
+ fr:{waitCode:"Trop de codes demandés pour cette adresse. Attends quelques minutes (jusqu’à 15), puis réessaie.",inviteOnly:"Phoenix Wire est ouvert sur invitation pour le moment. Tu peux quand même ouvrir une carte que quelqu'un t'a envoyée."},
+ en:{waitCode:'Too many codes were requested for this address. Wait a few minutes (up to 15), then try again.',inviteOnly:'Phoenix Wire is invite-only for now. You can still open a card someone has sent you.'},
+ es:{waitCode:'Se han pedido demasiados códigos para esta dirección. Espera unos minutos (hasta 15) e inténtalo de nuevo.',inviteOnly:'Por ahora, Phoenix Wire está disponible solo por invitación. Aun así, puedes abrir una tarjeta que alguien te haya enviado.'},
+ de:{waitCode:'Für diese Adresse wurden zu viele Codes angefordert. Warte einige Minuten (bis zu 15) und versuche es erneut.',inviteOnly:'Phoenix Wire ist zurzeit nur auf Einladung verfügbar. Du kannst weiterhin eine Karte öffnen, die dir jemand geschickt hat.'},
+ zh:{waitCode:'此邮箱请求验证码的次数过多。请等待几分钟（最多 15 分钟）后重试。',inviteOnly:'Phoenix Wire 目前仅限受邀用户发送。你仍然可以打开别人发给你的卡片。'}
 };
 const previewWords={
  fr:{cardCode:'Un code reçu par courriel est nécessaire pour réclamer cette carte.',cardLife:'La carte est valable 24 heures.'},

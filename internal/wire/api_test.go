@@ -1096,3 +1096,13 @@ func TestTheAdministratorCanRevokeAndForgetAddressesAndOnlySeesHisOwnList(t *tes
 		t.Fatal("an ordinary sender used the panel", w.Code)
 	}
 }
+
+func TestAskingForCodesTooOftenSaysToWaitAndIsNotAFailure(t *testing.T) {
+	f := newFixture(t)
+	first := f.call("POST", "/api/sender/request", map[string]string{"email": "quick@example.test"})
+	good(first, t)
+	second := f.call("POST", "/api/sender/request", map[string]string{"email": "quick@example.test"})
+	if second.Code != 429 || !strings.Contains(second.Body.String(), "wait_before_resend") {
+		t.Fatal("a second code asked at once must say to wait", second.Code, second.Body)
+	}
+}
