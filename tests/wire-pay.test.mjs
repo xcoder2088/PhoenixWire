@@ -8,7 +8,7 @@ import { webcrypto } from 'node:crypto';
 import { TextEncoder, TextDecoder } from 'node:util';
 import { JSDOM } from 'jsdom';
 import { flowText } from '../internal/web/static/flow-text.js';
-import { addressValid, cardPresentation, paintCard } from '../internal/web/static/model.js';
+import { addressValid, cardPresentation, paintCard, renderCardPreview } from '../internal/web/static/model.js';
 import { resolveLanguage } from '../internal/web/static/model.js';
 
 const read = p => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -195,7 +195,7 @@ async function start({inviteOnly=false,adminAccess=null,cancelCode="",cancelConf
     throw Error('unexpected API ' + path);
   };
   const source = read('../internal/web/static/wire-pay.js').replace(/^import[^\n]+\n/gm, '');
-  Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText,  resolveLanguage, flowText, addressValid, cardPresentation, paintCard });
+  Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText,  resolveLanguage, flowText, addressValid, cardPresentation, paintCard, renderCardPreview });
   vm.runInContext(read('../internal/web/static/flow.js').replace(/^import[^\n]+\n/gm, '').replace(/^export /gm, ''), ctx);
   if(!classic)vm.runInContext('{' + source + '\n}', ctx);
   await settle();
@@ -219,6 +219,28 @@ async function makeCard(t) {
   await settle();
 }
 
+for(const language of ['fr','en','es','de','zh'])for(const [asset,label,symbol,network]of [['usdc_polygon','USDC · Polygon','USDC','POLYGON'],['usdt_polygon','USDT · Polygon','USDT','POLYGON'],['usdt_ethereum','USDT · Ethereum','USDT','ETHEREUM']]){
+ test(`local stablecoin preview follows every keystroke without API or wallet / ${asset} / ${language}`,async()=>{
+  const app=await start({clocked:true});app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));app.$('pay').click();await settle();
+  [...app.doc.querySelectorAll('.wire-coin-picker .nimiq-payment-assets button')].find(b=>b.textContent===label).click();await settle();
+  const win=app.doc.querySelector('.nimiq-payment-window'),form=win.querySelector('.nimiq-payment-panel'),card=win.querySelector('.wire-local-card'),field=name=>card.querySelector('[data-card-part="'+name+'"]');
+  assert.ok(card);assert.ok(win.classList.contains('wire-has-local-preview'));assert.equal(field('card-amount').textContent,'0');assert.equal(field('card-unit').textContent,symbol);assert.equal(card.querySelector('.sample').textContent,cardPresentation(language).protected);assert.match(card.querySelector('.wire-nim-brand').getAttribute('src'),/^\/brand\/phoenix-wire.webp/);assert.equal(card.querySelector('.card-heading').textContent,symbol+' · '+network+' · '+cardPresentation(language).heading.toLocaleUpperCase(language));
+  const before=app.calls.length,opened=app.opened.length,amount=form.querySelector('input[inputmode="decimal"]'),message=form.querySelector('input[maxlength="140"]'),recipient=form.querySelector('input[type="email"]');
+  const input=(el,value)=>{el.value=value;el.dispatchEvent(new app.window.Event('input',{bubbles:true}));};
+  for(const invalid of ['', '0','-1','1e2','Infinity','0.001','1000.1','2.1234567','<b>2</b>']){input(amount,invalid);assert.equal(field('card-amount').textContent,'0');}
+  input(amount,'2');assert.equal(field('card-amount').textContent,'2');input(amount,'2.123456');assert.equal(field('card-amount').textContent,'2.123456');
+  const inert='<img src=x onerror="alert(1)"><script>alert(2)</script>';input(message,inert);input(recipient,'demo@example.com');
+  assert.equal(field('card-message').textContent,inert);assert.equal(field('card-message').children.length,0);assert.equal(card.querySelector('script,[onerror]'),null);assert.equal(field('card-recipient').textContent,'demo@example.com');assert.match(field('coin').querySelector('img').getAttribute('src'),symbol==='USDC'?/usdc-coin\.png$/:/usdt-coin\.png$/);
+  assert.equal(card.querySelector('.lock').textContent,flowText(language,'cardCode'));assert.equal(win.querySelectorAll('.wire-lifetime-note').length,1);assert.equal(card.querySelector('.wire-lifetime-note').textContent,flowText(language,'cardLife'));assert.equal(win.textContent.split(flowText(language,'cardLife')).length-1,1);assert.equal(card.querySelectorAll('[id]').length,0);assert.doesNotMatch(card.textContent,/Mainnet|OTP|Hub/);
+  await settle();assert.equal(app.calls.length,before);assert.equal(app.opened.length,opened);assert.equal(app.checkouts.length,0);assert.equal(app.nativeCalls.length,0);assert.equal(app.window.localStorage.getItem('phoenixmail.usdt.sent.v2'),null);
+ });
+}
+test('stablecoin draft refreshes its language without resetting fields and stays visible on the mobile form view',async()=>{
+ const app=await start({clocked:true,width:375});app.$('pay').click();await settle();[...app.doc.querySelectorAll('.wire-coin-picker .nimiq-payment-assets button')].find(b=>b.textContent==='USDC · Polygon').click();await settle();
+ const win=app.doc.querySelector('.nimiq-payment-window'),amount=win.querySelector('input[inputmode="decimal"]');amount.value='7';amount.dispatchEvent(new app.window.Event('input',{bubbles:true}));const card=win.querySelector('.wire-local-card'),color=card.style.getPropertyValue('--card-bg');
+ for(const language of ['fr','en','es','de','zh']){app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));await settle();assert.equal(win.querySelector('.wire-local-card'),card);assert.equal(card.querySelector('.lock').textContent,flowText(language,'cardCode'));assert.equal(card.querySelector('[data-card-part="card-amount"]').textContent,'7');assert.equal(card.style.getPropertyValue('--card-bg'),color);assert.equal(win.querySelectorAll('.wire-lifetime-note').length,1);}
+ assert.equal(win.dataset.view,'form');const css=read('../internal/web/static/wire-pay.css');assert.match(css,/\.wire-body \.wire-has-local-preview\[data-view="form"\] \.nimiq-payment-preview\{display:block\}/);assert.match(css,/@media\(max-width:680px\)\{\.wire-has-local-preview \.nimiq-payment-body\{grid-template-columns:minmax\(0,1fr\)\}/);
+});
 test('a verified sender gets PhoenixMail’s window: four coins behind one session, protected cards only, Wire on the card', async () => {
   const t = await start();
   assert.equal(t.$('wire-ready').hidden, false); assert.equal(t.$('wire-sender').hidden, true);
@@ -236,6 +258,7 @@ test('a verified sender gets PhoenixMail’s window: four coins behind one sessi
   assert.ok(!JSON.stringify(create[1]).includes('#c='), 'the link key never goes to the server at creation');
   const card = t.doc.querySelector('.nimiq-payment-preview .nimiq-payment-card');
   assert.ok(card, 'the card is shown');
+  assert.equal(t.doc.querySelector('.wire-local-card'),null,'the server card replaces the local draft');assert.equal(t.doc.querySelector('.wire-has-local-preview'),null);assert.equal(t.doc.querySelectorAll('.nimiq-payment-window .wire-lifetime-note').length,1);
   assert.equal(card.querySelector('.nimiq-card-name').textContent, 'PhoenixWire');
   assert.match(card.querySelector('.nimiq-card-brand img').src, /phoenix-emblem\.webp$/);
   assert.ok(card.querySelector('img.nimiq-payment-qr'), 'the QR to fund it is on the card');
@@ -1738,7 +1761,7 @@ async function recipientPage({language='en',accounts=null,accountError=null,payo
   if(path.endsWith('/release'))return answer(200,{cashlink:'https://hub.nimiq.com/cashlink/#'+Buffer.alloc(40,5).toString('base64url')});
   throw Error('Unexpected recipient request '+path);
  };
- Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText, flowText,addressValid,cardPresentation,paintCard});
+ Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText, flowText,addressValid,cardPresentation,paintCard,renderCardPreview});
  const src=read('../internal/web/static/flow.js').replace(/^import[^\n]+\n/gm,'').replace(/^export /gm,'');
  // Keep the lifecycle handle so tests can assert timer cleanup too.
  vm.runInContext(src.replace("if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();","window.testFlow=mountNimFlow();"),ctx);
@@ -2064,4 +2087,5 @@ test('cancelled recent cards keep checking for late funds without showing paymen
  app.setClaimState('unclaimed');await app.clock.advance(6000);
  assert.match(app.$('wire-cards-list').textContent,/Recover funds/);assert.ok(!app.$('wire-cards-list').textContent.includes('Retry payment'));
 });
+
 

@@ -1,5 +1,48 @@
 # The payment window is PhoenixMail's
 
+## Local stablecoin card preview (Wire override, cache 0.4.29)
+
+`wire-pay.js` enhances the mirrored USDC/USDT window without changing `pm/`.
+Once a stablecoin has been selected, the normal form has a live card alongside
+it (below it at mobile widths). The currency picker itself stays uncluttered.
+The override observes replacement windows and listens to bubbling input/change
+events, including recipient, decimal amount and message changes. It creates no
+payment, calls no API, opens no wallet and stores no payment key while rendering.
+
+NIM and stablecoins share `renderCardPreview` in the existing `model.js`, the
+existing NIM card template, and `paintCard`'s twelve pastel palettes. The stablecoin
+clone uses scoped data attributes instead of duplicate IDs. Its public colour seed
+stays fixed for that window; it is unrelated to payment or link keys. The preview
+shows the Phoenix Wire logo, the localized protected badge and heading, the selected
+USDC/USDT symbol and Polygon/Ethereum network, the coin pictogram, email-code
+explanation, inert message and small recipient email. All text exists in FR/EN/ES/DE/ZH.
+
+Valid stablecoin preview amounts follow the mirrored form's decimal syntax and
+range: 0.01 through 1,000, up to six fractional digits, no exponent or sign.
+Empty, incomplete or invalid values show `0` with the selected symbol. The short
+localized 24-hour sentence is shown once on the local card; the same lifetime
+note is moved from the form rather than duplicated. User text is assigned through
+`textContent`, and repeated observer passes do not rebuild unchanged text nodes.
+
+When the mirrored module creates its server-backed card, its normal replacement
+of the preview panel removes the local card. Wire detects the real card, removes
+the draft layout and leaves the real funding/confirmation controls in charge.
+The existing full lifetime/refund explanation is then restored to the form once.
+No local draft can overwrite a server card. Changing language repaints the draft
+without resetting fields or changing its colour.
+
+Tests cover every stablecoin asset in all five languages, each input's immediate
+update, invalid amounts, inert HTML, no API/wallet calls or local payment record,
+one 24-hour sentence, language changes, mobile CSS visibility, all twelve shared
+palettes, and replacement by the server card. Cache versions are bumped for changed
+styles, modules and their loaders/imports. No new static file is added, and no Go,
+mirrored code, deployment or real payment is involved. Responsive checks here are
+automated DOM/CSS checks, not a physical iPhone validation.
+
+Validation executed: `npm ci --ignore-scripts`, followed by
+`node --test --test-timeout=90000 tests/*.test.mjs engine/secureclaim/web/tests/*.cjs`:
+241 tests passed, no failures or skipped tests.
+
 ## Sender-specific refund memory and configuration-locked access (server c8b3405)
 
 Both sender interfaces now store the last successful refund destination under
@@ -480,5 +523,6 @@ These are automated simulations, not a physical iPhone/Safari/Nimiq Pay validati
 L'aperçu NIM se met à jour localement pendant la saisie d'un montant valide, du destinataire et du message. Il ne crée pas de carte serveur et n'ouvre aucun portefeuille. Le Nimicon réel apparaît après la préparation de la carte. Le texte des 24 heures n'est ajouté qu'une fois ; l'enrichissement stablecoin ignore la fenêtre NIM. Les modules modifiés utilisent la version de cache `0.4.27`.
 
 Revue de sécurité et limites de validation : voir `AUDIT-2026-10-24.md`. Les défauts Go recensés dans ce rapport restent à corriger ; le correctif d'aperçu n'est pas une validation générale des remboursements.
+
 
 

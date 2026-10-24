@@ -1,7 +1,7 @@
 import { mountAdmin,adminText } from './admin.js?v=0.4.28';
-import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.24';
-import { flowText } from './flow-text.js?v=0.4.24';
-import { addressValid,cardPresentation,paintCard } from './model.js?v=0.4.24';
+import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.29';
+import { flowText } from './flow-text.js?v=0.4.29';
+import { addressValid,cardPresentation,paintCard,renderCardPreview } from './model.js?v=0.4.29';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
 export function mountNimFlow(root=document,{embedded=false,chooseWallet=null,onClose=null,onStatus=()=>{},initialDraft=null,onDraftUsed=()=>{},initialPayment=null,scopedPaymentID=''}={}){
@@ -366,11 +366,7 @@ function renderDraftPreview(){
  const valid=/^\d{1,7}(?:\.\d{1,5})?$/.test(amount)&&Number(amount)>0&&Number(amount)<=1000;
  $('preview-empty').hidden=valid;$('payment-card').hidden=!valid;$('preview-title').hidden=!valid;
  if(!valid)return;
- const words=paintCard($('payment-card'),document.documentElement.lang,requestID);
- $('card-amount').textContent=amount;$('card-unit').textContent='NIM';$('card-network').hidden=true;
- $('card-message').textContent=$('message').value;$('card-recipient').textContent=$('recipient').value;
- root.querySelector('.card-heading').textContent='Nimiq · '+words.heading;root.querySelector('.sample').textContent=words.protected;root.querySelector('.lock').textContent=words.locked;
- if(!$('coin').firstChild){const icon=document.createElement('img');icon.src='/brand/nimiq-logo.svg';icon.alt='Nimiq';icon.width=62;icon.height=62;$('coin').append(icon);}
+ renderCardPreview($('payment-card'),{language:document.documentElement.lang,id:requestID,amount,message:$('message').value,recipient:$('recipient').value});
 }
 for(const id of ['recipient','amount','message'])$(id).addEventListener('input',renderDraftPreview);
 window.addEventListener('wire-language',refreshText);
@@ -951,5 +947,6 @@ return {ready:started,resume,destroy(){destroyed=true;window.removeEventListener
 }
 
 if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();
+
 
 

@@ -15,6 +15,21 @@ export function paintCard(element,language,id='00') {
  return p;
 }
 
+// Shared local card renderer: NIM and stablecoins use the same card template and palettes.
+export function renderCardPreview(card,{language,id,asset='NIM',amount,message='',recipient='',codeText}) {
+ const currency=assets[asset],words=paintCard(card,language,id);
+ const part=name=>card.querySelector('[data-card-part="'+name+'"], [id="'+name+'"]');
+ const text=(node,value)=>{if(node&&node.textContent!==value)node.textContent=value;};
+ text(part('card-amount'),amount);text(part('card-unit'),currency.unit);text(part('card-message'),message);text(part('card-recipient'),recipient);
+ part('card-network').hidden=true;card.dataset.currency=asset;
+ text(card.querySelector('.card-heading'),asset==='NIM'?'Nimiq · '+words.heading:currency.unit+' · '+currency.network.toUpperCase()+' · '+words.heading.toLocaleUpperCase(language));
+ text(card.querySelector('.sample'),words.protected);text(card.querySelector('.lock'),codeText||words.locked);
+ const host=part('coin');let icon=host.querySelector('img');if(!icon){icon=card.ownerDocument.createElement('img');icon.width=62;icon.height=62;host.replaceChildren(icon);}
+ const src=asset==='NIM'?'/brand/nimiq-logo.svg':asset==='USDC_POLYGON'?'/brand/usdc-coin.png':'/brand/usdt-coin.png';
+ if(icon.getAttribute('src')!==src)icon.setAttribute('src',src);icon.alt=asset==='NIM'?'Nimiq':currency.unit;
+ return words;
+}
+
 // Match PhoenixMail's locale precedence, including regional tags and English fallback.
 export function resolveLanguage(preference, languages) {
   if (supportedLanguages.includes(preference)) return preference;
@@ -102,3 +117,4 @@ export async function cancelUnpaidCard(p,request) {
   return {...result,received:true};
  }
 }
+

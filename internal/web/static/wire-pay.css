@@ -137,6 +137,18 @@ body.wire-body{background:var(--bg);color:var(--text)}
 .wire-body .nimiq-payment-card{background-image:linear-gradient(125deg,var(--card-bg,#ece3ff) 0%,#e2eeff 56%,#ffe8f4 100%);border-color:var(--card-accent,var(--card-border,#c7b1ee));border-radius:26px}
 .wire-body .nimiq-payment-card::before{content:none;display:none}
 
+/* Local stablecoin preview reuses the NIM card template, renderer and twelve palettes. */
+.wire-has-local-preview .nimiq-payment-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.wire-body .wire-has-local-preview .nimiq-payment-preview{display:block}
+.wire-local-card .nimiq-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wire-local-card p,.wire-local-card .sample{color:#243047}
+.wire-local-card .sample{font-size:11px}
+.wire-local-card .card-heading{text-align:center;font-size:11px;letter-spacing:.08em}
+.wire-local-card [data-card-part="coin"] img{width:80px;height:80px;object-fit:contain}
+.wire-local-card [data-card-part="card-recipient"]{font-size:11px}
+.wire-local-card .wire-lifetime-note{margin:14px 0 0;text-align:center;color:#243047}
+@media(max-width:680px){.wire-has-local-preview .nimiq-payment-body{grid-template-columns:minmax(0,1fr)}.wire-body .wire-has-local-preview[data-view="form"] .nimiq-payment-preview{display:block}}
+
 .wire-cards{margin-top:18px}.wire-cards h2{margin:0 0 14px;font-size:21px}
 .wire-card-row{padding:16px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
 .wire-card-row p{margin:7px 0 0;line-height:1.5}.wire-card-recipient{color:var(--muted);font-size:14px}
@@ -207,3 +219,4 @@ footer .wire-powered strong{color:#f5f5f5;font-size:15px;font-weight:750}
 footer .wire-powered strong span{color:#ff8a18}
 footer .wire-powered:hover{background:#242a33;color:#fff;text-decoration:none}
 footer .wire-powered:focus-visible{outline:2px solid #ff8a18;outline-offset:3px}
+

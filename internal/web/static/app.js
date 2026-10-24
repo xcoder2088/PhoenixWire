@@ -1,4 +1,4 @@
-import { assets, previewAmount, resolveLanguage,cardPresentation,paintCard } from './model.js?v=0.4.24';
+import { assets, previewAmount, resolveLanguage,cardPresentation,paintCard } from './model.js?v=0.4.29';
 
 const messages = {
   fr: ['Clair / sombre','Un paiement. Un courriel.','Créez une carte, envoyez un paiement. Simplement.','Aperçu local : aucun paiement ni courriel n’est envoyé.','Votre carte de paiement','Votre courriel','Courriel du destinataire','Monnaie','Montant','Petit mot (facultatif)','Le parcours prévu déverrouillera le paiement après vérification du courriel par code à six chiffres.','Prévisualiser la carte','Aperçu de la carte','MAQUETTE','Code par courriel · parcours à intégrer','Pas de QR réclamable, de clé ou de fonds dans cet aperçu.','Aperçu mis à jour. Aucun envoi effectué.','Montant invalide ou trop de décimales.'],
@@ -94,3 +94,4 @@ $('currency').addEventListener('change', () => {
   try { renderCard(previewAmount($('amount').value, $('currency').value)); $('feedback').textContent = ''; }
   catch { $('feedback').textContent = t('invalid'); }
 });
+

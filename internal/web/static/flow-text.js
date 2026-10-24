@@ -194,5 +194,13 @@ const senderWords={
  de:{inviteOnly:'Phoenix Wire ist zurzeit nur auf Einladung verfügbar. Du kannst weiterhin eine Karte öffnen, die dir jemand geschickt hat.'},
  zh:{inviteOnly:'Phoenix Wire 目前仅限受邀用户发送。你仍然可以打开别人发给你的卡片。'}
 };
-export function flowText(language,key){const row=rows[language]||rows.en;return (lifetimeWords[language]||lifetimeWords.en)[key]||(senderWords[language]||senderWords.en)[key]||(key.startsWith('claim_')?(payoutWords[language]||payoutWords.en)[key.slice(6)]:null)||(claimWords[language]||claimWords.en)[key]||row[keys.indexOf(key)]||key;}
+const previewWords={
+ fr:{cardCode:'Un code reçu par courriel est nécessaire pour réclamer cette carte.',cardLife:'La carte est valable 24 heures.'},
+ en:{cardCode:'A code received by email is required to claim this card.',cardLife:'The card is valid for 24 hours.'},
+ es:{cardCode:'Se necesita un código recibido por correo para reclamar esta tarjeta.',cardLife:'La tarjeta es válida durante 24 horas.'},
+ de:{cardCode:'Zum Einlösen dieser Karte ist ein per E-Mail erhaltener Code erforderlich.',cardLife:'Die Karte ist 24 Stunden gültig.'},
+ zh:{cardCode:'领取此卡片需要通过电子邮件收到的验证码。',cardLife:'卡片的有效期为 24 小时。'}
+};
+export function flowText(language,key){const row=rows[language]||rows.en;return (previewWords[language]||previewWords.en)[key]||(lifetimeWords[language]||lifetimeWords.en)[key]||(senderWords[language]||senderWords.en)[key]||(key.startsWith('claim_')?(payoutWords[language]||payoutWords.en)[key.slice(6)]:null)||(claimWords[language]||claimWords.en)[key]||row[keys.indexOf(key)]||key;}
 export const flowLanguages=Object.keys(rows);
+

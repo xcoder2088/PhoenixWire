@@ -1,10 +1,10 @@
 import { mountAdmin,adminText } from './admin.js?v=0.4.28';
-import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.24';
+import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.29';
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
-import { resolveLanguage } from './model.js?v=0.4.24';
-import { mountNimFlow } from './flow.js?v=0.4.28';
-import { flowText } from './flow-text.js?v=0.4.24';
+import { resolveLanguage,renderCardPreview } from './model.js?v=0.4.29';
+import { mountNimFlow } from './flow.js?v=0.4.29';
+import { flowText } from './flow-text.js?v=0.4.29';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -632,11 +632,34 @@ function loadCashlink() {
 }
 
 
+const stablePreviews=new WeakMap();
+function stablePreview(win){
+ const panel=win.querySelector('.nimiq-payment-panel'),preview=win.querySelector('.nimiq-payment-preview');
+ const selected=win.querySelector('.nimiq-payment-assets button[aria-pressed="true"]'),asset=selected&&buttonAsset(selected);
+ if(!panel||!preview||!assetNames[asset]||win.classList.contains('wire-coin-picker'))return null;
+ if(preview.querySelector('.nimiq-payment-card:not(.wire-local-card)')){win.classList.remove('wire-has-local-preview');return null;}
+ const amount=panel.querySelector('input[inputmode="decimal"]'),message=panel.querySelector('input[maxlength="140"]'),recipient=panel.querySelector('input[type="email"]');
+ if(!amount||!message||!recipient)return null;
+ let state=stablePreviews.get(win);
+ if(!state){
+  const card=$('wire-nim-template').content.querySelector('#payment-card').cloneNode(true);
+  for(const node of [card,...card.querySelectorAll('[id]')]){node.dataset.cardPart=node.id;node.removeAttribute('id');}
+  card.hidden=false;card.classList.add('wire-local-card');
+  state={card,id:crypto.getRandomValues(new Uint8Array(1))[0].toString(16).padStart(2,'0')};stablePreviews.set(win,state);
+  for(const event of ['input','change'])win.addEventListener(event,()=>enhanceStableWindow(win));
+ }
+ if(!preview.contains(state.card))preview.replaceChildren(state.card);
+ win.classList.add('wire-has-local-preview');
+ const raw=amount.value.trim(),valid=/^(0|[1-9][0-9]{0,6})(\.[0-9]{1,6})?$/.test(raw)&&Number(raw)>=0.01&&Number(raw)<=1000;
+ renderCardPreview(state.card,{language:lang,id:state.id,asset:asset.toUpperCase(),amount:valid?raw:'0',message:message.value,recipient:recipient.value,codeText:flowText(lang,'cardCode')});
+ return state.card;
+}
 function enhanceStableWindow(win){
  if(win.classList.contains('wire-nim-window'))return;
+ const draft=stablePreview(win);
  const amount=win.querySelector('input[inputmode="decimal"]');
- const host=amount?.closest('label')||win.querySelector('.usdt-pay');
- if(host){let note=host.querySelector('.wire-lifetime-note');if(!note){note=document.createElement('p');note.className='wire-lifetime-note';host.append(note);}if(note.textContent!==life('life'))note.textContent=life('life');}
+ const host=draft||amount?.closest('label')||win.querySelector('.usdt-pay');
+ if(host){let note=win.querySelector('.wire-lifetime-note');if(!note){note=document.createElement('p');note.className='wire-lifetime-note';}if(note.parentElement!==host)host.append(note);const text=life(draft?'cardLife':'life');if(note.textContent!==text)note.textContent=text;}
  const funded=win.querySelector('.usdt-funded');if(!funded)return;
  const selected=win.querySelector('.nimiq-payment-assets button[aria-pressed="true"]'),asset=selected?buttonAsset(selected):'';
  let sent=[];try{sent=JSON.parse(read('phoenixmail.usdt.sent.v2','[]'));}catch{}
@@ -649,6 +672,7 @@ function enhanceStableWindow(win){
 function mountPayments() {
  if (payments) return;
  const addBack = win => {
+  if(!win.classList.contains('wire-nim-window'))win.classList.toggle('wire-coin-picker',choosingCoin);
   enhanceStableWindow(win);
   const head = win.querySelector('.nimiq-payment-head');
   if (!head || head.querySelector('.wire-window-back')) return;
@@ -797,5 +821,6 @@ setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
   if(handoffError){say(t(handoffError));if(scopedID)$('wire-handoff-state').textContent=t(handoffError);}
  } catch { say(t('off'));if(scopedID){$('wire-entry').hidden=false;$('wire-sender').hidden=false;} }
 })();
+
 
 

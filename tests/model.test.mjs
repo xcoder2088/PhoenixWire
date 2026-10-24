@@ -1,7 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { assets, previewAmount, resolveLanguage } from '../internal/web/static/model.js';
+import { assets, previewAmount, resolveLanguage,renderCardPreview } from '../internal/web/static/model.js';
+import {cardPalettes} from '../internal/web/static/card-mirror.js';
+import {JSDOM} from 'jsdom';
+
+test('NIM and all stablecoin previews share the same twelve pastel palettes and inert card renderer',()=>{
+ const dom=new JSDOM(readFileSync(new URL('../internal/web/static/index.html',import.meta.url),'utf8'));
+ try{const template=dom.window.document.getElementById('wire-nim-template').content.querySelector('#payment-card');
+  for(let i=0;i<12;i++)for(const asset of Object.keys(assets)){
+   const card=template.cloneNode(true);renderCardPreview(card,{language:'fr',id:i.toString(16).padStart(2,'0'),asset,amount:'2',message:'<b>inert</b>',recipient:'demo@example.com'});
+   assert.equal(card.style.getPropertyValue('--card-bg'),cardPalettes[i][0]);assert.equal(card.style.getPropertyValue('--card-border'),cardPalettes[i][1]);assert.equal(card.querySelector('#card-message').textContent,'<b>inert</b>');assert.equal(card.querySelector('#card-message').childElementCount,0);
+  }
+ }finally{dom.window.close();}
+});
 
 test('locale resolver matches PhoenixMail precedence and regional normalization', () => {
   assert.equal(resolveLanguage('es', ['fr-CA']), 'es');
@@ -33,3 +45,4 @@ test('preview contains no network submission or HTML interpolation', () => {
   assert.match(js, /e\.preventDefault\(\)/);
   assert.doesNotMatch(js, /localStorage\.setItem\(['"](?:sender|recipient|message)/);
 });
+

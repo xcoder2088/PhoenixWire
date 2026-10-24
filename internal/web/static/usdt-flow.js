@@ -1,8 +1,8 @@
-import { flowText } from './flow-text.js?v=0.4.24';
+import { flowText } from './flow-text.js?v=0.4.29';
 // The sender's side of a USDC / USDT card. The browser makes the card id and the link key and KEEPS them: they are what lets the sender
 // take the money back. Wire's server never stores the claim link; the browser hands it over once, to be e-mailed, after the card is funded.
 import { usdtText } from './usdt-text.js?v=0.4.21';
-import { paintCard } from './model.js?v=0.4.24';
+import { paintCard } from './model.js?v=0.4.29';
 
 const $ = id => document.getElementById(id);
 const STORE = 'wire-usdt-cards';
@@ -242,4 +242,5 @@ $('usdt-copy').addEventListener('click', async () => { try { await navigator.cli
 window.addEventListener('wire-language', refreshText);
 // flow.js may have learned the server's offer before this module ran: take it from where it left it.
 if (window.wireUsdtState) window.WireUSDT.configure(window.wireUsdtState);
+
 
