@@ -75,6 +75,7 @@ type fixture struct {
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
+	t.Setenv("PHOENIXWIRE_SENDERS", "open") // the tests sign in new senders; the invitation limit has its own test
 	f := &fixture{t: t, root: t.TempDir(), mail: &testDelivery{codes: map[string]string{}}}
 	os.Chmod(f.root, 0700)
 	f.rpc = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -653,5 +654,37 @@ func TestSenderCanGiveUpACardThatWasNeverPaid(t *testing.T) {
 	}
 	if w := f.call("POST", "/api/payments/"+p.ID+"/recovery", map[string]string{}); w.Code != 200 {
 		t.Fatal("a cancelled card lost its recovery", w.Code)
+	}
+}
+
+func TestOnlyRegisteredSendersCanSignIn(t *testing.T) {
+	f := newFixture(t)
+	f.verifySender("owner@example.test") // registered while the app was open: signs in, creates a card
+	p := f.create()
+	t.Setenv("PHOENIXWIRE_SENDERS", "") // now by invitation
+	f.cookie = nil
+	// a stranger gets no code and nothing is sent
+	before := len(f.mail.codes)
+	w := f.call("POST", "/api/sender/request", map[string]string{"email": "stranger@example.test"})
+	if w.Code != 403 || !strings.Contains(w.Body.String(), "invite_only") || len(f.mail.codes) != before {
+		t.Fatal("a stranger was let in", w.Code, w.Body)
+	}
+	// the registered sender still signs in (the rule is checked directly: the e-mail code of this sender was just sent, its own resend limit applies)
+	if !f.api.senderAllowed("owner@example.test") || f.api.senderAllowed("stranger@example.test") {
+		t.Fatal("registered senders are the ones who created a card")
+	}
+	// an address named by the operator is let in too
+	t.Setenv("PHOENIXWIRE_SENDERS", "friend@example.test, other@example.test")
+	if w := f.call("POST", "/api/sender/request", map[string]string{"email": "friend@example.test"}); w.Code != 200 {
+		t.Fatal("a named sender was refused", w.Code, w.Body)
+	}
+	// recipients are not senders: a card that was sent opens for anyone, signed in or not
+	f.cookie = nil
+	if w := f.call("GET", "/api/claims/"+p.ID, nil); w.Code != 404 { // not funded in this test, so not claimable; the route itself must not ask for a sender
+		t.Fatal("the claim route must stay public and answer by the card's own state", w.Code)
+	}
+	t.Setenv("PHOENIXWIRE_SENDERS", "open")
+	if w := f.call("POST", "/api/sender/request", map[string]string{"email": "stranger@example.test"}); w.Code != 200 {
+		t.Fatal("open mode refused a sender", w.Code)
 	}
 }

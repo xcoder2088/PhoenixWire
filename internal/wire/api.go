@@ -439,6 +439,10 @@ func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
 		failure(w, 400, "invalid_email")
 		return
 	}
+	if !a.senderAllowed(to) { // sending is by invitation: nothing is sent to an address that is not registered here (senders.go)
+		failure(w, 403, "invite_only")
+		return
+	}
 	now := a.now()
 	for k, s := range a.db.state.Sessions {
 		if !now.Before(s.Expires) {
