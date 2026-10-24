@@ -89,6 +89,8 @@ func usdtlinkError(w http.ResponseWriter, err error) {
 		code, status = "quote_changed", 409
 	case errors.Is(err, usdtlink.ErrIdempotency), errors.Is(err, usdtlink.ErrAuthState), errors.Is(err, usdtlink.ErrAuthNotSigned), errors.Is(err, usdtlink.ErrDuplicate):
 		code, status = "conflict", 409
+	case errors.Is(err, usdtlink.ErrFeeTooHigh):
+		code, status = "gas_too_high", 503
 	case errors.Is(err, usdtlink.ErrFloatLow):
 		code, status = "relayer_float_low", 503
 	case errors.Is(err, usdtlink.ErrGasCredit):
@@ -550,18 +552,27 @@ func wei(decimal string) *big.Int {
 	return v
 }
 
+// Chainlink's USD price feeds for the coins that pay the gas (read-only calls on the chain itself).
+const (
+	ethereumFeed = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419" // ETH / USD on Ethereum
+	polygonFeed  = "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0" // POL (MATIC) / USD on Polygon
+)
+
 var usdtlinkNetworks = map[string]struct {
-	asset  string
-	minTip *big.Int
-	minFee uint64
-	drip   *big.Int // the most native coin one sender is given (gas.go)
-	floor  *big.Int // the float the relayer keeps
+	asset   string
+	minTip  *big.Int
+	minFee  uint64
+	drip    *big.Int // the most native coin one sender is given (gas.go)
+	floor   *big.Int // the float the relayer keeps
+	feed    string   // Chainlink USD price feed of the chain's coin (fee.go); "" on test networks
+	gecko   string   // the coin's CoinGecko id
+	safeUSD float64  // a deliberately high price used only when neither source answers
 }{
-	"polygon":      {evm.AssetUSDTPolygon, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000")},        // drip up to 0.3 POL, keep 0.2 POL
-	"ethereum":     {evm.AssetUSDTEthereum, wei("100000000"), 400_000, wei("5000000000000000"), wei("10000000000000000")}, // drip up to 0.005 ETH, keep 0.01 ETH
-	"amoy":         {evm.AssetUSDCAmoyTest, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000")},       // test network, test coins
-	"polygon-usdc": {evm.AssetUSDCPolygon, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000")},        // USDC on Polygon (shares the Polygon relayer and its key)
-	"sepolia":      {evm.AssetUSDCSepoliaTest, gwei(1), 50_000, wei("5000000000000000"), wei("10000000000000000")},        // test network, test coins
+	"polygon":      {evm.AssetUSDTPolygon, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000"), polygonFeed, "polygon-ecosystem-token", 0.50}, // drip up to 0.3 POL, keep 0.2 POL
+	"ethereum":     {evm.AssetUSDTEthereum, wei("100000000"), 400_000, wei("5000000000000000"), wei("10000000000000000"), ethereumFeed, "ethereum", 6000},        // drip up to 0.005 ETH, keep 0.01 ETH
+	"amoy":         {evm.AssetUSDCAmoyTest, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000"), "", "", 0},                                   // test network, test coins
+	"polygon-usdc": {evm.AssetUSDCPolygon, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000"), polygonFeed, "polygon-ecosystem-token", 0.50}, // USDC on Polygon (shares the Polygon relayer and its key)
+	"sepolia":      {evm.AssetUSDCSepoliaTest, gwei(1), 50_000, wei("5000000000000000"), wei("10000000000000000"), "", "", 0},                                    // test network, test coins
 }
 
 // setupUSDTLink starts the USDT cashlink service when NIMIQ_CLAIM_USDTLINK_CHAINS names at least one chain
@@ -608,7 +619,7 @@ func setupUSDTLink(s *server, stateDir string) (*usdtHTTP, error) {
 			return nil, err
 		}
 		log.Printf("USDT cashlink %s: relayer address %s (fund it with the chain's native coin for gas)", name, rl.Address().Hex())
-		chainCfg := usdtlink.Chain{Network: n, Node: node, Relayer: rl, MinFee: spec.minFee, MinFloat: spec.floor}
+		chainCfg := usdtlink.Chain{Network: n, Node: node, Relayer: rl, MinFee: spec.minFee, MinFloat: spec.floor, PriceFeed: spec.feed, CoinGeckoID: spec.gecko, FallbackUSD: spec.safeUSD}
 		// The minimum float below which no NEW card is taken can be lowered (even to 0) while the relayer is still being funded:
 		// only for a service whose users are the owner alone.
 		// NIMIQ_CLAIM_USDTLINK_MIN_FLOAT_WEI_<NAME> (ETHEREUM, POLYGON, POLYGON_USDC) sets one chain, the unsuffixed variable all of them.
@@ -636,6 +647,11 @@ func setupUSDTLink(s *server, stateDir string) (*usdtHTTP, error) {
 	if raw := os.Getenv("NIMIQ_CLAIM_USDTLINK_FEE_BPS"); raw != "" { // the service fee, in basis points of the amount (default 600 = 6%)
 		if v, err := strconv.ParseUint(raw, 10, 64); err == nil && v <= 2000 {
 			usdtlink.FeeBps = v
+		}
+	}
+	if raw := os.Getenv("NIMIQ_CLAIM_USDTLINK_FEE_MARGIN"); raw != "" { // how many times the gas cost a card's fee must cover (default 3)
+		if v, err := strconv.ParseFloat(raw, 64); err == nil && v >= 1 && v <= 20 {
+			usdtlink.FeeMargin = v
 		}
 	}
 	master, err := keyFile(filepath.Join(dir, "master.key"))

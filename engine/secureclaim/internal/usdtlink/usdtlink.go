@@ -109,6 +109,9 @@ func MaxFeeFor(units uint64) uint64 {
 // refundFee is what a REFUND pays the relayer: only the flat gas fee, never the percentage. A sender who takes the money back
 // gets back everything but the gas.
 func (s *Service) refundFee(r *Record) uint64 {
+	if r.RefundFeeUnits > 0 && r.RefundFeeUnits <= r.FeeUnits {
+		return r.RefundFeeUnits
+	}
 	if flat := DefaultFee[r.Asset]; flat > 0 && flat < r.FeeUnits {
 		return flat
 	}
@@ -138,6 +141,11 @@ type Chain struct {
 	// MinFloat is the native coin the relayer must hold for the service to accept NEW cards: below it, claims and refunds could not
 	// be paid, so no new card is taken (cards already funded keep their refund route as long as some gas remains).
 	MinFloat *big.Int
+	// PriceFeed is the address of the chain's USD price feed for its coin (Chainlink) and FallbackUSD a deliberately high price used when the
+	// feed cannot be read: the fee of a new card follows the price of gas (fee.go).
+	PriceFeed   string
+	CoinGeckoID string // asked when the feed cannot be read
+	FallbackUSD float64
 	// GasSeed is how many gifts of gas money the service may give before any payout has completed (default DefaultGasSeed).
 	GasSeed int
 }
@@ -145,31 +153,32 @@ type Chain struct {
 // Record does not persist the link key. Wire transiently receives the full link during invitation delivery.
 // The co-signer key is derived from the master secret when needed and is not stored in the record.
 type Record struct {
-	ID           string    `json:"id"` // 32 hex characters: the card id chosen by the sender's browser
-	Asset        string    `json:"asset"`
-	Units        uint64    `json:"units"` // paid to the recipient
-	FeeUnits     uint64    `json:"fee_units"`
-	Amount       string    `json:"amount"`
-	Message      string    `json:"message,omitempty"`
-	Protected    bool      `json:"protected"`
-	Email        string    `json:"email,omitempty"` // recipient, protected cards only
-	SenderEmail  string    `json:"sender_email,omitempty"`
-	SenderLang   string    `json:"sender_lang,omitempty"`
-	LinkOwner    string    `json:"link_owner"` // address of the link key (public): the one a link proof must come from
-	Owners       []string  `json:"owners"`     // sorted checksum addresses: the link key's, and the co-signer's when protected
-	Safe         string    `json:"safe"`       // the card's address
-	Created      time.Time `json:"created"`
-	SenderHash   string    `json:"sender_hash"`
-	Verified     bool      `json:"verified"`
-	Recipient    string    `json:"recipient,omitempty"` // the one destination this card may pay (set when it is co-signed or claimed)
-	Funded       bool      `json:"funded,omitempty"`    // the card holds the full amount NOW (as last read)
-	Held         uint64    `json:"held,omitempty"`      // token units the card holds, as last read (a part-payment or a leftover is recoverable money)
-	HeldAt       time.Time `json:"held_at,omitempty"`   // when Held was last read; zero: never read, so what the card holds is UNKNOWN
-	Cancelled    bool      `json:"cancelled,omitempty"`
-	ClaimTx      string    `json:"claim_tx,omitempty"`      // the confirmed payout to the recipient (kept when a later refund recovers a surplus)
-	ClaimedAt    time.Time `json:"claimed_at,omitempty"`    // when the block that holds that payout was mined; zero: not known (never made up from the time of a look)
-	Settled      uint64    `json:"settled,omitempty"`       // payouts of ours confirmed on chain: the Safe nonce we expect
-	SettledOther bool      `json:"settled_other,omitempty"` // the Safe nonce moved without any payout of ours
+	ID             string    `json:"id"` // 32 hex characters: the card id chosen by the sender's browser
+	Asset          string    `json:"asset"`
+	Units          uint64    `json:"units"` // paid to the recipient
+	FeeUnits       uint64    `json:"fee_units"`
+	RefundFeeUnits uint64    `json:"refund_fee_units,omitempty"` // what a refund pays the relayer, fixed at creation (absent on older cards: the flat fee)
+	Amount         string    `json:"amount"`
+	Message        string    `json:"message,omitempty"`
+	Protected      bool      `json:"protected"`
+	Email          string    `json:"email,omitempty"` // recipient, protected cards only
+	SenderEmail    string    `json:"sender_email,omitempty"`
+	SenderLang     string    `json:"sender_lang,omitempty"`
+	LinkOwner      string    `json:"link_owner"` // address of the link key (public): the one a link proof must come from
+	Owners         []string  `json:"owners"`     // sorted checksum addresses: the link key's, and the co-signer's when protected
+	Safe           string    `json:"safe"`       // the card's address
+	Created        time.Time `json:"created"`
+	SenderHash     string    `json:"sender_hash"`
+	Verified       bool      `json:"verified"`
+	Recipient      string    `json:"recipient,omitempty"` // the one destination this card may pay (set when it is co-signed or claimed)
+	Funded         bool      `json:"funded,omitempty"`    // the card holds the full amount NOW (as last read)
+	Held           uint64    `json:"held,omitempty"`      // token units the card holds, as last read (a part-payment or a leftover is recoverable money)
+	HeldAt         time.Time `json:"held_at,omitempty"`   // when Held was last read; zero: never read, so what the card holds is UNKNOWN
+	Cancelled      bool      `json:"cancelled,omitempty"`
+	ClaimTx        string    `json:"claim_tx,omitempty"`      // the confirmed payout to the recipient (kept when a later refund recovers a surplus)
+	ClaimedAt      time.Time `json:"claimed_at,omitempty"`    // when the block that holds that payout was mined; zero: not known (never made up from the time of a look)
+	Settled        uint64    `json:"settled,omitempty"`       // payouts of ours confirmed on chain: the Safe nonce we expect
+	SettledOther   bool      `json:"settled_other,omitempty"` // the Safe nonce moved without any payout of ours
 	// Op is the one operation (claim or refund) in flight or last settled. It is written to disk BEFORE the transaction is
 	// broadcast, hash included (Journal), so that whatever happens next (crash, lost answer, failed write) the chain can say
 	// what became of it. The Safe's own nonce on chain is the other source of truth.
@@ -271,6 +280,7 @@ type Service struct {
 	now    func() time.Time
 	chains map[string]Chain // by asset
 	cosign *cosigner.Signer // nil: protected cards unavailable
+	price  pricer           // the price of each chain's coin (fee.go)
 	// OnPaid is told (in its own goroutine) when a recipient was paid: the sender is notified.
 	OnPaid func(Record)
 
@@ -559,9 +569,17 @@ func (s *Service) Create(in Input) (Created, error) {
 	if err != nil {
 		return Created{}, err
 	}
-	fee := in.FeeUnits
+	fee, refundFee := in.FeeUnits, uint64(0)
 	if fee == 0 {
-		fee = FeeFor(in.Asset, units)
+		qctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+		var qerr error
+		fee, refundFee, qerr = s.quote(qctx, in.Asset, c, units)
+		cancel()
+		if qerr != nil {
+			return Created{}, qerr
+		}
+	} else if fee < FeeFor(in.Asset, units) { // a page that names its own fee may not go below what the service asks
+		return Created{}, errors.New("invalid_fee")
 	}
 	if fee < c.MinFee || fee > MaxFeeFor(units) { // a typo must not burn money
 		return Created{}, errors.New("invalid_fee")
@@ -617,7 +635,7 @@ func (s *Service) Create(in Input) (Created, error) {
 		return Created{}, err
 	}
 	sum := sha256.Sum256(token)
-	rec := &Record{ID: in.CardID, Asset: n.Asset, Units: units, FeeUnits: fee, Amount: canonical, Message: in.Message, Protected: in.Protected, Email: in.Email,
+	rec := &Record{ID: in.CardID, Asset: n.Asset, Units: units, FeeUnits: fee, RefundFeeUnits: refundFee, Amount: canonical, Message: in.Message, Protected: in.Protected, Email: in.Email,
 		SenderEmail: in.SenderEmail, SenderLang: normalizeLang(in.SenderLang), LinkOwner: link.Hex(), Owners: sorted, Safe: addr.Hex(), Created: s.now().UTC(), SenderHash: hex.EncodeToString(sum[:])}
 	s.mu.Lock()
 	defer s.mu.Unlock()
