@@ -751,3 +751,98 @@ func TestAnExpiredNIMCardGoesBackToItsSenderByItself(t *testing.T) {
 		t.Fatal("a refunded card can be opened", w.Code)
 	}
 }
+
+func TestTheAdministratorOpensAndClosesAccess(t *testing.T) {
+	t.Setenv("PHOENIXWIRE_ADMINS", "owner@example.test, boss@example.test")
+	f := newFixture(t)
+	f.verifySender("owner@example.test")
+	f.verifySender("regular@example.test") // a registered sender who is not an administrator
+	regular := f.cookie
+	// the administrator's session says so; an ordinary sender's does not, and the panel's routes are closed to him
+	if w := f.call("GET", "/api/session", nil); !strings.Contains(w.Body.String(), `"admin":true`) && !strings.Contains(w.Body.String(), `"admin": true`) {
+		// the cookie is now the ordinary sender's: that session must not say admin
+		if strings.Contains(w.Body.String(), "admin") {
+			t.Fatal("an ordinary sender is told he is an administrator", w.Body)
+		}
+	}
+	if w := f.call("GET", "/api/admin/access", nil); w.Code != 403 {
+		t.Fatal("an ordinary sender reached the panel", w.Code)
+	}
+	if w := f.call("POST", "/api/admin/access", map[string]bool{"open": true}); w.Code != 403 {
+		t.Fatal("an ordinary sender opened access", w.Code)
+	}
+	f.cookie = nil
+	if w := f.call("GET", "/api/admin/access", nil); w.Code != 401 {
+		t.Fatal("a visitor reached the panel", w.Code)
+	}
+	f.verifySender("boss@example.test") // an administrator signs in even though he has never sent anything
+	if w := f.call("GET", "/api/session", nil); !strings.Contains(w.Body.String(), "admin") {
+		t.Fatal("the administrator's session does not say so", w.Body)
+	}
+	t.Setenv("PHOENIXWIRE_SENDERS", "") // by invitation
+	view := func(w *httptest.ResponseRecorder) map[string]any {
+		var out map[string]any
+		json.Unmarshal(w.Body.Bytes(), &out)
+		return out
+	}
+	if v := view(f.call("GET", "/api/admin/access", nil)); v["open"] != false || len(v["registered"].([]any)) < 2 {
+		t.Fatal("the panel", v)
+	}
+	enter := func(address string) int {
+		saved := f.cookie
+		f.cookie = nil
+		defer func() { f.cookie = saved }()
+		return f.call("POST", "/api/sender/request", map[string]string{"email": address}).Code
+	}
+	if enter("visitor1@example.test") != 403 {
+		t.Fatal("a stranger entered while access was closed")
+	}
+	// open: a stranger enters; close again: another stranger does not; the administrator's own cookie is untouched
+	if w := f.call("POST", "/api/admin/access", map[string]bool{"open": true}); w.Code != 200 || view(w)["open"] != true || f.api.InviteOnly() {
+		t.Fatal("access was not opened", w.Code, w.Body)
+	}
+	if enter("visitor2@example.test") != 200 {
+		t.Fatal("a stranger was refused while access was open")
+	}
+	if w := f.call("POST", "/api/admin/access", map[string]bool{"open": false}); w.Code != 200 || !f.api.InviteOnly() {
+		t.Fatal("access was not closed", w.Code)
+	}
+	if enter("visitor3@example.test") != 403 {
+		t.Fatal("a stranger entered after the close")
+	}
+	// allow one address
+	if w := f.call("POST", "/api/admin/allow", map[string]string{"email": "Friend@Example.test"}); w.Code != 200 {
+		t.Fatal("allow", w.Code, w.Body)
+	}
+	if enter("friend@example.test") != 200 {
+		t.Fatal("an allowed address was refused")
+	}
+	// block a registered sender: refused at once, and his session ends
+	if w := f.call("POST", "/api/admin/block", map[string]string{"email": "regular@example.test"}); w.Code != 200 {
+		t.Fatal("block", w.Code, w.Body)
+	}
+	if enter("regular@example.test") != 403 {
+		t.Fatal("a blocked sender signed in")
+	}
+	saved := f.cookie
+	f.cookie = regular
+	if w := f.call("GET", "/api/session", nil); strings.Contains(w.Body.String(), `"verified":true`) {
+		t.Fatal("a blocked sender kept his session", w.Body)
+	}
+	f.cookie = saved
+	// an administrator cannot be blocked; allowing lifts a block
+	if w := f.call("POST", "/api/admin/block", map[string]string{"email": "owner@example.test"}); w.Code != 409 {
+		t.Fatal("an administrator was blocked", w.Code)
+	}
+	if w := f.call("POST", "/api/admin/allow", map[string]string{"email": "regular@example.test"}); w.Code != 200 || enter("regular@example.test") == 403 {
+		t.Fatal("a block was not lifted")
+	}
+	if w := f.call("POST", "/api/admin/allow", map[string]string{"email": "not an address"}); w.Code != 400 {
+		t.Fatal("a bad address was accepted", w.Code)
+	}
+	// the access survives a restart
+	f.restart()
+	if v := f.api.db.state.Access; len(v.Allowed) == 0 {
+		t.Fatal("the list was not kept", v)
+	}
+}

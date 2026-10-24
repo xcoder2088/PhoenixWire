@@ -236,6 +236,9 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 				}
 				return ""
 			}()}
+			if ok && s.Verified && s.Scope == "" && a.isAdmin(s.Email) {
+				out["admin"] = true // the page shows the administrator's panel (admin.go)
+			}
 			if ok && s.Scope != "" { // a hand-over: not signed in as a sender, but allowed to fund and follow this one payment
 				out["handoff"] = map[string]string{"payment_id": s.Scope}
 			}
@@ -262,6 +265,10 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	}
 	if !ok || !s.Verified {
 		failure(w, 401, "sender_verification_required")
+		return
+	}
+	if strings.HasPrefix(path, "/api/admin/") {
+		a.adminServe(w, r, s)
 		return
 	}
 	if path == "/api/handoff" && r.Method == "POST" {

@@ -65,6 +65,7 @@ type snapshot struct {
 	Rates    map[string]rate
 	Notices  map[string]map[string]time.Time `json:",omitempty"` // card id -> notice kind -> when it was sent to the sender (expiry.go)
 	USDT     map[string]usdtCard             `json:",omitempty"` // USDC / USDT cards of the senders (their claim links are never kept)
+	Access   accessPolicy                    `json:",omitempty"` // who may send, as the administrator set it in the app (senders.go)
 }
 type diskStore struct {
 	state  snapshot
