@@ -1,5 +1,7 @@
 # Déployer Phoenix Wire sur le portable (sans the maintainer)
 
+> Le guide pas à pas, avec toutes les commandes à copier, est [DEPLOIEMENT-SIMPLE.md](DEPLOIEMENT-SIMPLE.md). Cette page garde les détails (où est quoi, adresses des relais, transfert des fonds).
+
 Le site `https://wire.phoenixmail.ca` est servi par le service `phoenixwire` du portable (`user@host`),
 programme `/opt/phoenixwire/phoenixwire`. Déployer = remplacer ce programme par une version neuve et redémarrer le service.
 Le script le fait en une commande. **Il ne touche ni aux clés, ni à la configuration, ni aux données.**
@@ -74,11 +76,11 @@ Puis copier `~/wire-backup.enc` hors du portable (clé USB) et supprimer l'origi
 
 ## Les relais de Wire (adresses publiques)
 
-- Polygon (USDC et USDT Polygon), en POL : `0x6a24200f9ce9F10a68e2F901424e6F946919e8EE` (minimum 0,2 POL pour accepter des cartes)
-- Ethereum (USDT Ethereum), en ETH : `0xcb641A54c9325B555cA2B7DB53143C9952e6bB85` (minimum 0,01 ETH)
+- Polygon (USDC et USDT Polygon), en POL : `0x6a24200f9ce9F10a68e2F901424e6F946919e8EE` (le plancher suit le prix du gaz : de 0,1 à 0,2 POL pour accepter des cartes)
+- Ethereum (USDT Ethereum), en ETH : `0xcb641A54c9325B555cA2B7DB53143C9952e6bB85` (le plancher suit le prix du gaz : de 0,0005 à 0,01 ETH ; au gaz actuel, une fraction de milliETH suffit)
 
 Le gaz gratuit pour l'expéditeur est activé par `NIMIQ_CLAIM_USDTLINK_GAS=on` dans `/etc/phoenixwire/local.env`
-(limites du moteur : 0,3 POL par carte, une fois par carte, 2 par heure, 10 par jour). Après un changement de ce fichier :
+(limites du moteur : au plus 0,3 POL par carte, au prix du moment, une fois par carte, 2 par heure, 10 par jour ; le frais de la carte rembourse ce don). Après un changement de ce fichier :
 `sudo systemctl restart phoenixwire`.
 
 ## Transférer les fonds du relais PhoenixMail vers celui de Wire

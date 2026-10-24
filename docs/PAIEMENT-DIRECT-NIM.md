@@ -34,15 +34,17 @@ Erreurs : `400 invalid_destination` (adresse invalide, adresse brûlée, ou adre
 `409 cashlink_not_confirmed_or_invalid` (le code **n'est pas** consommé), `409 payout_already_started`, `503 chain_unavailable` /
 `payout_unavailable` (réessayer).
 
-## Pour l'interface (the maintainer)
+## Pour l'interface
 
-1. Après la saisie du code, **avant** d'appeler `release` : proposer le choix « Recevoir dans Nimiq Pay » / « Recevoir dans un autre
-   portefeuille » / « Ouvrir avec le Hub ». Le code ne doit être envoyé qu'au moment du choix (il ne sert qu'une fois).
-2. Dans le navigateur interne de Nimiq Pay (`window.nimiq` présent) : `await window.nimiq.listAccounts()` renvoie les adresses du
-   portefeuille ; prendre la première (ou laisser choisir s'il y en a plusieurs), puis `payout` avec `to`.
-3. Ailleurs : champ « adresse Nimiq » (validation souple côté page, la vraie validation est sur le serveur).
-4. Garder `id` + adresse choisie en mémoire de la page ; au rechargement, `payout_status` dit si un paiement est déjà en route.
-5. Textes en FR/EN/ES/DE/ZH ; jamais « Mainnet » ni « OTP ».
+Deux choix, et seulement deux, dans les mots de la personne : **« Recevoir dans Nimiq Pay »** et **« Recevoir dans Nimiq Wallet »**. Pas de champ d'adresse, pas de mot « Hub ».
+
+1. Les deux boutons sont grisés tant que le code à six chiffres n'est pas complet ; le code ne part qu'au moment du choix (il ne sert qu'une fois).
+2. **Nimiq Wallet** : l'action `release` (le lien Nimiq habituel), inchangée.
+3. **Nimiq Pay**, dans le navigateur de l'application (`window.nimiq` présent) : `await window.nimiq.listAccounts()`, première adresse, puis `payout` avec `{code, to}`. Dans un navigateur ordinaire : le bouton ouvre la carte dans Nimiq Pay par le lien profond, et le code passe par un **jeton à usage unique de cinq minutes** (`POST /api/claims/<id>/handoff` puis `/handoff/redeem`) : le code n'est jamais dans le lien et n'est demandé qu'une fois.
+4. Au rechargement, `payout_status` dit si un paiement est déjà en route.
+5. Textes en FR/EN/ES/DE/ZH ; jamais « Mainnet », « OTP » ni « Hub ».
+
+Une carte dont le temps est écoulé (24 h) et que personne n'a ouverte est remboursée toute seule à l'adresse qui l'a financée : voir [FIN-DES-CARTES.md](FIN-DES-CARTES.md). Un remboursement garde son propre journal (`kind: refund`) et la route publique n'en révèle ni l'adresse ni le hash.
 
 ## Côté serveur
 

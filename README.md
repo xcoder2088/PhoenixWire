@@ -21,7 +21,8 @@ boundary and existing marked changes. Wire's own host should carry appearance an
 
 ## Start locally
 
-Requires Go 1.22+. No npm installation is needed to run the application.
+Needs Go (the manifests say 1.22; build releases with the latest patch release of the current Go, the standard library receives security fixes).
+No npm installation is needed to run the application.
 
 ```sh
 ./run-local.sh
@@ -31,6 +32,22 @@ Open http://127.0.0.1:8790. Without payment configuration the current sender pag
 `/classic.html` retains its local design preview. With payments enabled, Wire uses private configuration from
 `~/.config/phoenixwire/local.env` (0600), following `.env.example`. USDC/USDT require their additional chain switches,
 relay funds and RPC configuration. See [local testing](docs/LOCAL-TESTING.md).
+
+## Who may send, and how long a card lives
+
+- **Sending is by invitation.** Anyone can open a card they received (recipients never sign in); signing in as a *sender* is limited to
+  senders already registered, addresses an administrator allowed, and administrators. `PHOENIXWIRE_ADMINS` names the administrators; their
+  panel (opened by `"admin": true` in `GET /api/session`) opens or closes sending, allows and blocks addresses, and keeps the list in the
+  sealed state. `PHOENIXWIRE_SENDERS=open` forces access open (the panel then says so); a list of addresses adds allowed senders.
+- **Every card lives 24 hours** (NIM, USDC, USDT). An hour before the end the sender gets one reminder. At the end a NIM card that nobody
+  opened is **refunded automatically** to the address that funded it, but only when that origin is certain (one funder, whole history read);
+  a USDC/USDT card cannot be moved without the key kept in the sender's browser, so its owner takes the money back himself (the page does it
+  on opening when it knows the destination of that sender). A refund keeps the relayer's fee. See [FIN-DES-CARTES.md](docs/FIN-DES-CARTES.md).
+- **Fees** (USDC/USDT): the card's own gas at today's price (read from the chain's price feed, then CoinGecko, then a high fallback) times a
+  margin, **plus 6 %** of the amount, always both. New cards wait when gas would eat them. NIM has no service fee. Each settled payout writes
+  one line in the margin ledger (fee earned against gas paid). The relayer's float and the free-gas light follow the price of gas too.
+- **Receiving NIM**: the recipient chooses *Nimiq Pay* (the server pays the card's coins to the address the app shares, without asking the
+  code again thanks to a one-use hand-over token) or *Nimiq Wallet* (the usual link). See [PAIEMENT-DIRECT-NIM.md](docs/PAIEMENT-DIRECT-NIM.md).
 
 ## Secrets and invitations
 
@@ -55,6 +72,14 @@ Install the pinned development dependencies with `npm ci --ignore-scripts` for b
 they do not establish that a deployed instance has delivered mail or settled real funds. Deployment and live acceptance are
 owner-controlled; this repository's documentation is not a statement that a particular installation was verified.
 
+## Operating it
+
+- [DEPLOIEMENT-SIMPLE.md](docs/DEPLOIEMENT-SIMPLE.md): deploy, check, roll back, change a setting, back up (French, copy-paste commands).
+  `scripts/deploy-laptop.sh` runs the tests, builds, installs, and checks that **every file the pages name is served** (a file missing from the
+  server's list breaks the page: `internal/web/server.go` lists what is public, and a test fails if a shipped file is not on it).
+- [DEPLOY-LAPTOP.md](docs/DEPLOY-LAPTOP.md): what lives where on the laptop, relayer addresses, moving funds from PhoenixMail's relayer.
+- [AUDIT-2026-10-24.md](docs/AUDIT-2026-10-24.md): the independent review and what was done about each finding.
+
 ## Repository
 
 - `cmd/phoenixwire`: entry point.
@@ -63,7 +88,8 @@ owner-controlled; this repository's documentation is not a statement that a part
 - `internal/cards`: mirrored email presentation and Wire adapters.
 - `engine/secureclaim`: integrated engine with its own Go module and retained upstream provenance.
 - [Architecture](docs/ARCHITECTURE.md), [design](docs/DESIGN.md), [hosting](docs/DEPLOYMENT.md),
-  [engine import](docs/IMPORT-USDT-CASHLINK-2026-10-23.md).
+  [engine import](docs/IMPORT-USDT-CASHLINK-2026-10-23.md). The other dated files in `docs/` (reviews, plans, hand-offs) are history, not
+  current instructions.
 
 Original code in this repository is MIT; third-party terms remain intact. This does not change other repositories' licenses.
 Work on `main`; commit subjects end with `[skip ci]`. Do not modify workflows or deploy as part of UI changes.
