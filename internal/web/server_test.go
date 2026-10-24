@@ -239,6 +239,9 @@ func TestHandoffRoutesAreReachable(t *testing.T) {
 	if r := post("/api/handoff/redeem", `{"token":"`+strings.Repeat("A", 43)+`"}`); r.Code != 404 || !strings.Contains(r.Body.String(), "invalid_or_expired") {
 		t.Fatalf("redeem must reach the gateway: %d %s", r.Code, r.Body)
 	}
+	if r := post("/api/admin/access", `{"open":true}`); r.Code != 401 { // the administrator's panel is reached through the gateway and asks for a verified sender
+		t.Fatal("the admin route is not served by the gateway", r.Code)
+	}
 	if r := post("/api/handoff", `{"recipient":"a@b.co","amount":"1"}`); r.Code != 401 {
 		t.Fatalf("a token needs a verified sender: %d %s", r.Code, r.Body)
 	}
