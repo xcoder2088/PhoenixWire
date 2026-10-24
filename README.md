@@ -2,6 +2,9 @@
 
 **Fast. Simple. Secure.** — Powered by Phoenix Mail.
 
+> **This software moves real money.** It is MIT-licensed, comes with no warranty, and has had a code review but no formal security
+> certification: read [SECURITY.md](SECURITY.md) and [the audit](docs/AUDIT-2026-10-24.md) before running it with funds of your own.
+
 Email payment cards without a password. The sender confirms an email address, funds a protected card once, and the recipient
 claims it after confirming their own email. Wire runs its UI, gateway and imported SecureClaim engine in one Go process.
 
@@ -87,9 +90,14 @@ owner-controlled; this repository's documentation is not a statement that a part
 - `internal/web`: current host, copied payment window and classic NIM interface.
 - `internal/cards`: mirrored email presentation and Wire adapters.
 - `engine/secureclaim`: integrated engine with its own Go module and retained upstream provenance.
-- [Architecture](docs/ARCHITECTURE.md), [design](docs/DESIGN.md), [hosting](docs/DEPLOYMENT.md),
-  [engine import](docs/IMPORT-USDT-CASHLINK-2026-10-23.md). The other dated files in `docs/` (reviews, plans, hand-offs) are history, not
+- [Architecture](docs/ARCHITECTURE.md), [design](docs/DESIGN.md), [hosting](docs/DEPLOYMENT.md), [end of a card](docs/FIN-DES-CARTES.md),
+  [engine import](docs/IMPORT-USDT-CASHLINK-2026-10-23.md). The files in `docs/archive/` (reviews, plans, hand-offs of the build) are history, not
   current instructions.
 
-Original code in this repository is MIT; third-party terms remain intact. This does not change other repositories' licenses.
-Work on `main`; commit subjects end with `[skip ci]`. Do not modify workflows or deploy as part of UI changes.
+Original code in this repository is MIT ([LICENSE](LICENSE)); third-party terms remain intact ([THIRD-PARTY-NOTICES.md](docs/THIRD-PARTY-NOTICES.md)),
+and the copies of the owner's own AGPL projects (PhoenixMail's payment window, PhoenixCashlink's protocol) are licensed here under MIT by the
+copyright holder without changing the originals. Brand names and logos are not licensed. See [CONTRIBUTING.md](CONTRIBUTING.md) to help.
+
+This repository stands alone: it builds, tests and runs without any other repository (`go build ./...`, `npm ci --ignore-scripts`, the commands
+above). The scripts `scripts/sync-*.sh` and `scripts/vendor-phoenixmail.py` are maintainer tools that refresh the mirrored copies from the
+owner's other repositories; nobody else needs them.

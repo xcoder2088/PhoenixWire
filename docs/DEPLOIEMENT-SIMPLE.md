@@ -1,13 +1,23 @@
 # Déployer Phoenix Wire sur le portable : le guide simple
 
-Le site `https://wire.phoenixmail.ca` tourne sur le portable (`user@host`). **Déployer = envoyer une nouvelle version du programme et le redémarrer.** Le script fait tout. Il ne touche ni aux clés, ni à la configuration, ni aux données.
+Le site `https://wire.phoenixmail.ca` tourne sur le portable (`UTILISATEUR@PORTABLE`). **Déployer = envoyer une nouvelle version du programme et le redémarrer.** Le script fait tout. Il ne touche ni aux clés, ni à la configuration, ni aux données.
+
+## 0. Une seule fois : dire au script où déployer
+
+Le dépôt ne contient aucune adresse personnelle. Crée ce fichier (droits privés) avec **ton** portable et **ton** site :
+
+```bash
+mkdir -p ~/.config/phoenixwire && printf 'WIRE_LAPTOP=UTILISATEUR@PORTABLE\nWIRE_SITE=https://ton-site.example\n' > ~/.config/phoenixwire/deploy.env && chmod 600 ~/.config/phoenixwire/deploy.env
+```
+
+(`UTILISATEUR@PORTABLE` : le compte ssh et l'adresse de la machine qui sert Wire.) Sans ce fichier, le script refuse de partir et le dit.
 
 ## 1. Déployer (le cas normal)
 
 Sur ton ordinateur, dans un terminal :
 
 ```bash
-cd ~/Desktop/PhoenixWire
+cd ~/chemin/vers/PhoenixWire
 ```
 
 ```bash
@@ -65,7 +75,7 @@ Remet la version précédente (le script la garde toujours) :
 ## 5. Se connecter au portable
 
 ```bash
-ssh user@host
+ssh UTILISATEUR@PORTABLE
 ```
 
 Trois commandes utiles une fois connecté :

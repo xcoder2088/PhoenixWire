@@ -6,12 +6,24 @@
 #   ./scripts/deploy-laptop.sh --skip-tests  deploy without running the tests
 #   ./scripts/deploy-laptop.sh --rollback    put the previous binary back
 #
-# Needs: Go, ssh access to the laptop (key), and the laptop's sudo rights for cp / install / systemctl (already in place).
+# Needs: Go, a deploy.env naming the host and the site (see below), ssh access to the laptop (key), and the laptop's sudo rights for cp / install / systemctl (already in place).
 # It never prints or touches a secret, a key, the master key or the state: it only replaces the program /opt/phoenixwire/phoenixwire.
 set -euo pipefail
 
-LAPTOP="${WIRE_LAPTOP:-user@host}"
-SITE="${WIRE_SITE:-https://wire.phoenixmail.ca}"
+# Where to deploy is private to whoever runs this: put it once in ~/.config/phoenixwire/deploy.env (or point WIRE_DEPLOY_ENV at another file):
+#   WIRE_LAPTOP=user@host        the machine that serves Wire (ssh, with sudo for cp/install/systemctl)
+#   WIRE_SITE=https://your.wire.example   the public address, used for the checks after the install
+deploy_env="${WIRE_DEPLOY_ENV:-${XDG_CONFIG_HOME:-$HOME/.config}/phoenixwire/deploy.env}"
+if [ -f "$deploy_env" ]; then
+  # shellcheck disable=SC1090
+  . "$deploy_env"
+fi
+LAPTOP="${WIRE_LAPTOP:-}"
+SITE="${WIRE_SITE:-}"
+if [ -z "$LAPTOP" ] || [ -z "$SITE" ]; then
+  echo "Set WIRE_LAPTOP (user@host) and WIRE_SITE (https://...) in $deploy_env, or in the environment." >&2
+  exit 2
+fi
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$here"
 

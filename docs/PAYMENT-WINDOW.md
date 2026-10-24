@@ -223,12 +223,14 @@ What is Wire's (and only that):
   `/api/usdt/cashlink/{create,status,cancel,refund,refund-claim,gas-status,gas}`), each answered by the gateway's
   own USDC / USDT card logic behind the sender's session. The QR of the payment link is drawn on the server.
 
-Four small, marked changes to the mirrored integration (to re-apply after a new sync):
+Five small, marked changes to the mirrored integration (to re-apply after a new sync):
 
 1. `pm/nimiq-payments.js` `cardShell`: the card's emblem and name come from an `o.brand` option (PhoenixMail's by default).
 2. `pm/usdt-cashlink.js` and `pm/usdt-payments.js` `sw()`: the texts say `window.PhoenixBrandName` instead of "PhoenixMail".
 3. `wire-pay.css` hides "Request payment". NIM is now visible: the host binds its currency button to Wire’s existing protected NIM flow, without modifying the copied files.
 4. `pm/usdt-cashlink.js` and `pm/usdt-payments.js` merge the selected language's `window.PhoenixWordOverrides` over their default words. Wire sets only its host-specific copy in `wire-pay.js`. The funding panel in `pm/usdt-payments.js` formats `fundedMsg` with `{email}` from `entry.protectedRecipient || entry.to`. With no overrides, the original words and behavior are unchanged. Wire says it sends the card, uses Done, and does not describe an email composer.
+
+5. `pm/usdt-cashlink.js` first line: `SPDX-License-Identifier: MIT (originally AGPL-3.0-only in PhoenixMail; licensed here under the MIT License by the copyright holder)` instead of `AGPL-3.0-only`. This repository is MIT; see THIRD-PARTY-NOTICES.md.
 
 NIM now shares this entry point and sender verification. `flow.js` exports its existing flow for the NIM template in
 `index.html`; `classic.html` remains compatible and `/?claim=…` still opens it for NIM recipients. Sender free gas remains
@@ -382,7 +384,7 @@ in the selected language and the browser's local time zone. USDC/USDT dates are 
 cashlink status response; NIM dates come from `/api/payments`. A NIM `claimed_at` must mean an actual confirmed claim,
 not release of the claim link. Missing, invalid and zero dates are omitted. Polling time and local creation estimates are
 never substituted for these dates. The current server exposes stablecoin `claimed_at` and NIM `claim_state`; receipt labels use those fields as described below.
-`HANDOFF-DATES-CARTES-2026-10-23.md` records the earlier date handoff.
+`archive/HANDOFF-DATES-CARTES-2026-10-23.md` records the earlier date handoff.
 
 ## Hand-over of one payment to the Nimiq Pay app (server)
 

@@ -77,3 +77,15 @@ The Phoenix emblem and official Nimiq mark reuse the existing project assets.
 - internal/qrcode: skip2/go-qrcode, BSD-3-Clause (internal/qrcode/LICENSE), copied from PhoenixMail's vendored copy with only the module import paths changed. It draws the QR of a payment link on the server.
 - internal/web/static/pm/nimiq-hub.js: the same official @nimiq/hub-api bundle as hub.js (see LICENSE-HUB-API); pm/nimiq-iqons.js: Iqons (see LICENSE-IQONS); pm/LICENSE-NIMIQ-MODULE: the Nimiq module notice that goes with them.
 
+
+## Files copied from PhoenixMail and PhoenixCashlink (owner's own code)
+
+`internal/web/static/pm/` (PhoenixMail's payment window), parts of `internal/cards/` (PhoenixMail's card e-mails) and the protocol packages
+under `engine/secureclaim/internal/cashlink/` (PhoenixCashlink) were written by the same copyright holder as this repository. The originals
+are published or kept under the licenses of their own repositories (PhoenixMail and PhoenixCashlink: AGPL-3.0-only). **The copies in this
+repository are licensed under the MIT License by the copyright holder**, which does not change the license of the originals. A few copied files
+still carry an old header that names the original license; they are marked in the file with the note "licensed here under the MIT License by
+the copyright holder". The third-party parts they contain (the Nimiq Hub API bundle, Iqons, jsQR, the Go Authors' Blake2b, go-qrcode) keep their
+own licenses, listed above and in the `LICENSE-*` files next to them.
+
+Brand names, logos and marks (Phoenix Wire, PhoenixMail, Nimiq, Tether, Circle/USDC, Polygon, Ethereum) are not licensed by the MIT License.

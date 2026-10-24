@@ -2,7 +2,7 @@
 
 > Le guide pas à pas, avec toutes les commandes à copier, est [DEPLOIEMENT-SIMPLE.md](DEPLOIEMENT-SIMPLE.md). Cette page garde les détails (où est quoi, adresses des relais, transfert des fonds).
 
-Le site `https://wire.phoenixmail.ca` est servi par le service `phoenixwire` du portable (`user@host`),
+Le site (par exemple `https://wire.phoenixmail.ca`) est servi par le service `phoenixwire` du portable (`UTILISATEUR@PORTABLE`),
 programme `/opt/phoenixwire/phoenixwire`. Déployer = remplacer ce programme par une version neuve et redémarrer le service.
 Le script le fait en une commande. **Il ne touche ni aux clés, ni à la configuration, ni aux données.**
 
@@ -11,7 +11,7 @@ Le script le fait en une commande. **Il ne touche ni aux clés, ni à la configu
 Sur ton ordinateur, dans le dossier du projet (au même réseau que le portable) :
 
 ```bash
-cd ~/Desktop/PhoenixWire
+cd ~/chemin/vers/PhoenixWire
 git pull
 ./scripts/deploy-laptop.sh
 ```
@@ -74,28 +74,11 @@ openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -in ~/wire-backup.enc | tar tz
 
 Puis copier `~/wire-backup.enc` hors du portable (clé USB) et supprimer l'original : `shred -u ~/wire-backup.enc`.
 
-## Les relais de Wire (adresses publiques)
+## Les relais (gaz)
 
-- Polygon (USDC et USDT Polygon), en POL : `0x6a24200f9ce9F10a68e2F901424e6F946919e8EE` (le plancher suit le prix du gaz : de 0,1 à 0,2 POL pour accepter des cartes)
-- Ethereum (USDT Ethereum), en ETH : `0xcb641A54c9325B555cA2B7DB53143C9952e6bB85` (le plancher suit le prix du gaz : de 0,0005 à 0,01 ETH ; au gaz actuel, une fraction de milliETH suffit)
+Wire garde un « relais » par chaîne : un portefeuille qui paie le gaz des paiements des cartes. Ses adresses sont écrites dans le journal au démarrage (`sudo journalctl -u phoenixwire | grep "relayer address"`). Il faut y mettre un peu de monnaie native (POL pour Polygon, ETH pour Ethereum) : le plancher exigé suit le prix du gaz (de 0,1 à 0,2 POL ; de 0,0005 à 0,01 ETH). Le gaz gratuit pour l'expéditeur est activé par `NIMIQ_CLAIM_USDTLINK_GAS=on` dans `/etc/phoenixwire/local.env`. Après un changement de ce fichier : `sudo systemctl restart phoenixwire`.
 
-Le gaz gratuit pour l'expéditeur est activé par `NIMIQ_CLAIM_USDTLINK_GAS=on` dans `/etc/phoenixwire/local.env`
-(limites du moteur : au plus 0,3 POL par carte, au prix du moment, une fois par carte, 2 par heure, 10 par jour ; le frais de la carte rembourse ce don). Après un changement de ce fichier :
-`sudo systemctl restart phoenixwire`.
-
-## Transférer les fonds du relais PhoenixMail vers celui de Wire
-
-1. Sur le portable, autoriser les deux adresses ci-dessus comme destinations de retrait du service PhoenixMail :
-
-   ```bash
-   sudo cp -p /etc/nimiqsecureclaim/secureclaim.env /etc/nimiqsecureclaim/secureclaim.env.bak-withdraw
-   echo "NIMIQ_CLAIM_USDTLINK_WITHDRAW_TO=0x6a24200f9ce9F10a68e2F901424e6F946919e8EE,0xcb641A54c9325B555cA2B7DB53143C9952e6bB85" | sudo tee -a /etc/nimiqsecureclaim/secureclaim.env >/dev/null
-   sudo systemctl restart nimiq-secureclaim && sleep 5 && systemctl is-active nimiq-secureclaim
-   ```
-
-2. Dans PhoenixMail : enregistrer une passkey (Paramètres → Gérer ma sécurité), puis, dans le panneau admin « Relais de paiement »,
-   retirer vers ces adresses (Polygon vers la première, Ethereum vers la seconde). Le panneau laisse la réserve nécessaire
-   aux cartes en cours ; chaque retrait demande la passkey.
+Les retraits du relais ne sont possibles que vers les adresses listées dans `NIMIQ_CLAIM_USDTLINK_WITHDRAW_TO` ; sans cette variable, ils sont désactivés.
 
 ## Plus tard : vers un serveur Oracle
 
