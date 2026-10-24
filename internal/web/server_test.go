@@ -103,7 +103,7 @@ func TestShortcutAssetsKeepThePagePolicy(t *testing.T) {
 func TestPageBrandingAndNoClaimableContent(t *testing.T) {
 	r := httptest.NewRecorder()
 	NewHandler().ServeHTTP(r, httptest.NewRequest("GET", "/", nil))
-	for _, text := range []string{"Powered by", "Phoenix Mail", "Phoenix Wire", "type=\"email\"", "/pm/nimiq-payments.js"} {
+	for _, text := range []string{"Powered by", "Phoenix<span>Mail</span>", "https://phoenixmail.ca", "Phoenix Wire", "type=\"email\"", "/pm/nimiq-payments.js"} {
 		if !strings.Contains(r.Body.String(), text) {
 			t.Fatalf("missing %q", text)
 		}
