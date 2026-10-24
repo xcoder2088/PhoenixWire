@@ -2,19 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
-import {legalCopy, pendingMarker, pendingFields, legalLanguage, renderLegal, mountLegal, paintLegalLinks} from '../internal/web/static/legal.js';
+import {legalCopy, ownerFields, legalLanguage, renderLegal, mountLegal, paintLegalLinks} from '../internal/web/static/legal.js';
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const langs = ['fr','en','es','de','zh'];
 const publicPages = ['terms','privacy'];
-const knownPending = {terms:['operator','contact','law','minimum-age','prohibited-uses'],privacy:['operator','contact']};
+const knownFields = {terms:['operator','contact','law','minimum-age','prohibited-uses'],privacy:['operator','contact']};
 function page(name, suffix='') {return new JSDOM(read('internal/web/static/'+name+'.html'), {url:'https://wire.example/'+name+'.html'+suffix});}
-function inspectPending(doc, name) {
- const fields=[...doc.querySelectorAll('[data-pending-field]')];
- assert.deepEqual(fields.map(p=>p.dataset.pendingField), knownPending[name]);
- for(const field of fields){assert.equal(field.querySelector('span').textContent,pendingMarker);assert.equal(field.id,'pending-'+field.dataset.pendingField);}
- assert.equal(doc.body.textContent.split(pendingMarker).length-1,fields.length,'no unlisted placeholder');
+function inspectOwner(doc, name, lang) {
+ const fields=[...doc.querySelectorAll('[data-owner-field]')];
+ assert.deepEqual(fields.map(p=>p.dataset.ownerField), knownFields[name]);
+ const shown=Object.fromEntries(fields.map(p=>[p.dataset.ownerField,p.lastElementChild.textContent]));
+ assert.equal(shown.operator,'Xcoder');
+ const contact=doc.querySelector('#owner-contact a');
+ assert.equal(contact.textContent,'phoenixmail@proton.me');assert.equal(contact.getAttribute('href'),'mailto:phoenixmail@proton.me');
+ if(name==='terms'){
+  assert.equal(shown['minimum-age'],legalCopy[lang].values[3]);assert.match(shown['minimum-age'],/18/);
+  assert.match(shown.law,/Qu[ée]bec|魁北克/);
+  assert.ok(shown['prohibited-uses'].length>25,'prohibited uses are written out');
+ }
+ assert.doesNotMatch(doc.body.textContent,/À CONFIRMER|\[TO CONFIRM|still pending|en attente|siguen pendientes|stehen noch aus|等待运营方|待确认/i,'no placeholder is left');
 }
-for(const name of publicPages) for(const lang of langs) test(name+' is complete and has only registered pending fields in '+lang,()=>{
+for(const name of publicPages) for(const lang of langs) test(name+' is complete and has the operator, contact and rules filled in, in '+lang,()=>{
  const dom=page(name),doc=dom.window.document;
  try{
   renderLegal(doc,name,lang);
@@ -22,9 +30,9 @@ for(const name of publicPages) for(const lang of langs) test(name+' is complete 
   assert.equal(doc.querySelector('h1').textContent,legalCopy[lang].ui[name==='terms'?0:1]);
   assert.equal(doc.title,doc.querySelector('h1').textContent+' · Phoenix Wire');
   assert.ok(doc.querySelectorAll('article section').length>=6);
-  assert.ok([...doc.querySelectorAll('article p')].every(p=>p.textContent.trim().length>10));
+  assert.ok([...doc.querySelectorAll('article p:not(.legal-owner)')].every(p=>p.textContent.trim().length>10));
   assert.doesNotMatch(doc.body.textContent,/\b(?:Mainnet|OTP|Hub|undefined|null)\b/i);
-  inspectPending(doc,name);
+  inspectOwner(doc,name,lang);
   assert.equal(doc.querySelectorAll('script:not([src]),style,[style]').length,0);
   assert.ok([...doc.querySelectorAll('script[src],link[rel="stylesheet"]')].every(n=>(n.getAttribute('src')||n.getAttribute('href')).startsWith('/legal.')));
   if(name==='privacy'){
@@ -45,9 +53,9 @@ for(const name of publicPages) for(const lang of langs) test(name+' is complete 
   }
  }finally{dom.window.close();}
 });
-test('static English fallbacks contain all information and the same unresolved fields without scripts',()=>{
- assert.deepEqual(pendingFields,knownPending);
- for(const name of publicPages){const dom=page(name);try{inspectPending(dom.window.document,name);assert.ok(dom.window.document.querySelectorAll('article section').length>=6);if(name==='privacy')assert.equal(dom.window.document.querySelectorAll('tbody tr').length,6);}finally{dom.window.close();}}
+test('static English fallbacks contain all information and the same operator and rules without scripts',()=>{
+ assert.deepEqual(ownerFields,knownFields);
+ for(const name of publicPages){const dom=page(name);try{inspectOwner(dom.window.document,name,'en');assert.ok(dom.window.document.querySelectorAll('article section').length>=6);if(name==='privacy')assert.equal(dom.window.document.querySelectorAll('tbody tr').length,6);}finally{dom.window.close();}}
  const serialized=JSON.stringify(legalCopy);
  assert.doesNotMatch(serialized,/\b(?:Mainnet|OTP|Hub)\b/i);
  assert.doesNotMatch(serialized,/90 days|90 jours|30 days|30 jours|GDPR compliant|fully anonymous|never sees/i);
@@ -55,7 +63,7 @@ test('static English fallbacks contain all information and the same unresolved f
  const keys=Object.keys(legalCopy.en).sort();
  for(const lang of langs)assert.deepEqual(Object.keys(legalCopy[lang]).sort(),keys);
  const docs=read('docs/PAYMENT-WINDOW.md');
- for(const field of knownPending.terms)assert.ok(docs.includes('`'+field+'`'),'owner decision must be listed: '+field);
+ for(const field of knownFields.terms)assert.ok(docs.includes('`'+field+'`'),'owner field must be documented: '+field);
 });
 test('language selection shares the Wire preference, supports automatic detection and uses no API',()=>{
  const dom=page('terms','?lang=es#not-forwarded'),win=dom.window,doc=win.document;
@@ -88,8 +96,8 @@ test('sender and recipient footers link both pages; card notes have legal links 
   const dom=new JSDOM(read(path));const doc=dom.window.document;
   try{
    for(const name of publicPages)assert.ok(doc.querySelector('footer a[href="/'+name+'.html"]'),path+' footer '+name);
-   assert.ok(doc.querySelector('script[src="/legal.js?v=0.4.33"]'));
-   assert.ok(doc.querySelector('link[href="/legal.css?v=0.4.33"]'));
+   assert.ok(doc.querySelector('script[src="/legal.js?v=0.4.34"]'));
+   assert.ok(doc.querySelector('link[href="/legal.css?v=0.4.34"]'));
    for(const lang of langs){
     paintLegalLinks(doc,lang);
     for(const name of publicPages)assert.equal(doc.querySelector('footer [data-legal-link="'+name+'"]').textContent,legalCopy[lang].ui[name==='terms'?0:1]);

@@ -1,5 +1,12 @@
 # The payment window is PhoenixMail's
 
+## Public terms and privacy: owner details filled in (cache 0.4.34)
+
+The five owner fields are no longer placeholders: operator `operator` = Xcoder, `contact` = phoenixmail@proton.me, `law` = Québec (Canada) and the
+federal laws of Canada that apply there, `minimum-age` = 18 years, `prohibited-uses` = any illegal use (fraud, money laundering, payments for goods or
+services that are themselves illegal; paying for lawful goods or services agreed between users is allowed). The values live in `legal.js`
+(`copy.values`, five languages); the static English fallbacks carry the same. The "last updated" line is `copy.notice`. Change a value in both places.
+
 ## Public terms and privacy (cache 0.4.32)
 
 The only factual source is `docs/LEGAL-FACTS.md`. The public pages retain its

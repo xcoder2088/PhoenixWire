@@ -25,8 +25,8 @@ html[data-theme="light-paper"]:has(>.legal-page){color-scheme:light;background:#
 .legal-panel h1{font-size:clamp(26px,5vw,36px);line-height:1.25;margin:14px 0 20px;overflow-wrap:anywhere}
 .legal-panel h2{font-size:21px;line-height:1.4;margin:28px 0 12px}
 .legal-panel p{margin:12px 0;overflow-wrap:anywhere}
-.legal-notice,.legal-pending{border:1px solid var(--accent);border-radius:10px;padding:12px 16px}
-.legal-pending span{font-weight:700}
+.legal-notice{border:1px solid var(--accent);border-radius:10px;padding:12px 16px}
+.legal-owner{margin:8px 0}
 .legal-table-wrap{overflow-x:auto;margin:24px 0}
 .legal-panel table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:15px}
 .legal-panel caption{text-align:left;font-size:21px;font-weight:700;margin-bottom:12px}

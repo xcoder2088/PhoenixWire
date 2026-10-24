@@ -11,7 +11,7 @@ export const legalCopy = {
       "Data kept",
       "Purpose",
       "Retention",
-      "Owner decisions still pending"
+      "Operator and contact"
     ],
     "pending": [
       "Operator name",
@@ -20,8 +20,9 @@ export const legalCopy = {
       "Minimum age",
       "Prohibited uses"
     ],
-    "notice": "Some owner decisions are not yet complete. The highlighted fields below remain to be confirmed.",
-    "identity": "Operator and contact details are not yet supplied. The contact below must be completed before requests can be sent.",
+    "values": ["Xcoder", "phoenixmail@proton.me", "The laws of Québec, Canada, and the federal laws of Canada that apply there.", "18 years", "Any illegal use: fraud, money laundering, or payments for goods or services that are themselves illegal. Paying for lawful goods or services agreed between the users is allowed."],
+    "notice": "Last updated: 24 October 2026.",
+    "identity": "Phoenix Wire is operated by the person named below. Questions and requests, including deletion requests, go to the contact address below.",
     "lifetime": [
       "24-hour cards",
       "A sender confirms an email with a six-digit code, funds a NIM, USDC on Polygon, or USDT on Polygon or Ethereum card, and Wire emails a link to the recipient. The recipient confirms their own email with another code, then chooses a receiving address or opens the usual Nimiq payment link.",
@@ -43,10 +44,7 @@ export const legalCopy = {
       "Sending access",
       "Sending is by invitation unless an administrator opens access. Changing access does not change cards already sent."
     ],
-    "rules": [
-      "Rules still to be decided",
-      "The operator has not yet specified the governing law, minimum age or prohibited uses. The fields below are unresolved; they are not completed rules."
-    ],
+    "rules": ["Rules of use", "The rules below apply to everyone who uses Phoenix Wire. They are listed with the operator and the contact details at the end of this page."],
     "storage": [
       "How Wire handles data",
       "Wire keeps its main state in an encrypted file (AES-256-GCM), with permissions restricted to its owner. Engine files are also private; files holding secrets are encrypted. This is not a guarantee that data can never be accessed."
@@ -142,7 +140,7 @@ export const legalCopy = {
       "Données gardées",
       "Pourquoi",
       "Durée de conservation",
-      "Décisions du propriétaire en attente"
+      "Exploitant et contact"
     ],
     "pending": [
       "Nom de l’exploitant",
@@ -151,8 +149,9 @@ export const legalCopy = {
       "Âge minimum",
       "Usages interdits"
     ],
-    "notice": "Certaines décisions du propriétaire restent à prendre. Les champs signalés ci-dessous sont à confirmer.",
-    "identity": "Le nom de l’exploitant et ses coordonnées ne sont pas encore fournis. Le contact ci-dessous doit être complété avant de pouvoir envoyer une demande.",
+    "values": ["Xcoder", "phoenixmail@proton.me", "Les lois du Québec (Canada) et les lois fédérales du Canada qui s’y appliquent.", "18 ans", "Tout usage illégal : fraude, blanchiment d’argent, ou paiement de biens ou de services eux-mêmes illégaux. Payer des biens ou des services légaux convenus entre les utilisateurs est permis."],
+    "notice": "Dernière mise à jour : 24 octobre 2026.",
+    "identity": "Phoenix Wire est exploité par la personne nommée ci-dessous. Les questions et les demandes, y compris de suppression, vont à l’adresse de contact ci-dessous.",
     "lifetime": [
       "Des cartes de 24 heures",
       "L’expéditeur confirme son courriel avec un code à six chiffres, paie une carte NIM, USDC sur Polygon ou USDT sur Polygon ou Ethereum. Wire envoie un lien au destinataire. Celui-ci confirme son propre courriel avec un autre code, puis choisit une adresse de réception ou ouvre le lien de paiement Nimiq habituel.",
@@ -174,10 +173,7 @@ export const legalCopy = {
       "Accès à l’envoi",
       "L’envoi se fait sur invitation, sauf si un administrateur ouvre l’accès. Un changement d’accès ne modifie pas les cartes déjà envoyées."
     ],
-    "rules": [
-      "Règles restant à décider",
-      "L’exploitant n’a pas encore précisé la loi applicable, l’âge minimum ni les usages interdits. Les champs ci-dessous ne sont pas des règles finalisées."
-    ],
+    "rules": ["Règles d’utilisation", "Les règles ci-dessous s’appliquent à toute personne qui utilise Phoenix Wire. Elles figurent avec l’exploitant et le contact à la fin de cette page."],
     "storage": [
       "Comment Wire traite les données",
       "Wire garde son état principal dans un fichier chiffré (AES-256-GCM), accessible seulement à son propriétaire par les permissions du fichier. Les fichiers du moteur sont aussi privés ; ceux qui gardent des secrets sont chiffrés. Cela ne garantit pas que les données soient inaccessibles en toute circonstance."
@@ -273,7 +269,7 @@ export const legalCopy = {
       "Datos conservados",
       "Finalidad",
       "Conservación",
-      "Decisiones pendientes del propietario"
+      "Operador y contacto"
     ],
     "pending": [
       "Nombre del operador",
@@ -282,8 +278,9 @@ export const legalCopy = {
       "Edad mínima",
       "Usos prohibidos"
     ],
-    "notice": "Algunas decisiones del propietario siguen pendientes. Los campos destacados deben confirmarse.",
-    "identity": "El nombre y el contacto del operador aún no están indicados. Hay que completar el contacto de abajo para poder enviar solicitudes.",
+    "values": ["Xcoder", "phoenixmail@proton.me", "Las leyes de Quebec (Canadá) y las leyes federales de Canadá aplicables allí.", "18 años", "Cualquier uso ilegal: fraude, blanqueo de capitales o pago de bienes o servicios que sean en sí mismos ilegales. Pagar bienes o servicios legales acordados entre los usuarios está permitido."],
+    "notice": "Última actualización: 24 de octubre de 2026.",
+    "identity": "Phoenix Wire lo opera la persona indicada abajo. Las preguntas y solicitudes, incluidas las de borrado, van a la dirección de contacto de abajo.",
     "lifetime": [
       "Tarjetas de 24 horas",
       "El remitente confirma su correo con un código de seis dígitos y paga una tarjeta NIM, USDC en Polygon o USDT en Polygon o Ethereum. Wire envía un enlace al destinatario. Este confirma su propio correo con otro código y elige una dirección para recibir o abre el enlace de pago habitual de Nimiq.",
@@ -305,10 +302,7 @@ export const legalCopy = {
       "Acceso para enviar",
       "El envío es por invitación, salvo que un administrador abra el acceso. Los cambios de acceso no modifican las tarjetas ya enviadas."
     ],
-    "rules": [
-      "Normas por decidir",
-      "El operador aún no ha indicado la ley aplicable, la edad mínima ni los usos prohibidos. Los campos siguientes siguen pendientes; no son normas definitivas."
-    ],
+    "rules": ["Normas de uso", "Las normas siguientes se aplican a todas las personas que usan Phoenix Wire. Figuran con el operador y el contacto al final de esta página."],
     "storage": [
       "Cómo trata Wire los datos",
       "Wire guarda su estado principal en un archivo cifrado (AES-256-GCM), con permisos limitados al propietario del archivo. Los archivos del motor también son privados; los que contienen secretos están cifrados. Esto no garantiza que los datos sean inaccesibles en toda circunstancia."
@@ -404,7 +398,7 @@ export const legalCopy = {
       "Gespeicherte Daten",
       "Zweck",
       "Aufbewahrung",
-      "Offene Entscheidungen des Betreibers"
+      "Betreiber und Kontakt"
     ],
     "pending": [
       "Name des Betreibers",
@@ -413,8 +407,9 @@ export const legalCopy = {
       "Mindestalter",
       "Verbotene Nutzungen"
     ],
-    "notice": "Einige Entscheidungen des Betreibers stehen noch aus. Die markierten Felder müssen bestätigt werden.",
-    "identity": "Name und Kontaktdaten des Betreibers fehlen noch. Die Kontaktangabe unten muss ergänzt werden, bevor Anfragen gesendet werden können.",
+    "values": ["Xcoder", "phoenixmail@proton.me", "Das Recht von Québec (Kanada) und das dort geltende Bundesrecht Kanadas.", "18 Jahre", "Jede rechtswidrige Nutzung: Betrug, Geldwäsche oder Zahlungen für Waren oder Dienstleistungen, die selbst rechtswidrig sind. Die Bezahlung rechtmäßiger Waren oder Dienstleistungen, die zwischen den Nutzern vereinbart wurden, ist erlaubt."],
+    "notice": "Zuletzt aktualisiert: 24. Oktober 2026.",
+    "identity": "Phoenix Wire wird von der unten genannten Person betrieben. Fragen und Anfragen, auch zur Löschung, gehen an die unten stehende Kontaktadresse.",
     "lifetime": [
       "Karten mit 24 Stunden Gültigkeit",
       "Der Absender bestätigt seine E-Mail mit einem sechsstelligen Code und bezahlt eine Karte: NIM, USDC auf Polygon oder USDT auf Polygon oder Ethereum. Wire sendet dem Empfänger einen Link. Dieser bestätigt seine eigene E-Mail mit einem weiteren Code und wählt eine Empfangsadresse oder öffnet den üblichen Nimiq-Zahlungslink.",
@@ -436,10 +431,7 @@ export const legalCopy = {
       "Zugang zum Senden",
       "Senden ist nur auf Einladung möglich, sofern ein Administrator den Zugang nicht öffnet. Änderungen am Zugang ändern bereits versandte Karten nicht."
     ],
-    "rules": [
-      "Noch offene Regeln",
-      "Der Betreiber hat anwendbares Recht, Mindestalter und verbotene Nutzungen noch nicht festgelegt. Die folgenden Felder sind offen und keine fertigen Regeln."
-    ],
+    "rules": ["Nutzungsregeln", "Die folgenden Regeln gelten für alle, die Phoenix Wire nutzen. Sie stehen am Ende dieser Seite zusammen mit dem Betreiber und dem Kontakt."],
     "storage": [
       "Wie Wire Daten verarbeitet",
       "Wire speichert seinen Hauptzustand in einer verschlüsselten Datei (AES-256-GCM), deren Zugriffsrechte auf den Dateieigentümer beschränkt sind. Die Dateien der Zahlungssoftware sind ebenfalls privat; Dateien mit Geheimnissen sind verschlüsselt. Dies garantiert keine Unzugänglichkeit unter allen Umständen."
@@ -535,7 +527,7 @@ export const legalCopy = {
       "保存的数据",
       "用途",
       "保存期限",
-      "等待运营方决定的事项"
+      "运营方与联系方式"
     ],
     "pending": [
       "运营方名称",
@@ -544,8 +536,9 @@ export const legalCopy = {
       "最低年龄",
       "禁止的用途"
     ],
-    "notice": "运营方的部分决定尚未完成。以下标出的字段仍需确认。",
-    "identity": "运营方名称和联系方式尚未提供。下方联系信息填写完成后，才能发送请求。",
+    "values": ["Xcoder", "phoenixmail@proton.me", "魁北克（加拿大）法律及在当地适用的加拿大联邦法律。", "18 岁", "任何非法用途：欺诈、洗钱，或为本身违法的商品或服务付款。为用户之间约定的合法商品或服务付款是允许的。"],
+    "notice": "最后更新：2026 年 10 月 24 日。",
+    "identity": "Phoenix Wire 由下方所列的个人运营。问题和请求（包括删除请求）请发送至下方的联系地址。",
     "lifetime": [
       "有效期为 24 小时的卡片",
       "发送者用六位验证码确认邮箱，然后为卡片付款：NIM、Polygon 上的 USDC，或 Polygon、Ethereum 上的 USDT。Wire 将链接发给接收者。接收者用另一个验证码确认自己的邮箱，再选择收款地址，或打开通常的 Nimiq 付款链接。",
@@ -567,10 +560,7 @@ export const legalCopy = {
       "发送权限",
       "除非管理员开放权限，否则发送需要邀请。权限变化不会改变已经发送的卡片。"
     ],
-    "rules": [
-      "尚待决定的规则",
-      "运营方尚未确定适用法律、最低年龄和禁止的用途。下列字段仍待决定，并非已完成的规则。"
-    ],
+    "rules": ["使用规则", "以下规则适用于所有使用 Phoenix Wire 的人。它们与运营方和联系方式一起列在本页末尾。"],
     "storage": [
       "Wire 如何处理数据",
       "Wire 将主要状态保存在加密文件（AES-256-GCM）中，文件权限仅允许其所有者访问。支付引擎文件也属于私有文件；其中含有秘密的文件经过加密。这并不保证数据在任何情况下都无法被访问。"
@@ -657,8 +647,7 @@ export const legalCopy = {
 };
 
 // Every unresolved public field is listed here and in PAYMENT-WINDOW.md.
-export const pendingMarker = '[À CONFIRMER PAR LE PROPRIÉTAIRE]';
-export const pendingFields = {
+export const ownerFields = {
  terms: ['operator', 'contact', 'law', 'minimum-age', 'prohibited-uses'],
  privacy: ['operator', 'contact']
 };
@@ -698,7 +687,7 @@ export function paintLegalLinks(doc, language) {
  }
 }
 export function renderLegal(doc, page, language) {
- if (!Object.hasOwn(pendingFields, page)) return;
+ if (!Object.hasOwn(ownerFields, page)) return;
  const lang = legalLanguage(language), copy = legalCopy[lang], article = doc.getElementById('legal-content');
  if (!article) return;
  doc.documentElement.lang = lang;
@@ -740,10 +729,13 @@ export function renderLegal(doc, page, language) {
   section(copy.absent, 'not-kept'); section(copy.deletion, 'deletion');
  }
  section([copy.ui[10], copy.identity], 'owner-decisions');
- const pending = blocks.at(-1);
- for (const id of pendingFields[page]) {
-  const p = node(doc, 'p', undefined, 'legal-pending');p.id = 'pending-' + id;p.dataset.pendingField = id;
-  p.append(node(doc, 'strong', copy.pending[fieldIds.indexOf(id)] + ': '), node(doc, 'span', pendingMarker));
+ const pending = blocks.at(-1); // the closing section: operator and contact, then the rules of use
+ for (const id of ownerFields[page]) {
+  const value = copy.values[fieldIds.indexOf(id)];
+  const p = node(doc, 'p', undefined, 'legal-owner');p.id = 'owner-' + id;p.dataset.ownerField = id;
+  let shown = node(doc, 'span', value);
+  if (id === 'contact') {shown = node(doc, 'a', value);shown.href = 'mailto:' + value;}
+  p.append(node(doc, 'strong', copy.pending[fieldIds.indexOf(id)] + ': '), shown);
   pending.append(p);
  }
  article.replaceChildren(...blocks);
@@ -758,7 +750,7 @@ export function mountLegal(doc, win) {
  const read = (key, fallback) => {try {return win.localStorage.getItem(key) || fallback;} catch {return fallback;}};
  const save = (key, value) => {try {win.localStorage.setItem(key, value);} catch {}};
  const page = doc.body.dataset.legalPage;
- if (Object.hasOwn(pendingFields, page || '')) {
+ if (Object.hasOwn(ownerFields, page || '')) {
   const picker = doc.getElementById('wire-language');
   const query = new URLSearchParams(win.location.search).get('lang');
   let choice = languages.includes(query) ? query : read('wire-language', 'auto');
