@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"github.com/xcoder2088/NimiqSecureClaim/internal/cashlink/chain"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -216,5 +217,31 @@ func TestTheFreeGasLightFollowsThePriceOfGasToo(t *testing.T) {
 	node.maxFee = big.NewInt(50_000_000_000) // gas at 50 gwei: the float needed rises to its cap and one gift costs much more
 	if ok, why := s.GasStatus(context.Background(), evm.AssetUSDTPolygon); ok || why != "float" {
 		t.Fatal("the light should turn red when gas is dear and the relayer is low", ok, why)
+	}
+}
+
+func TestTheLedgerSaysWhatAPayoutEarnedAndCost(t *testing.T) {
+	node := &feedNode{usd: 2, maxFee: gwei100()}
+	s := feeService(t, node)
+	c := newCard(t, s)
+	rec := s.records[c.Issuer.ID]
+	rec.Drip = &Drip{To: "0x1111111111111111111111111111111111111111", Wei: "10000000000000000", At: time.Now()} // a gift of 0.01 coin
+	op := &Operation{Kind: "claim", Units: rec.Units, Tx: "0xaaa"}
+	// the payout used 100 000 gas at 50 gwei: 0.005 coin; at $2 that is 1 cent. The gift is 0.01 coin: 2 cents.
+	rc := chain.Receipt{Found: true, Success: true, GasUsed: 100_000, GasPrice: big.NewInt(50_000_000_000)}
+	s.recordCost(context.Background(), rec, op, rc)
+	if op.GasWei != "5000000000000000" {
+		t.Fatal("gas paid", op.GasWei)
+	}
+	sums, rows := s.Ledger(10)
+	if len(sums) != 1 || len(rows) != 1 || sums[0].Payouts != 1 {
+		t.Fatal("ledger", sums, rows)
+	}
+	row := rows[0]
+	if row.Earned != rec.FeeUnits || row.CostUnit < 29_000 || row.CostUnit > 31_000 || row.Net != int64(row.Earned)-int64(row.CostUnit) || row.Card != rec.ID[:8] {
+		t.Fatalf("row %+v", row)
+	}
+	if sums[0].Net <= 0 {
+		t.Fatal("a 2.50 card at this price must leave a margin", sums[0])
 	}
 }

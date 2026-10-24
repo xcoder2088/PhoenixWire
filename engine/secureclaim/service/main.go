@@ -481,6 +481,10 @@ func (s *server) usdtRoutes(w http.ResponseWriter, r *http.Request) {
 		write(w, 503, map[string]string{"error": "usdt_unavailable"})
 		return
 	}
+	if r.URL.Path == "/api/v1/usdt/issuer/ledger" {
+		s.usdt.ledger(s, w, r)
+		return
+	}
 	if r.URL.Path == "/api/v1/usdt/issuer/relayers" || strings.HasPrefix(r.URL.Path, "/api/v1/usdt/issuer/relayers/") {
 		s.usdt.relayers(s, w, r)
 		return

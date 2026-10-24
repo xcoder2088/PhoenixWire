@@ -40,6 +40,7 @@ import (
 //	  POST /api/v1/usdt/issuer/cards/{id}/gas              {sender_token, sender_address} -> the relayer gives a token-only sender the native coin of one transfer (once per card)
 //	  POST /api/v1/usdt/issuer/cards/{id}/refund           {sender_token, to} -> co-signature of a full-sweep refund
 //	  POST /api/v1/usdt/issuer/cards/{id}/refund-claim     {sender_token, signatures} -> relays that refund
+//	  GET|POST /api/v1/usdt/issuer/ledger                       what the payouts earned and cost (fee against gas), totals and the last rows
 //	  GET|POST /api/v1/usdt/issuer/relayers                     what every relayer holds (native coin, fees earned, cards waiting)
 //	  POST /api/v1/usdt/issuer/relayers/{chain}/withdraw   {what: "native"|asset id, to} -> sends ALL of it to `to` (the owner's administrator only)
 //
@@ -697,6 +698,21 @@ func anyTrue(m map[string]bool) bool {
 		}
 	}
 	return false
+}
+
+// ledger: what the payouts earned and cost the relayers (usdtlink/ledger.go). Issuer key only.
+func (h *usdtHTTP) ledger(s *server, w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	if !s.issuerAuthorized(r) {
+		write(w, 401, map[string]string{"error": "unauthorized"})
+		return
+	}
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		write(w, 405, map[string]string{"error": "method_not_allowed"})
+		return
+	}
+	sums, rows := h.svc.Ledger(50)
+	write(w, 200, map[string]any{"totals": sums, "last": rows})
 }
 
 // relayers: what each relayer holds, and the owner's way to take it all out. Issuer key only (PhoenixMail's administrator).

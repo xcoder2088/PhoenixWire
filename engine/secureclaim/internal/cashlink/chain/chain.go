@@ -41,8 +41,10 @@ type Receipt struct {
 	Found   bool
 	Success bool
 	GasUsed uint64
-	Block   uint64
-	Logs    []Log
+	// GasPrice is the price per gas the transaction actually paid (wei), when the node says; nil otherwise.
+	GasPrice *big.Int
+	Block    uint64
+	Logs     []Log
 }
 
 // Finality is what a caller needs to wait for DEPTH before believing a block: the latest block number, and a read of a past
@@ -343,6 +345,7 @@ func (c *HTTP) Receipt(ctx context.Context, hash string) (Receipt, error) {
 	var r struct {
 		Status string `json:"status"`
 		Gas    string `json:"gasUsed"`
+		Price  string `json:"effectiveGasPrice"`
 		Block  string `json:"blockNumber"`
 		Logs   []struct {
 			Address string   `json:"address"`
@@ -359,6 +362,11 @@ func (c *HTTP) Receipt(ctx context.Context, hash string) (Receipt, error) {
 		return Receipt{}, ErrUnavailable
 	}
 	out := Receipt{Found: true, Success: r.Status == "0x1", GasUsed: gas.Uint64(), Block: block.Uint64()}
+	if r.Price != "" {
+		if price, err := hexBig(json.RawMessage(strconv.Quote(r.Price))); err == nil {
+			out.GasPrice = price
+		}
+	}
 	for _, l := range r.Logs {
 		addr, err := evm.ParseAddress(l.Address)
 		data, derr := hex.DecodeString(strings.TrimPrefix(l.Data, "0x"))

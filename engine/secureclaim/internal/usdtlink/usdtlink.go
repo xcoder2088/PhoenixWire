@@ -194,10 +194,11 @@ type Operation struct {
 	Units   uint64    `json:"units"`
 	Nonce   uint64    `json:"nonce"` // the Safe nonce the signatures were made for
 	Started time.Time `json:"started"`
-	Tx      string    `json:"tx,omitempty"`     // hash of the exec transaction, journaled before it was broadcast
-	Deploy  string    `json:"deploy,omitempty"` // hash of the deployment, when this operation deployed the card
-	Done    bool      `json:"done,omitempty"`   // settled from the chain receipt
-	Failed  bool      `json:"failed,omitempty"` // mined and reverted, or never executed: nothing was paid
+	Tx      string    `json:"tx,omitempty"`      // hash of the exec transaction, journaled before it was broadcast
+	Deploy  string    `json:"deploy,omitempty"`  // hash of the deployment, when this operation deployed the card
+	GasWei  string    `json:"gas_wei,omitempty"` // what the relayer paid in gas for this operation (deployment included), once settled
+	Done    bool      `json:"done,omitempty"`    // settled from the chain receipt
+	Failed  bool      `json:"failed,omitempty"`  // mined and reverted, or never executed: nothing was paid
 }
 
 // Intent is a refund the sender asked for: where the money goes and how much, for a given Safe nonce.
@@ -821,9 +822,10 @@ func (s *Service) refresh(ctx context.Context, r *Record) error {
 		return err
 	}
 	changed, paidNow := false, false
-	settle := func(op *Operation, at time.Time) { // a payout of ours is confirmed on chain: deep enough, and the right transfers
+	settle := func(op *Operation, at time.Time, rc chain.Receipt) { // a payout of ours is confirmed on chain: deep enough, and the right transfers
 		op.Done, changed = true, true
 		r.Settled++
+		s.recordCost(ctx, r, op, rc) // what it cost the relayer and what it earned: the ledger (ledger.go)
 		if op.Kind == "claim" {
 			r.ClaimTx, paidNow = op.Tx, true
 			if !at.IsZero() {
@@ -860,7 +862,7 @@ func (s *Service) refresh(ctx context.Context, r *Record) error {
 					if err != nil {
 						return err
 					}
-					settle(op, at)
+					settle(op, at, rc)
 				}
 			case rc.Found:
 				op.Failed, changed = true, true // mined and reverted: nothing was paid
@@ -897,7 +899,7 @@ func (s *Service) refresh(ctx context.Context, r *Record) error {
 			if err != nil {
 				return err
 			}
-			settle(r.Late[i], at)
+			settle(r.Late[i], at, rc)
 			r.Op = r.Late[i] // the late operation is the card's last one, whatever its kind
 			r.Late = append(r.Late[:i], r.Late[i+1:]...)
 			continue
