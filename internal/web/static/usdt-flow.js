@@ -14,7 +14,11 @@ const ASSETS = {
 const byId = Object.fromEntries(Object.values(ASSETS).map(a => [a.id, a]));
 const FLAT_GAS_FEE = { usdt_ethereum: 750000, usdc_polygon: 100000, usdt_polygon: 100000 }; // what a refund pays the relayer (an older card without a stored value)
 
-let enabledAssets = [], verified = false, lib = null, timers = new Map(), busy = false, current = null;
+let enabledAssets = [], verified = false, senderEmail = '', sessionEpoch = 0, lib = null, timers = new Map(), busy = false, current = null;
+const refundSender=value=>String(value||'').trim().toLowerCase();
+const refundMemoryKey=(chain,owner=senderEmail)=>'wire-refund-address:'+String(chain).toLowerCase()+':'+refundSender(owner);
+function forgetRefundAddress(owner){if(!refundSender(owner))return;try{for(const chain of ['polygon','ethereum'])localStorage.removeItem(refundMemoryKey(chain,owner));}catch{}}
+try{for(const chain of ['polygon','ethereum','Polygon','Ethereum'])localStorage.removeItem('wire-refund-address:'+chain);}catch{}
 
 const words = () => usdtText[document.documentElement.lang] || usdtText.en;
 const fill = (text, values) => text.replace(/\{(\w+)\}/g, (_, k) => String(values[k] ?? ''));
@@ -62,7 +66,7 @@ async function createCard(sym, form) {
  if (safe !== cd.safe || !made.pay || made.pay.recipient !== safe || !Number.isSafeInteger(cd.units) || !Number.isSafeInteger(cd.feeUnits) || made.pay.units !== cd.units + cd.feeUnits) throw bad();
  if (typeof made.pay.link !== 'string' || !made.pay.link.startsWith('ethereum:0x') || !made.pay.link.includes(safe)) throw bad();
  if (!Number.isSafeInteger(cd.refundFeeUnits) || cd.refundFeeUnits <= 0 || cd.refundFeeUnits > cd.feeUnits) throw bad();
- const entry = { id: idHex, asset: a.id, symbol: a.symbol, chain: a.chain, amount: cd.amount, recipient: form.recipient, message: form.message, fragment: C.linkFragment({ id, key }), safe, owners: cd.owners,
+ const entry = { id: idHex, sender: senderEmail, asset: a.id, symbol: a.symbol, chain: a.chain, amount: cd.amount, recipient: form.recipient, message: form.message, fragment: C.linkFragment({ id, key }), safe, owners: cd.owners,
   units: cd.units, feeUnits: cd.feeUnits, refundFeeUnits: cd.refundFeeUnits, chainId: cd.chainId, token: cd.token, relayer: cd.relayer, payLink: made.pay.link, payAmount: made.pay.amount, invited: false, created: Date.now() };
  saveCard(entry);
  return entry;
@@ -143,8 +147,13 @@ async function check(entry, tries = 0) {
 
 // ---- taking the money back: the service co-signs, this browser adds the link key's signature ----
 async function refund(entry, to, automatic=false) {
+ const owner=senderEmail,epoch=sessionEpoch;
+ const stillOwner=()=>verified&&owner&&senderEmail===owner&&sessionEpoch===epoch&&refundSender(entry.sender)===owner;
+ if(!stillOwner()||automatic&&knownRefund(entry)!==to)throw fail('verifyFirst');
  const C = await library(), t = words();
+ if(!stillOwner())throw fail('verifyFirst');
  const r = await api('/api/usdt/card/' + entry.id + '/refund', { to });
+ if(!stillOwner())throw fail('verifyFirst');
  // The fee a refund pays is the flat gas fee fixed at the card's creation: the service may never ask for more.
  const legacy = entry.refundFeeUnits === undefined, flat = FLAT_GAS_FEE[entry.asset];
  const accepted = legacy ? (Number.isSafeInteger(flat) && Number.isSafeInteger(entry.feeUnits) ? Math.min(flat, entry.feeUnits) : NaN) : entry.refundFeeUnits;
@@ -153,22 +162,25 @@ async function refund(entry, to, automatic=false) {
  const { id, key } = C.parseFragment(entry.fragment);
  const tx = C.payout({ token: entry.token, recipient: to, relayer: entry.relayer, amount: BigInt(r.units), fee: BigInt(accepted), nonce: BigInt(r.nonce || 0) });
  const mine = await C.signTx(tx, entry.chainId, C.cardAddress({ id, owners: entry.owners, threshold: 2 }, entry.chainId), key);
+ if(!stillOwner())throw fail('verifyFirst');
  const raw = hexBytes(C, r.signature), theirs = { owner: hexBytes(C, r.owner), sig: { r: raw.slice(0, 32), s: raw.slice(32, 64), v: raw[64] } };
  const packed = C.packSignatures([mine, theirs]);
  const result=await api('/api/usdt/card/' + entry.id + '/refund-claim', { signatures: '0x' + C.hex(packed) });
- if(['refunded','refunding','verifying','withdrawn'].includes(result.status||result.state)){try{localStorage.setItem('wire-refund-address:'+entry.chain,to);}catch{}}return result;
+ if(stillOwner()&&['refunded','refunding','verifying','withdrawn'].includes(result.status||result.state)){try{localStorage.setItem(refundMemoryKey(entry.chain,owner),to);}catch{}}return result;
 }
 
 const expiredRefunds=new Set();
 const validRefund=value=>typeof value==='string'&&/^0x[0-9a-fA-F]{40}$/.test(value)&&!/^0x0{40}$/i.test(value);
-function knownRefund(c){let saved='';try{saved=localStorage.getItem('wire-refund-address:'+c.chain)||'';}catch{}return validRefund(c.fundingAddress)?c.fundingAddress:validRefund(saved)?saved:'';}
+function knownRefund(c){if(!verified||!senderEmail||refundSender(c.sender)!==senderEmail)return '';let saved='';try{saved=localStorage.getItem(refundMemoryKey(c.chain))||'';}catch{}return validRefund(saved)?saved:'';}
 // ---- the list of my cards ----
 async function renderList() {
+ if(!verified||!senderEmail)return;const owner=senderEmail,epoch=sessionEpoch;
  const t = words(), list = $('usdt-list');
  list.textContent = '';
  let server = [];
  try { server = (await api('/api/usdt/cards')).cards; } catch { /* the local ones are still shown */ }
- const local = readCards(), ids = new Set(local.map(c => c.id));
+ if(!verified||senderEmail!==owner||epoch!==sessionEpoch)return;
+ const local = readCards().filter(c=>refundSender(c.sender)===owner||server.some(s=>s.id===c.id)), ids = new Set(local.map(c => c.id));
  const rows = [...local.map(c => ({ ...c, here: true })), ...server.filter(c => !ids.has(c.id)).map(c => ({ ...c, here: false }))];
  $('usdt-history').hidden = rows.length === 0;
  $('usdt-history-title').textContent = t.history;
@@ -176,11 +188,12 @@ async function renderList() {
   const row = document.createElement('div'); row.className = 'history-row';
   const label = document.createElement('p'); label.textContent = `${c.amount} ${c.symbol} · ${c.recipient}`; row.append(label);
   const status = document.createElement('small'); row.append(status);
-  let currentState;try{currentState=await api('/api/usdt/card/'+c.id+'/status',{});Object.assign(c,{state:currentState.state,balanceUnits:Number(currentState.balance_units??currentState.balanceUnits)||0});if(c.here)updateCard(c.id,c);}catch{}
+  let currentState;try{currentState=await api('/api/usdt/card/'+c.id+'/status',{});if(!verified||senderEmail!==owner||epoch!==sessionEpoch)return;Object.assign(c,{sender:owner,state:currentState.state,balanceUnits:Number(currentState.balance_units??currentState.balanceUnits)||0});if(c.here)updateCard(c.id,c);}catch{}
+  if(!verified||senderEmail!==owner||epoch!==sessionEpoch)return;
   const expiredFunds=Boolean(currentState)&&c.state==='expired'&&c.balanceUnits>0&&!currentState.stale;
   if(expiredFunds&&c.here&&!c.recovering&&knownRefund(c)&&!expiredRefunds.has(c.id)){
    expiredRefunds.add(c.id);status.textContent=flowText(document.documentElement.lang,'refundWorking');
-   try{const result=await refund(c,knownRefund(c),true);status.textContent=flowText(document.documentElement.lang,result.status==='refunded'?'refundDone':'refundWorking');updateCard(c.id,{recovering:true});}
+   try{const result=await refund(c,knownRefund(c),true);if(!verified||senderEmail!==owner||epoch!==sessionEpoch)return;status.textContent=flowText(document.documentElement.lang,result.status==='refunded'?'refundDone':'refundWorking');updateCard(c.id,{recovering:true});}
    catch{status.textContent=flowText(document.documentElement.lang,'refundFailed');}
   }
   const button = (text, run) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.addEventListener('click', async () => { b.disabled = true; try { await run(); } catch (e) { status.textContent = e.code === 'cancelled' ? '' : errorText(e); } finally { b.disabled = false; } }); row.append(b); return b; };
@@ -192,7 +205,7 @@ async function renderList() {
    go.addEventListener('click', async () => { const to = input.value.trim(); if (!/^0x[0-9a-fA-F]{40}$/.test(to)) { status.textContent = t.refundTo; return; } go.disabled = true; try { await refund(c, to); status.textContent = t.refundDone; } catch (e) { status.textContent = e.code === 'cancelled' ? '' : errorText(e); } finally { go.disabled = false; } });
    row.append(input, go);
   } else { const note = document.createElement('small'); note.textContent = t.refundNeedsKey; row.append(note); }
-  list.append(row);
+  if(!verified||senderEmail!==owner||epoch!==sessionEpoch)return;list.append(row);
  }
 }
 
@@ -219,7 +232,7 @@ function refreshText() {
 
 window.WireUSDT = {
  // flow.js tells us what the server offers and whether the sender is verified
- configure({ assets, isVerified }) { enabledAssets = (assets || []).filter(a => ASSETS[a]); verified = Boolean(isVerified); if (verified && enabledAssets.length) renderList(); },
+ configure({ assets, isVerified, email }) { const next=isVerified?refundSender(email):'';if(senderEmail!==next){forgetRefundAddress(senderEmail);sessionEpoch++;expiredRefunds.clear();for(const timer of timers.values())clearTimeout(timer);timers.clear();}enabledAssets = (assets || []).filter(a => ASSETS[a]); verified = Boolean(isVerified&&next);senderEmail=next;if(!verified)$('usdt-list').replaceChildren();if (verified && enabledAssets.length) void renderList(); },
  enabled: sym => enabledAssets.includes(sym),
  submit,
  check,
@@ -229,3 +242,4 @@ $('usdt-copy').addEventListener('click', async () => { try { await navigator.cli
 window.addEventListener('wire-language', refreshText);
 // flow.js may have learned the server's offer before this module ran: take it from where it left it.
 if (window.wireUsdtState) window.WireUSDT.configure(window.wireUsdtState);
+

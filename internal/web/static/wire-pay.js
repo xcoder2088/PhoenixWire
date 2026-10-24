@@ -1,9 +1,9 @@
-import { mountAdmin,adminText } from './admin.js?v=0.4.25';
+import { mountAdmin,adminText } from './admin.js?v=0.4.28';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.24';
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.4.24';
-import { mountNimFlow } from './flow.js?v=0.4.27';
+import { mountNimFlow } from './flow.js?v=0.4.28';
 import { flowText } from './flow-text.js?v=0.4.24';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
@@ -135,6 +135,8 @@ for(const language of Object.keys(dateWords))Object.assign(words[language],dateW
 window.PhoenixWordOverrides=Object.fromEntries(Object.entries(cardWords).map(([language,w])=>[language,{fundedMsg:w.fundedCard,confirmingMsg:w.confirmingCard,close:w.doneCard,added:w.createdCard,created:w.createdCard}]));
 function read(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem(key, value); } catch { /* storage may be unavailable */ } }
+// Legacy addresses were shared between senders. Delete them; never migrate them.
+try{for(const chain of ['polygon','ethereum','Polygon','Ethereum'])localStorage.removeItem('wire-refund-address:'+chain);}catch{}
 let preference = read('wire-language', 'auto'), lang = 'en', email = '', payments = null, usdtOn = false, nimOn = false, enabled = false, nimView = null, resumed = false;
 let nimCache=null;
 let adminPanel=null,inviteOnly=false,accessExpanded=false;
@@ -376,8 +378,10 @@ const nimActions=new Map();
 const stableActions=new Map(),autoRefunds=new Set();
 const life=key=>flowText(lang,key);
 const validRefundAddress=value=>typeof value==='string'&&/^0x[0-9a-fA-F]{40}$/.test(value)&&!/^0x0{40}$/i.test(value);
-const refundMemoryKey=asset=>'wire-refund-address:'+String(asset).split('_').at(-1);
-function knownRefundAddress(c){const saved=read(refundMemoryKey(c.asset),'');return validRefundAddress(c.fundingAddress)?c.fundingAddress:validRefundAddress(saved)?saved:'';}
+const refundSender=value=>String(value||'').trim().toLowerCase();
+const refundMemoryKey=(asset,owner=email)=>'wire-refund-address:'+String(asset).split('_').at(-1).toLowerCase()+':'+refundSender(owner);
+function forgetRefundAddress(owner){if(!refundSender(owner))return;try{for(const chain of ['polygon','ethereum'])localStorage.removeItem(refundMemoryKey(chain,owner));}catch{}}
+function knownRefundAddress(c){if(!email||refundSender(c.sender)!==refundSender(email))return '';const saved=read(refundMemoryKey(c.asset),'');return validRefundAddress(saved)?saved:'';}
 function localRefundEntry(id){try{return JSON.parse(read('phoenixmail.usdt.sent.v2','[]')).find(e=>e.card?.id===id&&e.senderToken&&e.cashlink&&/^#c=/.test(new URL(e.card.claimURL).hash));}catch{return null;}}
 function stableFunds(c){return c.state==='expired'&&!c.stale&&!c.claimedAt&&Number(c.balanceUnits)>0;}
 function appendStableActions(row,c){
@@ -394,7 +398,7 @@ function appendStableActions(row,c){
  }row.append(note);
 }
 async function refundStable(c,to,automatic){
- if(stableActions.get(c.id)?.loading||!stableFunds(c)||!validRefundAddress(to))return;
+ if(!email||refundSender(c.sender)!==refundSender(email)||stableActions.get(c.id)?.loading||!stableFunds(c)||!validRefundAddress(to)||automatic&&knownRefundAddress(c)!==to)return;
  const entry=localRefundEntry(c.id);if(!entry)return;
  const epoch=cardEpoch,owner=email;stableActions.set(c.id,{loading:true,address:to,message:'refundWorking'});renderCards();
  try{
@@ -402,7 +406,7 @@ async function refundStable(c,to,automatic){
   const result=await CL.refund(entry,to,{confirm:({units,fee})=>epoch===cardEpoch&&owner===email&&(automatic||window.confirm(CL.fmt(CL.words(assetNames[c.asset]?.startsWith('USDC')?'USDC':'USDT').refundConfirm,{net:String(units/1e6),fee:String(fee/1e6)})))});
   if(epoch!==cardEpoch||email!==owner)return;
   if(!['refunded','refunding','verifying','withdrawn'].includes(result.status||result.state))throw Error('unconfirmed_refund');
-  save(refundMemoryKey(c.asset),to);stableActions.set(c.id,{address:to,message:result.status==='refunded'?'refundDone':'refundWorking',sent:true});
+  save(refundMemoryKey(c.asset,owner),to);stableActions.set(c.id,{address:to,message:result.status==='refunded'?'refundDone':'refundWorking',sent:true});
   update(c.id,{state:result.status==='refunded'?'withdrawn':'expired',recovering:true,refundPending:true,refundPendingAt:Date.now()});
  }catch{if(epoch===cardEpoch&&owner===email)stableActions.set(c.id,{address:to,message:'refundFailed'});}
  finally{if(epoch===cardEpoch&&owner===email){const state=stableActions.get(c.id);if(state)state.loading=false;renderCards();}}
@@ -681,6 +685,7 @@ function mountPayments() {
 }
 
 function showSender(verified, who,admin=false) {
+ if(email&&(!verified||refundSender(email)!==refundSender(who)))forgetRefundAddress(email);
  if(!verified)accessExpanded=false;
  if(verified){codeSentTo='';codeUntil=0;paintCodeRequest();}
  if(!verified||email&&email!==who)stopCards();
@@ -792,4 +797,5 @@ setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
   if(handoffError){say(t(handoffError));if(scopedID)$('wire-handoff-state').textContent=t(handoffError);}
  } catch { say(t('off'));if(scopedID){$('wire-entry').hidden=false;$('wire-sender').hidden=false;} }
 })();
+
 

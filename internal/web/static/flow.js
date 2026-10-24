@@ -1,4 +1,4 @@
-import { mountAdmin,adminText } from './admin.js?v=0.4.25';
+import { mountAdmin,adminText } from './admin.js?v=0.4.28';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.24';
 import { flowText } from './flow-text.js?v=0.4.24';
 import { addressValid,cardPresentation,paintCard } from './model.js?v=0.4.24';
@@ -380,7 +380,7 @@ async function task(run,target='feedback',cleanup){
  try{await run();}catch(error){$(target).textContent=explain(error);}finally{busy=false;cleanup?.();renderProgress();}
 }
 let usdtAssets=[];
-function senderUI(email,admin=false){verified=Boolean(email);window.wireUsdtState={assets:usdtAssets,isVerified:verified};if(!embedded)window.WireUSDT?.configure(window.wireUsdtState);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');configureAdmin(admin);paintSenderAccess();}
+function senderUI(email,admin=false){verified=Boolean(email);window.wireUsdtState={assets:usdtAssets,isVerified:verified,email:verified&&!scopedPaymentID?email:''};if(!embedded)window.WireUSDT?.configure(window.wireUsdtState);$('sender').value=email||$('sender').value;$('sender').readOnly=verified;$('send-sender-code').hidden=verified;$('logout').hidden=!verified;$('sender-code-box').hidden=true;if(verified)status('sender-status','verified');configureAdmin(admin);paintSenderAccess();}
 function showPayment(p){
  if(isFolded(p))return;
  displayed=p;
@@ -563,7 +563,7 @@ $('send-sender-code').addEventListener('click',()=>task(async()=>{
 $('verify-sender-code').addEventListener('click',()=>task(async()=>{
  const result=await api('/api/sender/verify',{code:$('sender-code').value});$('sender-code').value='';senderUI(result.email);void api('/api/session').then(session=>configureAdmin(session.admin===true)).catch(()=>{});await loadHistory();
 },'sender-status'));
-$('logout').addEventListener('click',()=>task(async()=>{await api('/api/logout',{});location.reload();}));
+$('logout').addEventListener('click',()=>task(async()=>{await api('/api/logout',{});if(!embedded)window.WireUSDT?.configure({assets:usdtAssets,isVerified:false,email:''});location.reload();}));
 $('new-card').addEventListener('click',()=>newCard());
 function nativeWallet(){return typeof window.nimiq?.sendBasicTransactionWithData==='function';}
 function rememberPayment(p,wallet){
@@ -951,4 +951,5 @@ return {ready:started,resume,destroy(){destroyed=true;window.removeEventListener
 }
 
 if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();
+
 

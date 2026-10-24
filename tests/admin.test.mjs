@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {mountAdmin,adminText} from '../internal/web/static/admin.js';
 const settle=async()=>{for(let i=0;i<6;i++)await new Promise(r=>setImmediate(r));};
-async function setup({authorized=true,language='en',confirm=true,error='',open=true}={}){
- const dom=new JSDOM('<main></main>'),d=dom.window.document,calls=[],confirmations=[];let view={open,registered:['sender@example.test','admin@example.test'],allowed:['allowed@example.test'],blocked:['blocked@example.test'],admins:['admin@example.test']};
+async function setup({authorized=true,language='en',confirm=true,error='',open=true,lockedOpen}={}){
+ const dom=new JSDOM('<main></main>'),d=dom.window.document,calls=[],confirmations=[];let view={open,...(lockedOpen===undefined?{}:{locked_open:lockedOpen}),registered:['sender@example.test','admin@example.test'],allowed:['allowed@example.test'],blocked:['blocked@example.test'],admins:['admin@example.test']};
  dom.window.confirm=text=>{confirmations.push(text);return confirm;};
  const request=async(path,data)=>{calls.push([path,data]);if(data&&error)throw Object.assign(Error(error),{code:error});
   if(path==='/api/admin/access'&&data)view={...view,open:data.open};
@@ -31,6 +31,16 @@ test('fixed invitation-only switch, inverted payload and opening confirmation st
  assert.equal(adminText('fr','closed'),'Seuls les expéditeurs inscrits ou autorisés peuvent envoyer. Les cartes déjà envoyées restent ouvertes.');
  assert.equal(adminText('fr','open'),"Tout le monde peut s'inscrire et envoyer.");
 });
+test('locked-open server configuration disables only the access switch and explains it in five languages',async()=>{
+ const translations={fr:"La configuration du serveur garde l'accès ouvert : cette case ne prend effet qu'une fois cette configuration retirée.",en:'The server configuration keeps access open: this checkbox only takes effect once that configuration is removed.',es:'La configuración del servidor mantiene el acceso abierto: esta casilla solo tendrá efecto cuando se retire esa configuración.',de:'Die Serverkonfiguration hält den Zugang offen: Dieses Kontrollkästchen wirkt erst, wenn diese Konfiguration entfernt wurde.',zh:'服务器配置保持访问开放：只有移除该配置后，此复选框的设置才会生效。'};
+ for(const [language,message]of Object.entries(translations)){
+  const app=await setup({language,lockedOpen:true}),toggle=app.d.getElementById('wire-admin-open'),note=app.d.getElementById('wire-admin-locked-open');
+  assert.equal(toggle.disabled,true);assert.equal(toggle.checked,false);assert.equal(note.textContent,message);assert.doesNotMatch(note.textContent,/Mainnet|OTP|Hub/);assert.ok(toggle.getAttribute('aria-describedby').split(' ').includes(note.id));
+  toggle.checked=true;toggle.dispatchEvent(new app.dom.window.Event('change'));await settle();assert.equal(app.calls.length,1);assert.equal(app.confirmations.length,0);assert.equal(app.d.getElementById('wire-admin-open').checked,false);
+  const form=app.d.getElementById('wire-admin-allow');assert.equal(form.querySelector('button').disabled,false);form.querySelector('input').value='another@example.test';form.dispatchEvent(new app.dom.window.Event('submit',{cancelable:true}));await settle();assert.equal(app.d.getElementById('wire-admin-open').disabled,true);assert.equal(app.d.getElementById('wire-admin-locked-open').textContent,message);app.dom.window.close();
+ }
+ const unlocked=await setup({lockedOpen:false});assert.equal(unlocked.d.getElementById('wire-admin-open').disabled,false);assert.equal(unlocked.d.getElementById('wire-admin-locked-open'),null);unlocked.dom.window.close();
+});
 test('registered, allowed and blocked lists expose safe allow/block actions and refresh from replies',async()=>{
  const app=await setup(),d=app.d;
  const rows=[...d.querySelectorAll('[data-list=registered] li')];assert.equal(rows[1].querySelector('button').disabled,true);rows[0].querySelector('button').click();await settle();assert.deepEqual(app.calls.at(-1),['/api/admin/block',{email:'sender@example.test'}]);assert.equal(app.confirmations.length,1);
@@ -44,3 +54,4 @@ test('administrator errors are plain words in all five languages and controls re
   const app=await setup({language,error}),form=app.d.getElementById('wire-admin-allow');form.querySelector('input').value='new@example.test';form.dispatchEvent(new app.dom.window.Event('submit',{cancelable:true}));await settle();const message=app.d.getElementById('wire-admin-status').textContent;assert.equal(message,adminText(language,error));assert.doesNotMatch(message,/admin_required|cannot_block_admin|list_full|invalid_email|Mainnet|OTP|Hub/);assert.equal(app.d.querySelector('[aria-busy=true]'),null);app.dom.window.close();
  }
 });
+

@@ -1,5 +1,41 @@
 # The payment window is PhoenixMail's
 
+## Sender-specific refund memory and configuration-locked access (server c8b3405)
+
+Both sender interfaces now store the last successful refund destination under
+`wire-refund-address:<lowercase chain>:<verified session email>`, with a trimmed,
+lowercase email. On module load, legacy global Polygon/Ethereum entries (including
+the classic interface's capitalized chain names) are deleted without migration.
+Signing out clears the departing sender's remembered destinations on both chains;
+changing sender also clears the previous sender's memory. Card link keys are kept.
+
+An automatic refund requires a destination saved for this verified sender on this
+browser and a successful authenticated ownership/status check for the same card.
+The card's recorded sender must match the current identity. A funding address or
+another sender's saved destination never supplies an automatic destination. Without
+the sender's own saved address, the normal manual address field stays empty. The
+classic flow receives the verified email directly from the sender session, records
+ownership on newly created cards, reconciles older local entries with the server's
+owned-card list, and invalidates stale work when the session changes. Neither path
+saves a late refund result into the next sender's memory.
+
+Administration reads `locked_open === true` from every access response. It disables
+the invitation-only switch, keeps the server's effective `open` state, and adds an
+accessible explanation below the switch in FR/EN/ES/DE/ZH. It also ignores a
+programmatically dispatched change while locked. Allow/block actions remain usable;
+responses that omit `locked_open` or set it to false preserve the normal switch.
+
+Regression tests cover sender A's successful remembered refund and sign-out,
+sender B with preserved local link keys and an expired card, legacy value deletion,
+an empty manual field, foreign/unverified cards, same-sender automatic refunds,
+and the locked/unlocked administrator view in all five languages. Module loaders
+and imports use cache version `0.4.28`. No new static file is introduced.
+
+Validation executed for these changes: `npm ci --ignore-scripts`, then
+`node --test --test-timeout=90000 tests/*.test.mjs engine/secureclaim/web/tests/*.cjs`:
+224 tests passed, no failures or skipped tests. No Go or mirrored file changed;
+no deployment or real payment was performed.
+
 ## Administrator access (server c0f0cad and later)
 
 The shared Wire-only `admin.js` panel is mounted only for a verified session with
@@ -444,4 +480,5 @@ These are automated simulations, not a physical iPhone/Safari/Nimiq Pay validati
 L'aperçu NIM se met à jour localement pendant la saisie d'un montant valide, du destinataire et du message. Il ne crée pas de carte serveur et n'ouvre aucun portefeuille. Le Nimicon réel apparaît après la préparation de la carte. Le texte des 24 heures n'est ajouté qu'une fois ; l'enrichissement stablecoin ignore la fenêtre NIM. Les modules modifiés utilisent la version de cache `0.4.27`.
 
 Revue de sécurité et limites de validation : voir `AUDIT-2026-10-24.md`. Les défauts Go recensés dans ce rapport restent à corriger ; le correctif d'aperçu n'est pas une validation générale des remboursements.
+
 

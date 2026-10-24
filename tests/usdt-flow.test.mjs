@@ -19,10 +19,11 @@ const PROXY = claimPage.match(/PROXY_CREATION_CODE='(0x[0-9a-f]+)'/)[1];
 
 const doms = [];
 test.after(() => doms.forEach(d => d.window.close()));
-async function start({ answer = x => x, status = () => ({ state: 'awaiting_funds', balance_units: 0 }), invite = () => ({ invited: true }), refundAnswer } = {}) {
+async function start({ sessionEmail='sender@example.test', local={}, serverCards=[], answer = x => x, status = () => ({ state: 'awaiting_funds', balance_units: 0 }), invite = () => ({ invited: true }), refundAnswer } = {}) {
   const dom = new JSDOM(read('../internal/web/static/classic.html'), { url: 'https://wire.example.test/', runScripts: 'outside-only' });
   const { window } = dom;
   doms.push(dom);
+  for(const [key,value]of Object.entries(local))window.localStorage.setItem(key,value);
   window.open = () => null;
   window.document.documentElement.lang = 'en';
   Object.defineProperty(window, 'crypto', { value: webcrypto, configurable: true });
@@ -39,9 +40,9 @@ async function start({ answer = x => x, status = () => ({ state: 'awaiting_funds
     const body = options.body ? JSON.parse(options.body) : undefined;
     calls.push([path, body]);
     if (path === '/api/config') return response(200, { mode: 'integrated', payments_enabled: true, assets: ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM'] });
-    if (path === '/api/session') return response(200, { verified: true, email: 'sender@example.test' });
+    if (path === '/api/session') return response(200, { verified: true, email: sessionEmail });
     if (path === '/api/payments') return response(200, { payments: [] });
-    if (path === '/api/usdt/cards') return response(200, { cards: [] });
+    if (path === '/api/usdt/cards') return response(200, { cards: serverCards });
     if (path === '/api/usdt/create') {
       C.setProxyCreationCode(PROXY);
       const cos = C.addressOfKey(webcrypto.getRandomValues(new Uint8Array(32)));
@@ -184,6 +185,21 @@ test('taking the money back: only the flat gas fee fixed at creation is accepted
   assert.ok(!t.calls.some(c => c[0].endsWith('/refund-claim')));
 });
 
+test('classic refunds remember only the verified sender and clear that memory when the session ends',async()=>{
+ const to='0x'+'55'.repeat(20),r={owner:'0x'+'44'.repeat(20),signature:'0x'+'11'.repeat(64)+'1b',units:2550000,nonce:0,fee_units:100000};
+ const source=await start({refundAnswer:()=>r});fillForm(source);await source.submit();const entry=JSON.parse(source.window.localStorage.getItem('wire-usdt-cards'))[0];assert.equal(entry.sender,'sender@example.test');await source.window.WireUSDT.refund(entry,to);
+ assert.equal(source.window.localStorage.getItem('wire-refund-address:polygon:sender@example.test'),to);assert.equal(source.window.localStorage.getItem('wire-refund-address:Polygon'),null);
+ const local=Object.fromEntries(Object.keys(source.window.localStorage).map(k=>[k,source.window.localStorage.getItem(k)]));
+ const own=await start({local,status:()=>({state:'expired',balance_units:2650000}),refundAnswer:()=>r});for(let i=0;i<100&&!own.calls.some(([p])=>p.endsWith('/refund-claim'));i++)await settle();assert.equal(own.calls.filter(([p])=>p.endsWith('/refund-claim')).length,1,'the same verified sender can refund automatically');
+ source.window.localStorage.setItem('wire-refund-address:ethereum:sender@example.test',to);source.window.localStorage.setItem('wire-refund-address:polygon:other@example.test',to);source.window.WireUSDT.configure({assets:['USDC_POLYGON'],isVerified:false,email:''});
+ assert.equal(source.window.localStorage.getItem('wire-refund-address:polygon:sender@example.test'),null);assert.equal(source.window.localStorage.getItem('wire-refund-address:ethereum:sender@example.test'),null);assert.equal(source.window.localStorage.getItem('wire-refund-address:polygon:other@example.test'),to);assert.ok(source.window.localStorage.getItem('wire-usdt-cards'));
+});
+test('classic sender B gets an empty refund field with shared keys, ignores legacy and funding addresses, and checks card ownership',async()=>{
+ const bSource=await start({sessionEmail:'b@example.test'});fillForm(bSource);await bSource.submit();const entries=JSON.parse(bSource.window.localStorage.getItem('wire-usdt-cards'));const to='0x'+'66'.repeat(20);entries[0].fundingAddress=to;
+ const local={'wire-usdt-cards':JSON.stringify(entries),'wire-refund-address:polygon':to,'wire-refund-address:Polygon':to,'wire-refund-address:ethereum':to,'wire-refund-address:Ethereum':to,'wire-refund-address:polygon:sender@example.test':to};
+ const app=await start({sessionEmail:'b@example.test',local,status:()=>({state:'expired',balance_units:2650000})});assert.equal(app.calls.filter(([p])=>p.endsWith('/refund')).length,0);assert.equal(app.$('usdt-list').querySelector('input').value,'');for(const chain of ['polygon','Polygon','ethereum','Ethereum'])assert.equal(app.window.localStorage.getItem('wire-refund-address:'+chain),null);
+ const foreign=await start({sessionEmail:'other@example.test',local:{...local,'wire-refund-address:polygon:other@example.test':to},status:()=>({state:'expired',balance_units:2650000})});assert.equal(foreign.calls.filter(([p])=>p.endsWith('/refund')).length,0);assert.equal(foreign.$('usdt-list').querySelector('input'),null);
+});
 test('refund confirmations retain the full relayer fee in all five languages and both interfaces', () => {
   const retained = { en: /fees .*are retained/, fr: /frais .*sont conservés/, es: /se retienen las comisiones/, de: /Gebühren .*werden einbehalten/, zh: /中继费用.*将被保留/ };
   const context = { window: { PhoenixUSDTCashlink: { WORDS: Object.fromEntries(Object.keys(retained).map(lang => [lang, { refundConfirm: 'old', untouched: 'kept' }])) } } };
@@ -210,4 +226,5 @@ test('the five languages all have every word', () => {
     for (const k of ['payTitle', 'payHelp', 'invited', 'refundConfirm']) assert.deepEqual((usdtText[lang][k].match(/\{\w+\}/g) || []).sort(), (usdtText.en[k].match(/\{\w+\}/g) || []).sort(), lang + ' ' + k + ' keeps its placeholders');
   }
 });
+
 

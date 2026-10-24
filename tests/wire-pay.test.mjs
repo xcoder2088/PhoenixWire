@@ -912,7 +912,7 @@ test('expired stablecoins show one address field and remember a manually confirm
  const list=JSON.parse(app.window.localStorage.getItem('wire-usdt-cards')),id=list[0].id;list[0].created=app.clock.now()-90000000;app.window.localStorage.setItem('wire-usdt-cards',JSON.stringify(list));
  const calls=[],original=app.window.PhoenixUSDTCashlink.create;app.window.PhoenixUSDTCashlink.create=options=>{const cl=original(options);cl.refund=async(entry,to,settings)=>{calls.push(to);assert.equal(entry.card.id,id);assert.ok(settings.confirm({units:2500000,fee:150000}));return{status:'refunded'};};return cl;};
  await app.clock.advance(2500);const form=app.doc.querySelector('.wire-refund-form');assert.ok(form);assert.equal(form.querySelectorAll('input').length,1);assert.equal(form.querySelector('input').value,'');assert.equal(calls.length,0);
- const to='0x'+'55'.repeat(20);form.querySelector('input').value=to;form.dispatchEvent(new app.window.Event('submit',{cancelable:true}));await settle();assert.deepEqual(calls,[to]);assert.equal(app.window.localStorage.getItem('wire-refund-address:polygon'),to);assert.match(app.doc.querySelector('.wire-refund-result').textContent,/Refund sent/);assert.equal(app.confirmations.length,1);assert.doesNotMatch(app.confirmations[0],/gas fee/);
+ const to='0x'+'55'.repeat(20);form.querySelector('input').value=to;form.dispatchEvent(new app.window.Event('submit',{cancelable:true}));await settle();assert.deepEqual(calls,[to]);assert.equal(app.window.localStorage.getItem('wire-refund-address:polygon:sender@example.test'),to);assert.match(app.doc.querySelector('.wire-refund-result').textContent,/Refund sent/);assert.equal(app.confirmations.length,1);assert.doesNotMatch(app.confirmations[0],/gas fee/);
 });
 test('the stablecoin sent screen uses the server creation date plus 24 hours',async()=>{
  const app=await start({clocked:true,state:()=>({state:'ready',balanceUnits:2650000})});await makeCard(app);const c=JSON.parse(app.window.localStorage.getItem('wire-usdt-cards'))[0];await app.clock.advance(3000);
@@ -920,12 +920,33 @@ test('the stablecoin sent screen uses the server creation date plus 24 hours',as
 });
 test('known expired-card refunds run once on open, surface failures and require the browser key',async()=>{
  const source=await start({clocked:true});await makeCard(source);const c=JSON.parse(source.window.localStorage.getItem('wire-usdt-cards'))[0];c.created=source.clock.now()-90000000;
- const to='0x'+'66'.repeat(20),local={'wire-usdt-cards':JSON.stringify([c]),'phoenixmail.usdt.sent.v2':source.window.localStorage.getItem('phoenixmail.usdt.sent.v2'),'wire-refund-address:polygon':to};
+ const to='0x'+'66'.repeat(20),local={'wire-usdt-cards':JSON.stringify([c]),'phoenixmail.usdt.sent.v2':source.window.localStorage.getItem('phoenixmail.usdt.sent.v2'),'wire-refund-address:polygon:sender@example.test':to};
  for(const failure of [false,true]){
   const app=await start({clocked:true,local,state:()=>({state:'expired',balanceUnits:2650000})});let count=0;const original=app.window.PhoenixUSDTCashlink.create;app.window.PhoenixUSDTCashlink.create=options=>{const cl=original(options);cl.refund=async(entry,address,settings)=>{count++;assert.equal(address,to);assert.equal(entry.card.id,c.id);assert.equal(settings.confirm({units:2500000,fee:150000}),true);if(failure)throw Error('chain_unavailable');return{status:'refunded'};};return cl;};
   await app.clock.advance(2500);assert.equal(count,1);assert.equal(app.confirmations.length,0);assert.ok(app.doc.querySelector('.wire-refund-result').textContent.includes(failure?'unavailable':'Refund sent'));app.window.dispatchEvent(new app.window.Event('pageshow'));await settle();await app.clock.advance(6000);assert.equal(count,1);
  }
- const noKey=await start({clocked:true,local:{'wire-usdt-cards':JSON.stringify([c]),'wire-refund-address:polygon':to},state:()=>({state:'expired',balanceUnits:2650000})});await noKey.clock.advance(2500);assert.equal(noKey.doc.querySelector('.wire-refund-form'),null);assert.match(noKey.doc.querySelector('.wire-refund-result').textContent,/browser where/);
+ const noKey=await start({clocked:true,local:{'wire-usdt-cards':JSON.stringify([c]),'wire-refund-address:polygon:sender@example.test':to},state:()=>({state:'expired',balanceUnits:2650000})});await noKey.clock.advance(2500);assert.equal(noKey.doc.querySelector('.wire-refund-form'),null);assert.match(noKey.doc.querySelector('.wire-refund-result').textContent,/browser where/);
+});
+test('refund memory follows verified sender A, is erased on sign-out and never funds sender B from shared storage',async()=>{
+ let expired=false;const a=await start({clocked:true,state:()=>({state:expired?'expired':'awaiting_funds',balanceUnits:expired?2650000:0})});await makeCard(a);
+ const list=JSON.parse(a.window.localStorage.getItem('wire-usdt-cards'));list[0].created=a.clock.now()-90000000;a.window.localStorage.setItem('wire-usdt-cards',JSON.stringify(list));expired=true;
+ const to='0x'+'88'.repeat(20),original=a.window.PhoenixUSDTCashlink.create;a.window.PhoenixUSDTCashlink.create=options=>{const cl=original(options);cl.refund=async()=>({status:'refunded'});return cl;};
+ await a.clock.advance(2500);const form=a.doc.querySelector('.wire-refund-form');form.querySelector('input').value=to;form.dispatchEvent(new a.window.Event('submit',{cancelable:true}));await settle();
+ assert.equal(a.window.localStorage.getItem('wire-refund-address:polygon:sender@example.test'),to);
+ a.window.localStorage.setItem('wire-refund-address:ethereum:sender@example.test',to);a.window.localStorage.setItem('wire-refund-address:polygon:other@example.test',to);
+ a.$('wire-logout').click();await settle();assert.equal(a.window.localStorage.getItem('wire-refund-address:polygon:sender@example.test'),null);assert.equal(a.window.localStorage.getItem('wire-refund-address:ethereum:sender@example.test'),null);assert.equal(a.window.localStorage.getItem('wire-refund-address:polygon:other@example.test'),to);
+ const shared=a.snapshotLocal();assert.ok(shared['phoenixmail.usdt.sent.v2']);assert.ok(shared['wire-usdt-cards']);
+ const bSource=await start({clocked:true,session:{verified:true,email:'b@example.test'}});await makeCard(bSource);const bCards=JSON.parse(bSource.window.localStorage.getItem('wire-usdt-cards'));bCards[0].created=bSource.clock.now()-90000000;bCards[0].fundingAddress=to;
+ const local={...shared,'wire-refund-address:polygon':to,'wire-refund-address:Polygon':to,'wire-refund-address:ethereum':to,'wire-refund-address:Ethereum':to,'wire-usdt-cards':JSON.stringify([...JSON.parse(shared['wire-usdt-cards']),...bCards]),'phoenixmail.usdt.sent.v2':JSON.stringify([...JSON.parse(shared['phoenixmail.usdt.sent.v2']),...JSON.parse(bSource.window.localStorage.getItem('phoenixmail.usdt.sent.v2'))])};
+ const b=await start({clocked:true,session:{verified:true,email:'b@example.test'},local,state:()=>({state:'expired',balanceUnits:2650000})});let refunds=0;const create=b.window.PhoenixUSDTCashlink.create;b.window.PhoenixUSDTCashlink.create=options=>{const cl=create(options);cl.refund=async()=>{refunds++;return{status:'refunded'};};return cl;};
+ await b.clock.advance(2500);assert.equal(refunds,0);assert.equal(b.doc.querySelector('.wire-refund-form input').value,'');for(const chain of ['polygon','Polygon','ethereum','Ethereum'])assert.equal(b.window.localStorage.getItem('wire-refund-address:'+chain),null);
+});
+test('an unverified session or a card rejected by the ownership API never triggers an automatic refund',async()=>{
+ const source=await start({clocked:true});await makeCard(source);const cards=JSON.parse(source.window.localStorage.getItem('wire-usdt-cards'));cards[0].created=source.clock.now()-90000000;
+ const local={...source.snapshotLocal(),'wire-usdt-cards':JSON.stringify(cards),'wire-refund-address:polygon:b@example.test':'0x'+'99'.repeat(20)};
+ for(const session of [{verified:false},{verified:true,email:'b@example.test'}]){
+  const app=await start({clocked:true,session,local,state:()=>({state:'expired',balanceUnits:2650000})});const fetch=app.window.fetch;app.window.fetch=(path,options)=>path==='/api/usdt/cashlink/status'?Promise.resolve({ok:false,status:404,json:async()=>({code:'not_found'})}):fetch(path,options);let refunds=0;const create=app.window.PhoenixUSDTCashlink.create;app.window.PhoenixUSDTCashlink.create=options=>{const cl=create(options);cl.refund=async()=>{refunds++;return{status:'refunded'};};return cl;};await app.clock.advance(6000);assert.equal(refunds,0);assert.equal(app.doc.querySelector('.wire-refund-form'),null);
+ }
 });
 test('NIM refund stages have no recovery, retry or cancel actions in the actual dashboard',async()=>{
  const app=await start({clocked:true,nimPending:true,createdAgo:90000000});for(const stage of ['refunding','refunded']){app.setStage(stage);app.window.dispatchEvent(new app.window.Event('pageshow'));await settle();const row=app.doc.querySelector('.wire-card-row');assert.ok(row);assert.equal(row.querySelectorAll('button,a').length,0);assert.equal(row.querySelector('.wire-card-state').textContent,flowText('en',stage));}
@@ -933,7 +954,7 @@ test('NIM refund stages have no recovery, retry or cancel actions in the actual 
 test('a pending stablecoin refund becomes completed, or offers manual retry when the server stops processing it',async()=>{
  for(const completed of [false,true]){
   const initial=await start({clocked:true});await makeCard(initial);const c=JSON.parse(initial.window.localStorage.getItem('wire-usdt-cards'))[0];c.created=initial.clock.now()-90000000;c.refundPending=true;c.refundPendingAt=initial.clock.now()-90000;
-  const to='0x'+'77'.repeat(20),app=await start({clocked:true,local:{'wire-usdt-cards':JSON.stringify([c]),'phoenixmail.usdt.sent.v2':initial.window.localStorage.getItem('phoenixmail.usdt.sent.v2'),'wire-refund-address:polygon':to},state:()=>({state:completed?'withdrawn':'expired',balanceUnits:completed?0:2650000,recovering:false})});await app.clock.advance(2500);
+  const to='0x'+'77'.repeat(20),app=await start({clocked:true,local:{'wire-usdt-cards':JSON.stringify([c]),'phoenixmail.usdt.sent.v2':initial.window.localStorage.getItem('phoenixmail.usdt.sent.v2'),'wire-refund-address:polygon:sender@example.test':to},state:()=>({state:completed?'withdrawn':'expired',balanceUnits:completed?0:2650000,recovering:false})});await app.clock.advance(2500);
   assert.ok(app.doc.querySelector('.wire-refund-result').textContent.includes(completed?'Refund sent':'unavailable'));assert.equal(Boolean(app.doc.querySelector('.wire-refund-form')),!completed);
  }
 });
@@ -2043,3 +2064,4 @@ test('cancelled recent cards keep checking for late funds without showing paymen
  app.setClaimState('unclaimed');await app.clock.advance(6000);
  assert.match(app.$('wire-cards-list').textContent,/Recover funds/);assert.ok(!app.$('wire-cards-list').textContent.includes('Retry payment'));
 });
+
