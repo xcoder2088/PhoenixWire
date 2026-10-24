@@ -671,6 +671,9 @@ func TestOnlyRegisteredSendersCanSignIn(t *testing.T) {
 	p := f.create()
 	t.Setenv("PHOENIXWIRE_SENDERS", "") // now by invitation
 	f.cookie = nil
+	if !f.api.InviteOnly() {
+		t.Fatal("the page must be told that sending is by invitation")
+	}
 	// a stranger gets no code and nothing is sent
 	before := len(f.mail.codes)
 	w := f.call("POST", "/api/sender/request", map[string]string{"email": "stranger@example.test"})
@@ -692,6 +695,9 @@ func TestOnlyRegisteredSendersCanSignIn(t *testing.T) {
 		t.Fatal("the claim route must stay public and answer by the card's own state", w.Code)
 	}
 	t.Setenv("PHOENIXWIRE_SENDERS", "open")
+	if f.api.InviteOnly() {
+		t.Fatal("open mode must say so")
+	}
 	if w := f.call("POST", "/api/sender/request", map[string]string{"email": "stranger@example.test"}); w.Code != 200 {
 		t.Fatal("open mode refused a sender", w.Code)
 	}

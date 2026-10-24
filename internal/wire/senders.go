@@ -39,3 +39,9 @@ func (a *API) senderAllowed(address string) bool {
 	}
 	return false
 }
+
+// InviteOnly says whether sending is limited to the senders already registered (what the public configuration tells the page, so a visitor is
+// not asked for an e-mail that will be refused).
+func (a *API) InviteOnly() bool {
+	return strings.ToLower(strings.TrimSpace(os.Getenv("PHOENIXWIRE_SENDERS"))) != "open"
+}
