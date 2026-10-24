@@ -28,6 +28,7 @@ type fakeChain struct {
 	executed   bool
 	broadcasts []string
 	origin     string // where the funding came from, as the node shows it
+	originErr  error  // the node cannot name one (nimiq.ErrAmbiguousFunding)
 }
 
 func (f *fakeChain) Height(context.Context) (uint32, error)                { return f.height, nil }
@@ -36,7 +37,9 @@ func (f *fakeChain) RawHash(_ context.Context, raw string) (string, error) { ret
 func (f *fakeChain) ConfirmedSpendable(context.Context, string, string, uint64) (bool, error) {
 	return f.funded, nil
 }
-func (f *fakeChain) FundingSender(context.Context, string) (string, error) { return f.origin, nil }
+func (f *fakeChain) FundingSender(context.Context, string) (string, error) {
+	return f.origin, f.originErr
+}
 func (f *fakeChain) Broadcast(_ context.Context, raw string) (string, error) {
 	f.broadcasts = append(f.broadcasts, raw)
 	return fakeHash(raw), nil
@@ -304,5 +307,37 @@ func TestAnExpiredCardIsLeftAloneWhenItIsNotTheSendersToTake(t *testing.T) {
 	}
 	if state, _ := e.RefundExpired(ctx, f.id, 325000); state != "released" || len(f.chain.broadcasts) != 0 {
 		t.Fatal("a card the recipient opened was refunded", state)
+	}
+}
+
+func TestACardWithSeveralFundersIsNeverRefundedByItself(t *testing.T) {
+	f := newPayoutFixture(t)
+	f.chain.originErr = nimiq.ErrAmbiguousFunding
+	e := &Engine{server: f.s}
+	if state, err := e.RefundExpired(context.Background(), f.id, 325000); err != nil || state != "ambiguous" || len(f.chain.broadcasts) != 0 {
+		t.Fatal("an ambiguous origin was refunded", state, err, len(f.chain.broadcasts))
+	}
+}
+
+func TestARefundThatCannotBeIncludedIsSignedAgainAsARefundAndJournaledFirst(t *testing.T) {
+	f := newPayoutFixture(t)
+	origin, _ := (nimiq.AddressDeriver{}).CashlinkAddress(bytes.Repeat([]byte{0x55}, 32))
+	f.chain.origin = origin
+	e := &Engine{server: f.s}
+	ctx := context.Background()
+	if state, _ := e.RefundExpired(ctx, f.id, 325000); state != "pending" {
+		t.Fatal("refund", state)
+	}
+	first, _ := f.s.loadPayout(f.id)
+	f.chain.height += payoutExpiry + 10 // the first transaction can no longer be included, the coins are still there
+	if state, _ := e.RefundExpired(ctx, f.id, 325000); state != "pending" {
+		t.Fatal("the refund was not followed", state)
+	}
+	second, _ := f.s.loadPayout(f.id)
+	if second.Hash == first.Hash || second.Kind != "refund" || second.To != first.To {
+		t.Fatalf("a refund signed again must stay a refund to the same address: %+v", second)
+	}
+	if status, answer := f.call("payout_status", "", ""); status != 200 || answer["status"] != "payout_refunded" || answer["to"] != nil {
+		t.Fatal("the public answer for a refund", status, answer)
 	}
 }

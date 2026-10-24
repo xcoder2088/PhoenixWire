@@ -3,6 +3,7 @@ package nimiq
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 )
 
@@ -95,13 +96,22 @@ func (v *MainnetVerifier) RawHash(ctx context.Context, rawHex string) (string, e
 	return strings.ToLower(info.Hash), nil
 }
 
-// FundingSender is the address a Cashlink was funded from: the sender of its oldest confirmed funding transaction (the one that carries the
-// funding mark). "" with a nil error when the node does not show one yet. The answer is the node's, like every chain fact here.
+// ErrAmbiguousFunding: the money on a Cashlink did not come from one sender (or its history is too long to be read whole). Nothing is paid back
+// automatically then: whoever sent it recovers it by hand.
+var ErrAmbiguousFunding = errors.New("funding_ambiguous")
+
+// fundingWindow is how many of the address's latest transactions the node is asked for; a full window means there may be more and is ambiguous.
+const fundingWindow = 50
+
+// FundingSender is the address a Cashlink was funded from, and only when that is certain: every confirmed transaction that carries the funding
+// mark comes from ONE address, and the node's whole answer was read (a full window of 50 may hide older ones). Anyone can send a small amount
+// with the mark to a card's public address, so "the oldest" or "the biggest" sender is not an answer: two different senders, or a history
+// too long to read, is ErrAmbiguousFunding. "" with a nil error: no funding shown yet.
 func (v *MainnetVerifier) FundingSender(ctx context.Context, address string) (string, error) {
 	if v == nil || ctx == nil || !ValidAddress(address) {
 		return "", ErrRPC
 	}
-	raw, err := v.call(ctx, "getTransactionsByAddress", []any{address, 50, nil})
+	raw, err := v.call(ctx, "getTransactionsByAddress", []any{address, fundingWindow, nil})
 	if err != nil {
 		return "", err
 	}
@@ -115,12 +125,25 @@ func (v *MainnetVerifier) FundingSender(ctx context.Context, address string) (st
 	if json.Unmarshal(raw, &txs) != nil {
 		return "", ErrRPC
 	}
-	want := normalized(address)
-	for i := len(txs) - 1; i >= 0; i-- { // the node lists the newest first: the oldest funding is the last match
-		tx := txs[i]
-		if normalized(tx.To) == want && tx.ExecutionResult && tx.Confirmations >= 1 && fundingMarker(tx.RecipientData) && ValidAddress(tx.From) && normalized(tx.From) != want {
-			return tx.From, nil
-		}
+	if len(txs) >= fundingWindow {
+		return "", ErrAmbiguousFunding
 	}
-	return "", nil
+	want := normalized(address)
+	sender := ""
+	for _, tx := range txs {
+		if normalized(tx.To) != want || !fundingMarker(tx.RecipientData) {
+			continue
+		}
+		if !tx.ExecutionResult || tx.Confirmations < 1 {
+			return "", ErrAmbiguousFunding // a funding that is not settled yet: not the moment to choose
+		}
+		if !ValidAddress(tx.From) || normalized(tx.From) == want {
+			return "", ErrAmbiguousFunding
+		}
+		if sender != "" && normalized(sender) != normalized(tx.From) {
+			return "", ErrAmbiguousFunding
+		}
+		sender = tx.From
+	}
+	return sender, nil
 }

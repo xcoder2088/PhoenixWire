@@ -211,6 +211,8 @@ func NewSenderOTP(sender otp.Sender, dir string, master []byte) (*otp.Manager, e
 //	"released" the recipient already has the Hub link (they opened it before the end): the coins are theirs to take, nothing is sent
 //	"started"  the recipient's own payout to an address began: it is not touched
 //	"unknown"  where the money came from cannot be read yet: asked again later
+//	"ambiguous" more than one address put money on the card (anyone can send the funding mark to its public address): nothing is sent, the sender
+//	           recovers it by hand
 //
 // The destination is only ever the funding transaction's sender, recorded in the journal BEFORE anything is broadcast, so a retry can only
 // repeat this very refund. The network fee of a basic transaction is nothing; a NIM card carries no service fee.
@@ -260,6 +262,9 @@ func (e *Engine) RefundExpired(ctx context.Context, id string, luna uint64) (str
 		return "claimed", nil
 	}
 	origin, err := s.chain.FundingSender(ctx, own)
+	if errors.Is(err, nimiq.ErrAmbiguousFunding) {
+		return "ambiguous", nil // more than one sender put money on this card (or its history is too long): by hand, never automatic
+	}
 	if err != nil {
 		return "", err
 	}

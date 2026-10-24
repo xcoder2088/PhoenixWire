@@ -192,14 +192,11 @@ func (s *server) followPayout(ctx context.Context, id string, rec *payoutRecord)
 	if err != nil {
 		return map[string]any{"error": "payout_unavailable"}, http.StatusServiceUnavailable
 	}
-	hash, err := s.chain.Broadcast(ctx, fresh.Raw)
-	if err != nil {
-		return map[string]any{"error": "chain_unavailable"}, http.StatusServiceUnavailable
-	}
-	fresh.Hash = hash
-	if err := s.savePayout(id, fresh); err != nil {
+	fresh.Kind = rec.Kind                           // a refund stays a refund
+	if err := s.savePayout(id, fresh); err != nil { // journal first, broadcast second, like the first signature
 		return map[string]any{"error": "payout_unavailable"}, http.StatusServiceUnavailable
 	}
+	_, _ = s.chain.Broadcast(ctx, fresh.Raw) // if the node refuses it now, the next look pushes it again
 	return payoutAnswer(fresh, "payout_pending", 0), http.StatusOK
 }
 

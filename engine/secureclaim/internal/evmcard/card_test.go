@@ -63,13 +63,23 @@ func TestFullFlowOpenCard(t *testing.T) {
 		if st, _ := r.svc.Status(ctx, c.ID); st.State != StateAwaiting || st.Recipient != "" {
 			t.Fatal("no address yet")
 		}
-		var told []Record
-		r.svc.OnReady = func(rec Record) { told = append(told, rec) }
+		toldCh := make(chan Record, 4) // the callback runs in its own goroutine: it hands the record over, the test waits for it
+		r.svc.OnReady = func(rec Record) { toldCh <- rec }
 		pub, err := r.svc.SetRecipient(ctx, c.ID, strings.ToLower(recipient))
 		if err != nil || pub.State != StateReady || !pub.HasRecipient {
 			t.Fatalf("set recipient: %+v %v", pub, err)
 		}
-		time.Sleep(20 * time.Millisecond)
+		var told []Record
+		select {
+		case rec := <-toldCh:
+			told = append(told, rec)
+		case <-time.After(3 * time.Second):
+			t.Fatal("the sender was not told")
+		}
+		time.Sleep(20 * time.Millisecond) // a second call, if there were one, would arrive now
+		for len(toldCh) > 0 {
+			told = append(told, <-toldCh)
+		}
 		if len(told) != 1 || told[0].SenderEmail != "me@example.com" || told[0].Recipient != recipient {
 			t.Fatalf("the sender must be told once: %+v", told)
 		}
