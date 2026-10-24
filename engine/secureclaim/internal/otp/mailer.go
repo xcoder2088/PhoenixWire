@@ -143,8 +143,24 @@ func (m MailerSend) Send(ctx context.Context, to, code string) error {
 		return err
 	}
 	defer response.Body.Close()
-	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
+	answer, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
 	if response.StatusCode != http.StatusAccepted {
+		// The provider says why (an account that may only send to verified recipients, a bad sender, a limit): its own message is logged, never the
+		// key, the code or the address.
+		var why struct {
+			Message string `json:"message"`
+		}
+		_ = json.Unmarshal(answer, &why)
+		note := strings.Map(func(r rune) rune {
+			if r < 32 || r == 127 {
+				return ' '
+			}
+			return r
+		}, why.Message)
+		if len(note) > 200 {
+			note = note[:200]
+		}
+		log.Printf("mail: the provider answered %d: %s", response.StatusCode, note)
 		return fmt.Errorf("otp_mail_delivery_failed_status_%d", response.StatusCode)
 	}
 	return nil

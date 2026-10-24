@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/mail"
@@ -515,6 +516,8 @@ func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
 		status := 502
 		if errors.Is(err, service.ErrOTPRateLimited) {
 			status = 429
+		} else {
+			log.Printf("sender code not sent: %v", err) // the reason of a delivery failure (no address, no code)
 		}
 		failure(w, status, "wait_or_delivery_unavailable")
 		return
