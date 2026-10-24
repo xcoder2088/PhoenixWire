@@ -1,4 +1,6 @@
 /* Wire's own frame around PhoenixMail's payment window (the window brings its own styles: /pm/*). */
+/* Suppress the unstyled frame; .wire-body reveals the page when CSS arrives. */
+html.wire-app{color-scheme:dark;background:var(--bg,#10151d)}
 .wire-nim-progress{position:static;display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:16px;margin:0 0 18px;border:1px solid var(--accent);border-radius:12px;background:var(--panel);color:var(--text)}
 .wire-nim-progress p{margin:0;line-height:1.5;font-weight:650;overflow-wrap:anywhere}
 .wire-nim-progress>p{flex:1 1 240px}

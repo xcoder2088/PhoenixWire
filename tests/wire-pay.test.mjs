@@ -16,6 +16,24 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 const settle = async () => { for (let i = 0; i < 30; i++) await tick(); };
 const proxy = read('../engine/secureclaim/web/usdt.html').match(/PROXY_CREATION_CODE='(0x[0-9a-f]+)'/)[1];
 const doms = [];
+test('initial navigation stays dark and hides unstyled content until external CSS arrives, without JavaScript',()=>{
+ const html=read('../internal/web/static/index.html'),css=read('../internal/web/static/wire-pay.css');
+ const page=new JSDOM(html),doc=page.window.document;
+ try{
+  const scheme=doc.querySelector('meta[name="color-scheme"]');
+  assert.equal(scheme.content,'dark');
+  assert.ok(scheme.compareDocumentPosition(doc.querySelector('link[rel="stylesheet"]'))&page.window.Node.DOCUMENT_POSITION_FOLLOWING);
+  assert.equal(doc.body.hidden,true);
+  assert.equal(page.window.getComputedStyle(doc.body).display,'none');
+  const style=doc.createElement('style');style.textContent=css;doc.head.append(style);
+  assert.equal(page.window.getComputedStyle(doc.body).display,'block');
+  assert.equal(page.window.getComputedStyle(doc.documentElement).colorScheme,'dark');
+  doc.documentElement.dataset.theme='light-paper';
+  assert.equal(page.window.getComputedStyle(doc.documentElement).colorScheme,'light');
+  assert.equal(page.window.getComputedStyle(doc.body).display,'block');
+  assert.equal(doc.querySelectorAll('script:not([src]),[style]').length,0,'initial paint needs no inline script/style or CSP relaxation');
+ }finally{page.window.close();}
+});
 test('NIM draft shows a safe live card without creating or paying, with one lifetime note',async()=>{
  for(const language of ['fr','en','es','de','zh']){
   const app=await start({nimOnly:true,clocked:true});app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));app.$('pay').click();await settle();

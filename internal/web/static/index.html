@@ -2,6 +2,8 @@
 <html lang="en" data-theme="dark" class="wire-app">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Keep the initial canvas dark before external styles arrive. -->
+  <meta name="color-scheme" content="dark">
   <title>Phoenix Wire</title>
   <meta name="application-name" content="Phoenix Wire">
   <meta name="apple-mobile-web-app-title" content="Phoenix Wire">
@@ -13,9 +15,10 @@
   <link rel="stylesheet" href="/pm/app.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/nimiq-payments.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/theme-light.css?v=0.4.0">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.29">
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.31">
 </head>
-<body class="wire-body">
+<!-- The external stylesheet reveals the page without waiting for scripts. -->
+<body class="wire-body" hidden>
   <main class="wire-shell">
     <header class="wire-head"><img src="/brand/phoenix-wire.webp?v=0.3.0" width="215" height="57" alt="Phoenix Wire">
       <select id="wire-language" aria-label="Language"><option value="auto">Automatic</option><option value="fr">Français</option><option value="en">English</option><option value="es">Español</option><option value="de">Deutsch</option><option value="zh">中文</option></select>
@@ -122,7 +125,7 @@
   <script src="/usdt-refund-text.js?v=0.4.21"></script>
   <script src="/pm/usdt-payments.js?v=0.4.6"></script>
   <script src="/pm/nimiq-payments.js?v=0.4.0"></script>
-  <script type="module" src="/wire-pay.js?v=0.4.30"></script>
+  <script type="module" src="/wire-pay.js?v=0.4.31"></script>
 </body>
 </html>
 

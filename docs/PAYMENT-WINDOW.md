@@ -1,5 +1,25 @@
 # The payment window is PhoenixMail's
 
+## Initial navigation appearance (cache 0.4.31)
+
+The main entry page declares a dark browser colour scheme before its external
+stylesheets. Its body starts hidden using the standard HTML attribute; the
+existing `.wire-body` display rule reveals it as soon as Wire's stylesheet is
+applied. This avoids exposing raw text and a white canvas during initial loading.
+The page does not wait for scripts, session requests or browser storage to become
+visible. The selected light theme still uses its existing light colour scheme.
+When the main module runs, it clears the startup attribute so visibility checks
+and keyboard focus traps continue to recognise all visible controls.
+
+No inline script/style, content-security-policy change, mirrored file or new
+static file is required. The CSS cache version is bumped to 0.4.31. A DOM
+regression checks the state before/after CSS, light appearance and operation
+without scripts. This is not a physical browser or device validation.
+
+Validation: `npm ci --ignore-scripts`, followed by
+`node --test --test-timeout=90000 tests/*.test.mjs engine/secureclaim/web/tests/*.cjs`:
+246 tests executed and passed, none failed or skipped.
+
 ## Token and network marks (cache 0.4.30)
 
 Three new **192×192 transparent RGBA PNG files** distinguish the token and its

@@ -6,6 +6,9 @@ import { resolveLanguage,renderCardPreview,assetMark } from './model.js?v=0.4.30
 import { mountNimFlow } from './flow.js?v=0.4.30';
 import { flowText } from './flow-text.js?v=0.4.29';
 
+// CSS can reveal the page without scripts; clear the startup attribute so
+// visibility checks and keyboard focus traps see the rendered controls.
+document.body.hidden = false;
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
 const STORE = 'wire-usdt-cards', words = {
