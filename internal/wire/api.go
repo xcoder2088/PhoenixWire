@@ -534,18 +534,21 @@ func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
 func (a *API) verifySender(w http.ResponseWriter, r *http.Request) {
 	key, s, ok := a.current(r)
 	if !ok || s.Verified {
+		log.Printf("sender code refused: %s", map[bool]string{true: "already verified", false: "no session (cookie missing, or older than 15 minutes)"}[ok]) // never the address or the code
 		failure(w, 403, "invalid_or_expired_code")
 		return
 	}
 	var input struct {
 		Code string `json:"code"`
 	}
-	if decode(w, r, &input) != nil || !codeRE.MatchString(input.Code) {
+	if err := decode(w, r, &input); err != nil || !codeRE.MatchString(input.Code) {
+		log.Printf("sender code refused: not six digits (length %d)", len(input.Code))
 		failure(w, 403, "invalid_or_expired_code")
 		return
 	}
 	challenge := hex.EncodeToString(digest(a.master, "sender:"+s.Email))
-	if a.otp.Verify(challenge, s.Email, input.Code) != nil {
+	if err := a.otp.Verify(challenge, s.Email, input.Code); err != nil {
+		log.Printf("sender code refused: %v", err)
 		failure(w, 403, "invalid_or_expired_code")
 		return
 	}
