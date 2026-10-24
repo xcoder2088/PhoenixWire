@@ -30,10 +30,17 @@ done
 check_site() {
   echo "--- checking $SITE"
   local bad=0
-  for path in / /usdt.html /wire-pay.js /cashlink.js; do
+  # the pages themselves, then every file they name (a file the server does not serve breaks the page for everyone)
+  for path in / /classic.html /usdt.html; do
     code="$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$SITE$path" || true)"
     echo "$path: HTTP $code"
     [ "$code" = 200 ] || bad=1
+  done
+  for page in / /classic.html; do
+    for file in $(curl -s -m 15 "$SITE$page" | grep -oE '(src|href)="/?[A-Za-z0-9_./-]+\.(js|css|png|webp|svg|ico|webmanifest)' | sed -E 's/^(src|href)="//; s#^([^/])#/\1#' | sort -u); do
+      code="$(curl -s -o /dev/null -m 15 -w '%{http_code}' "$SITE$file" || true)"
+      if [ "$code" != 200 ]; then echo "MISSING $file: HTTP $code (named by $page)"; bad=1; fi
+    done
   done
   echo "$(curl -s -m 15 "$SITE/api/config" || true)"
   return $bad
