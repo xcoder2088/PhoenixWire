@@ -60,12 +60,12 @@ export const legalCopy = {
       [
         "NIM cards: sender and recipient emails, amount, message up to 160 characters, language, public card address, stage, dates and decorative image",
         "Card operation, history, email and refund",
-        "No automatic deletion of finished cards today. Unpaid drafts: 2 days. Cancelled cards: 14 days."
+        "Finished cards: email addresses and messages are erased 60 days after the card ends, if it holds nothing. Unpaid drafts: 2 days. Cancelled cards: 14 days."
       ],
       [
         "USDC/USDT cards: sender and recipient emails, amount, message, public card address, refund token held by Wire and dates",
         "Card operation, history, email and refund",
-        "No automatic deletion of finished cards today."
+        "Erased 60 days after the card ends, if it holds nothing."
       ],
       [
         "Secret-keyed hash of the visitor’s IP address and a counter",
@@ -125,8 +125,8 @@ export const legalCopy = {
     ],
     "deletion": [
       "Requesting deletion and its limits",
-      "There is no automatic deletion of finished cards today. They and their email addresses remain until removed by hand. You can request removal of sender and recipient email addresses and messages from Wire’s own state.",
-      "The request contact is still to be supplied below. No automatic deletion schedule or response deadline is promised here.",
+      "Wire erases a card’s email addresses and message by itself 60 days after the card ends, if the card holds nothing. A card that still holds money keeps its data, because its sender may need to recover it. You can ask for an earlier removal for a card that is over. Payments stay on the blockchain, and backups keep what they held on the day they were made.",
+      "The request contact is still to be supplied below. No response deadline is promised here.",
       "Wire cannot remove blockchain records, MailerSend delivery logs or Cloudflare data. Those providers’ own retention applies. Removing contact data cannot reverse a claimed payment."
     ]
   },
@@ -191,12 +191,12 @@ export const legalCopy = {
       [
         "Cartes NIM : courriels de l’expéditeur et du destinataire, montant, message de 160 caractères maximum, langue, adresse publique de la carte, étape, dates et image décorative",
         "Fonctionnement, historique, courriel et remboursement",
-        "Pas de suppression automatique des cartes terminées aujourd’hui. Brouillons non payés : 2 jours. Cartes annulées : 14 jours."
+        "Cartes terminées : courriels et messages effacés 60 jours après la fin de la carte, si elle ne contient rien. Brouillons non payés : 2 jours. Cartes annulées : 14 jours."
       ],
       [
         "Cartes USDC/USDT : courriels de l’expéditeur et du destinataire, montant, message, adresse publique de la carte, jeton de remboursement gardé par Wire et dates",
         "Fonctionnement, historique, courriel et remboursement",
-        "Pas de suppression automatique des cartes terminées aujourd’hui."
+        "Effacé 60 jours après la fin de la carte, si elle ne contient rien."
       ],
       [
         "Empreinte de l’adresse IP du visiteur calculée avec un secret, et compteur",
@@ -256,8 +256,8 @@ export const legalCopy = {
     ],
     "deletion": [
       "Demander une suppression et ses limites",
-      "Pas de suppression automatique des cartes terminées aujourd’hui. Elles et leurs courriels restent jusqu’à un retrait manuel. Tu peux demander le retrait des courriels de l’expéditeur et du destinataire et des messages dans l’état propre à Wire.",
-      "Le contact pour les demandes reste à fournir ci-dessous. Aucun calendrier de suppression automatique ni délai de réponse n’est promis ici.",
+      "Wire efface lui-même les courriels et le message d’une carte 60 jours après sa fin, si elle ne contient rien. Une carte qui contient encore de l’argent garde ses données : son expéditeur peut avoir besoin de la récupérer. Tu peux demander un retrait plus tôt pour une carte terminée. Les paiements restent sur la blockchain, et les sauvegardes gardent ce qu’elles contenaient le jour où elles ont été faites.",
+      "Le contact pour les demandes reste à fournir ci-dessous. Aucun délai de réponse n’est promis ici.",
       "Wire ne peut pas retirer les données des chaînes, les journaux d’envoi de MailerSend ni les données de Cloudflare. Les durées de ces fournisseurs s’appliquent. Retirer les coordonnées ne peut pas annuler un paiement réclamé."
     ]
   },
@@ -322,12 +322,12 @@ export const legalCopy = {
       [
         "Tarjetas NIM: correos del remitente y destinatario, importe, mensaje de hasta 160 caracteres, idioma, dirección pública, estado, fechas e imagen decorativa",
         "Operación, historial, correo y devolución",
-        "Hoy no se eliminan automáticamente las tarjetas terminadas. Borradores sin pagar: 2 días. Tarjetas canceladas: 14 días."
+        "Tarjetas terminadas: los correos y mensajes se borran 60 días después del fin de la tarjeta, si no contiene nada. Borradores sin pagar: 2 días. Tarjetas canceladas: 14 días."
       ],
       [
         "Tarjetas USDC/USDT: correos del remitente y destinatario, importe, mensaje, dirección pública, token de devolución guardado por Wire y fechas",
         "Operación, historial, correo y devolución",
-        "Hoy no se eliminan automáticamente las tarjetas terminadas."
+        "Se borra 60 días después del fin de la tarjeta, si no contiene nada."
       ],
       [
         "Huella de la IP del visitante calculada con un secreto, y contador",
@@ -387,8 +387,8 @@ export const legalCopy = {
     ],
     "deletion": [
       "Solicitar borrado y sus límites",
-      "Hoy no hay borrado automático de tarjetas terminadas. Estas y sus correos quedan hasta su retirada manual. Puedes pedir que se retiren correos del remitente y destinatario y mensajes del estado propio de Wire.",
-      "El contacto para solicitudes sigue pendiente abajo. Aquí no se promete un calendario de borrado automático ni un plazo de respuesta.",
+      "Wire borra por sí mismo los correos y el mensaje de una tarjeta 60 días después de su fin, si no contiene nada. Una tarjeta que aún contiene dinero conserva sus datos: su remitente puede necesitar recuperarlo. Puedes pedir una retirada anterior para una tarjeta terminada. Los pagos permanecen en la blockchain, y las copias de seguridad conservan lo que tenían el día en que se hicieron.",
+      "El contacto para solicitudes sigue pendiente abajo. Aquí no se promete un plazo de respuesta.",
       "Wire no puede borrar datos de las cadenas, registros de entrega de MailerSend ni datos de Cloudflare. Se aplican los plazos de esos proveedores. Borrar datos de contacto no revierte un pago reclamado."
     ]
   },
@@ -453,12 +453,12 @@ export const legalCopy = {
       [
         "NIM-Karten: E-Mails von Absender und Empfänger, Betrag, Nachricht bis 160 Zeichen, Sprache, öffentliche Kartenadresse, Status, Daten und dekoratives Bild",
         "Betrieb, Verlauf, E-Mail und Rückzahlung",
-        "Derzeit keine automatische Löschung abgeschlossener Karten. Unbezahlte Entwürfe: 2 Tage. Stornierte Karten: 14 Tage."
+        "Abgeschlossene Karten: E-Mail-Adressen und Nachrichten werden 60 Tage nach dem Ende der Karte gelöscht, wenn sie nichts enthält. Unbezahlte Entwürfe: 2 Tage. Stornierte Karten: 14 Tage."
       ],
       [
         "USDC/USDT-Karten: E-Mails von Absender und Empfänger, Betrag, Nachricht, öffentliche Kartenadresse, von Wire gespeichertes Rückzahlungstoken und Daten",
         "Betrieb, Verlauf, E-Mail und Rückzahlung",
-        "Derzeit keine automatische Löschung abgeschlossener Karten."
+        "Wird 60 Tage nach dem Ende der Karte gelöscht, wenn sie nichts enthält."
       ],
       [
         "Mit einem Geheimnis berechneter Hash der Besucher-IP und Zähler",
@@ -518,7 +518,7 @@ export const legalCopy = {
     ],
     "deletion": [
       "Löschung anfragen und ihre Grenzen",
-      "Abgeschlossene Karten werden derzeit nicht automatisch gelöscht. Sie und ihre E-Mails bleiben bis zur manuellen Entfernung gespeichert. Du kannst die Entfernung von Absender- und Empfänger-E-Mails und Nachrichten aus Wires eigenem Zustand anfragen.",
+      "Wire löscht die E-Mail-Adressen und die Nachricht einer Karte 60 Tage nach ihrem Ende selbst, wenn sie nichts enthält. Eine Karte, die noch Geld enthält, behält ihre Daten, weil ihr Absender sie vielleicht zurückholen muss. Du kannst für eine beendete Karte eine frühere Entfernung verlangen. Zahlungen bleiben auf der Blockchain, und Sicherungen behalten, was sie am Tag ihrer Erstellung enthielten.",
       "Der Kontakt für Anfragen fehlt unten noch. Hier wird weder ein automatischer Löschplan noch eine Antwortfrist zugesagt.",
       "Wire kann weder Blockchain-Daten noch MailerSend-Zustellprotokolle oder Cloudflare-Daten entfernen. Die Fristen dieser Anbieter gelten. Das Entfernen von Kontaktdaten macht keine eingelöste Zahlung rückgängig."
     ]
@@ -584,12 +584,12 @@ export const legalCopy = {
       [
         "NIM 卡片：发送者及接收者邮箱、金额、最多 160 字符的留言、语言、卡片公开地址、状态、日期和装饰图片",
         "卡片运行、历史记录、邮件和退款",
-        "目前不会自动删除已结束的卡片。未付款草稿：2 天。已取消卡片：14 天。"
+        "已结束的卡片：若卡片中没有资金，邮箱地址和留言会在卡片结束后 60 天删除。未付款草稿：2 天。已取消卡片：14 天。"
       ],
       [
         "USDC/USDT 卡片：发送者及接收者邮箱、金额、留言、卡片公开地址、Wire 保存的退款令牌和日期",
         "卡片运行、历史记录、邮件和退款",
-        "目前不会自动删除已结束的卡片。"
+        "若卡片中没有资金，卡片结束后 60 天删除。"
       ],
       [
         "用秘密值计算的访客 IP 地址哈希及计数",
@@ -649,8 +649,8 @@ export const legalCopy = {
     ],
     "deletion": [
       "请求删除及其限制",
-      "目前不会自动删除已结束的卡片。卡片及其邮箱会一直保存，直到手动移除。你可以请求从 Wire 自有状态中移除发送者及接收者邮箱和留言。",
-      "请求的联系方式仍待在下方填写。此处不承诺自动删除时间表或回复期限。",
+      "若卡片中没有资金，Wire 会在卡片结束 60 天后自行删除其邮箱地址和留言。仍有资金的卡片会保留其数据，因为发送者可能需要取回。对于已结束的卡片，你可以要求更早删除。付款永久保留在区块链上，备份保留其制作当天的内容。",
+      "请求的联系方式仍待在下方填写。此处不承诺回复期限。",
       "Wire 无法移除区块链记录、MailerSend 投递日志或 Cloudflare 数据。适用这些服务方自己的保存期限。移除联系数据不能撤销已领取的付款。"
     ]
   }

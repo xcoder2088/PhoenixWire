@@ -88,8 +88,8 @@ test('sender and recipient footers link both pages; card notes have legal links 
   const dom=new JSDOM(read(path));const doc=dom.window.document;
   try{
    for(const name of publicPages)assert.ok(doc.querySelector('footer a[href="/'+name+'.html"]'),path+' footer '+name);
-   assert.ok(doc.querySelector('script[src="/legal.js?v=0.4.32"]'));
-   assert.ok(doc.querySelector('link[href="/legal.css?v=0.4.32"]'));
+   assert.ok(doc.querySelector('script[src="/legal.js?v=0.4.33"]'));
+   assert.ok(doc.querySelector('link[href="/legal.css?v=0.4.33"]'));
    for(const lang of langs){
     paintLegalLinks(doc,lang);
     for(const name of publicPages)assert.equal(doc.querySelector('footer [data-legal-link="'+name+'"]').textContent,legalCopy[lang].ui[name==='terms'?0:1]);
