@@ -124,13 +124,18 @@ async function pollEvm(){
  }catch{evmPoll=setTimeout(pollEvm,10000)}
 }
 function evmErrorText(code){return {invalid_address:U.badAddress,same_address:U.same,chain_unavailable:U.chain,claim_expired:U.expired,card_cancelled:U.cancelled,address_already_given:U.already,email_not_verified:U.notVerified}[code]||feedback[3]}
+function networkMark(asset,language){
+ const marks={usdt_polygon:['USDT','Polygon'],usdt_ethereum:['USDT','Ethereum'],usdc_polygon:['USDC','Polygon']},id=String(asset||'').toLowerCase(),mark=Object.hasOwn(marks,id)?marks[id]:null;if(!mark)return null;
+ const words={fr:'{symbol} sur {chain}',en:'{symbol} on {chain}',es:'{symbol} en {chain}',de:'{symbol} auf {chain}',zh:'{chain} 上的 {symbol}'};
+ return{src:'/brand/'+id.replace('_','-')+'.png',alt:(words[language]||words.en).replace('{symbol}',mark[0]).replace('{chain}',mark[1])};
+}
 function loadEVM(v){
  evm=v;if(v.symbol&&v.symbol!=='USDT')for(const k of Object.keys(U))if(typeof U[k]==='string')U[k]=U[k].replace(/USDT/g,v.symbol);document.title='PhoenixMail · '+U.eyebrow;document.querySelector('.eyebrow').textContent=U.eyebrow;
  amountNode.firstChild.textContent=v.amount+' ';const small=amountNode.querySelector&&amountNode.querySelector('small');if(small)small.textContent=v.symbol||'USDT';
  showPalette(evmPaletteFor(v));
  const chain=chainName[v.chain]||'';
  descriptionNode.textContent=(v.protected?U.protectedLabel:U.waiting)+(chain?' · '+chain:'');
- const coin=document.getElementById('cashlink-iqon');coin.src=v.symbol==='USDC'?'/usdc-coin.png':'/usdt-coin.png';coin.alt=v.symbol==='USDC'?'USD Coin USDC':'Tether USDT';document.getElementById('nimicon').hidden=false;
+ const coin=document.getElementById('cashlink-iqon'),mark=networkMark(v.asset||String(v.symbol||'USDT').toLowerCase()+'_'+String(v.chain||'').toLowerCase(),document.documentElement.lang);if(mark){coin.src=mark.src;coin.alt=mark.alt;}document.getElementById('nimicon').hidden=!mark;
  document.getElementById('wallet-note').textContent=v.message||'';
  if(v.state!=='awaiting_address'){showFinal(v);if(v.state==='ready')pollEvm();return}
  if(!v.protected||v.email_verified){showAddressStep(v.protected?U.verified:'');return}

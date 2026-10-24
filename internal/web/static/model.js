@@ -15,6 +15,15 @@ export function paintCard(element,language,id='00') {
  return p;
 }
 
+// Exact token/network identity, shared by Wire's own page surfaces.
+export function assetMark(asset,language='en') {
+ const id=String(asset||'').toLowerCase();
+ if(id==='nim')return{src:'/brand/nimiq-logo.svg',alt:'Nimiq'};
+ const marks={usdt_polygon:['USDT','Polygon'],usdt_ethereum:['USDT','Ethereum'],usdc_polygon:['USDC','Polygon']},mark=Object.hasOwn(marks,id)?marks[id]:null;if(!mark)return null;
+ const patterns={fr:'{symbol} sur {chain}',en:'{symbol} on {chain}',es:'{symbol} en {chain}',de:'{symbol} auf {chain}',zh:'{chain} 上的 {symbol}'};
+ return{src:'/brand/'+id.replace('_','-')+'.png',alt:(patterns[language]||patterns.en).replace('{symbol}',mark[0]).replace('{chain}',mark[1])};
+}
+
 // Shared local card renderer: NIM and stablecoins use the same card template and palettes.
 export function renderCardPreview(card,{language,id,asset='NIM',amount,message='',recipient='',codeText}) {
  const currency=assets[asset],words=paintCard(card,language,id);
@@ -25,8 +34,8 @@ export function renderCardPreview(card,{language,id,asset='NIM',amount,message='
  text(card.querySelector('.card-heading'),asset==='NIM'?'Nimiq · '+words.heading:currency.unit+' · '+currency.network.toUpperCase()+' · '+words.heading.toLocaleUpperCase(language));
  text(card.querySelector('.sample'),words.protected);text(card.querySelector('.lock'),codeText||words.locked);
  const host=part('coin');let icon=host.querySelector('img');if(!icon){icon=card.ownerDocument.createElement('img');icon.width=62;icon.height=62;host.replaceChildren(icon);}
- const src=asset==='NIM'?'/brand/nimiq-logo.svg':asset==='USDC_POLYGON'?'/brand/usdc-coin.png':'/brand/usdt-coin.png';
- if(icon.getAttribute('src')!==src)icon.setAttribute('src',src);icon.alt=asset==='NIM'?'Nimiq':currency.unit;
+ const mark=assetMark(asset,language);
+ if(icon.getAttribute('src')!==mark.src)icon.setAttribute('src',mark.src);icon.alt=mark.alt;
  return words;
 }
 
@@ -117,4 +126,5 @@ export async function cancelUnpaidCard(p,request) {
   return {...result,received:true};
  }
 }
+
 

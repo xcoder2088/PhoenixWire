@@ -37,7 +37,7 @@ footer{display:flex;align-items:center;gap:15px;margin:28px 0 0;font-size:15px;c
 <style>.msg{font-size:17px;line-height:1.48;overflow-wrap:anywhere}#step-address[hidden],#step-code[hidden],#step-done[hidden]{display:none!important}</style></head>
 <body><main class="shell"><header><div class="logo"><img src="/brand/phoenix-emblem.webp" alt="Phoenix Wire" class="brand-emblem"><span class="brand-name">Phoenix<strong>Wire</strong></span></div></header>
 <section class="card"><div class="eyebrow" id="eyebrow"></div><div class="amount" id="amount">&nbsp;</div><div class="sub" id="sub"></div>
-<div class="inner" id="panel"><p class="msg" id="cardMsg"></p><p class="msg" id="msg"></p><p class="msg" id="whereMoney"></p>
+<div class="inner" id="panel"><img id="card-coin" alt="" width="96" height="96" hidden style="display:block;width:96px;height:96px;object-fit:contain;margin:0 auto 20px"><p class="msg" id="cardMsg"></p><p class="msg" id="msg"></p><p class="msg" id="whereMoney"></p>
 <div id="step-email" hidden><h2 id="emailTitle"></h2><p id="emailHelp"></p><p class="status" id="status0" role="status"></p><button class="btn" id="sendCode" type="button"></button></div>
 <div id="step-code" hidden><p id="codeSent"></p><label for="code" id="codeLabel"></label><input class="addr" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••"><p class="status" id="status2" role="status"></p><button class="btn secondary" id="pasteCode" type="button" hidden></button><button class="btn" id="verify" type="button"></button><button class="btn secondary" id="resend" type="button"></button></div>
 <div id="step-address" hidden><h2 id="where"></h2><label for="to" id="toLabel"></label><input class="addr" id="to" autocomplete="off" spellcheck="false" placeholder="0x…"><div id="addrTools"><button class="btn secondary" id="useWallet" type="button" hidden></button><button class="btn secondary" id="scanBtn" type="button" hidden></button><button class="btn secondary" id="pasteBtn" type="button" hidden></button><div id="appLinks"></div></div><div id="scanBox" hidden><video id="scanVideo" playsinline muted style="width:100%;border-radius:14px;background:#000"></video><p id="scanHelp" class="msg"></p><button class="btn secondary" id="scanStop" type="button"></button></div><p id="addrHelp"></p><p id="recap" class="msg"></p><p class="status" id="status1" role="status"></p><button class="btn" id="next" type="button"></button></div>
@@ -130,7 +130,13 @@ function quoteOk(s,to){
 const unitsText=u=>(u/1e6).toFixed(6).replace(/0+$/,'').replace(/\.$/,'');
 const quoteChanged=()=>Object.assign(Error('quote_changed'),{code:'quote_changed'});
 const safeOf=()=>C.cardAddress({id:link.id,owners:card.owners,threshold:2},card.chain_id);
+function networkMark(asset,language){
+ const marks={usdt_polygon:['USDT','Polygon'],usdt_ethereum:['USDT','Ethereum'],usdc_polygon:['USDC','Polygon']},id=String(asset||'').toLowerCase(),mark=Object.hasOwn(marks,id)?marks[id]:null;if(!mark)return null;
+ const words={fr:'{symbol} sur {chain}',en:'{symbol} on {chain}',es:'{symbol} en {chain}',de:'{symbol} auf {chain}',zh:'{chain} 上的 {symbol}'};
+ return{src:'/brand/'+id.replace('_','-')+'.png',alt:(words[language]||words.en).replace('{symbol}',mark[0]).replace('{chain}',mark[1])};
+}
 function showCard(c){
+ const mark=networkMark(c.asset||String(c.symbol||'USDT').toLowerCase()+'_'+String(c.chain||'').toLowerCase(),document.documentElement.lang),coin=$('card-coin');coin.hidden=!mark;if(mark){coin.src=mark.src;coin.alt=mark.alt;}
  showExpiry(c.expires_at);$('amount').textContent=c.amount;const small=document.createElement('small');small.textContent=' '+(c.symbol||'USDT');$('amount').append(small);
  $('sub').textContent=(c.chain||'').charAt(0).toUpperCase()+(c.chain||'').slice(1);
  $('cardMsg').textContent=c.message||''}
@@ -240,3 +246,4 @@ $('next').onclick=async()=>{
 load();
 })();
 </script></body></html>
+

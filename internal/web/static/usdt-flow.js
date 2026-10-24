@@ -2,7 +2,7 @@ import { flowText } from './flow-text.js?v=0.4.29';
 // The sender's side of a USDC / USDT card. The browser makes the card id and the link key and KEEPS them: they are what lets the sender
 // take the money back. Wire's server never stores the claim link; the browser hands it over once, to be e-mailed, after the card is funded.
 import { usdtText } from './usdt-text.js?v=0.4.21';
-import { paintCard } from './model.js?v=0.4.29';
+import { paintCard,assetMark } from './model.js?v=0.4.30';
 
 const $ = id => document.getElementById(id);
 const STORE = 'wire-usdt-cards';
@@ -89,7 +89,7 @@ function fundingCard(entry) {
  $('card-message').textContent = entry.message || '';
  // the coin of this card
  const coin = $('coin'); coin.textContent = ''; const img = document.createElement('img'); img.width = img.height = 80; img.alt = entry.symbol;
- img.src = entry.asset === 'usdc_polygon' ? '/brand/usdc-coin.png?v=0.3.0' : '/brand/usdt.svg?v=0.3.0'; coin.append(img);
+ const mark=assetMark(entry.asset,document.documentElement.lang);img.src=mark.src;img.alt=mark.alt;coin.append(img);
 }
 
 async function showPay(entry) {
@@ -227,6 +227,7 @@ async function submit() {
 
 function refreshText() {
  const t = words();
+ if(current){const image=$('coin').querySelector('img'),mark=assetMark(current.asset,document.documentElement.lang);if(image&&mark){image.src=mark.src;image.alt=mark.alt;}}
  $('usdt-history-title').textContent = t.history; $('usdt-copy').textContent = t.copyAddress; $('usdt-wallet').textContent = t.openWallet;
 }
 
@@ -242,5 +243,6 @@ $('usdt-copy').addEventListener('click', async () => { try { await navigator.cli
 window.addEventListener('wire-language', refreshText);
 // flow.js may have learned the server's offer before this module ran: take it from where it left it.
 if (window.wireUsdtState) window.WireUSDT.configure(window.wireUsdtState);
+
 
 

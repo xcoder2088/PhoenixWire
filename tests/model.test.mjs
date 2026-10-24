@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { assets, previewAmount, resolveLanguage,renderCardPreview } from '../internal/web/static/model.js';
+import { assets, previewAmount, resolveLanguage,renderCardPreview,assetMark } from '../internal/web/static/model.js';
 import {cardPalettes} from '../internal/web/static/card-mirror.js';
 import {JSDOM} from 'jsdom';
 
@@ -45,4 +45,5 @@ test('preview contains no network submission or HTML interpolation', () => {
   assert.match(js, /e\.preventDefault\(\)/);
   assert.doesNotMatch(js, /localStorage\.setItem\(['"](?:sender|recipient|message)/);
 });
+
 

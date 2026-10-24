@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import { JSDOM } from 'jsdom';
 import { flowText, flowLanguages } from '../internal/web/static/flow-text.js';
-import { addressValid,cardPresentation,paintCard,renderCardPreview } from '../internal/web/static/model.js';
+import { addressValid,cardPresentation,paintCard,assetMark,renderCardPreview } from '../internal/web/static/model.js';
 
 const id='a'.repeat(48);
 const address='NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY';
@@ -52,7 +52,7 @@ async function start({claim=false,verified=true,pending=false,mobile=false,retur
  Hub.RedirectRequestBehavior=class{constructor(url,state){behaviors.push({url,state});}};
  window.HubApi=Hub;
  window.PhoenixNimiqIdenticons={async png(){return 'fixture-artwork';},paint(image){image.hidden=false;image.src='data:image/png;base64,test';}};
- Object.assign(dom.getInternalVMContext(), { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText, flowText,addressValid,cardPresentation,paintCard,renderCardPreview});
+ Object.assign(dom.getInternalVMContext(), { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText, flowText,addressValid,cardPresentation,paintCard,assetMark,renderCardPreview});
  const source=fs.readFileSync(new URL('../internal/web/static/flow.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'').replace(/^export /gm,'');
  vm.runInContext(source,dom.getInternalVMContext());await settle();
  const $=id=>window.document.getElementById(id);
@@ -138,5 +138,6 @@ test('expired claim keeps its explanation visible while disabling code actions',
  assert.equal(s.$('request-claim-code').hidden,true);
  assert.equal(s.$('claim-choices').hidden,true);s.dom.window.close();
 });
+
 
 

@@ -26,7 +26,7 @@ test('a protected USDT card asks for the emailed code, then the recipient\'s own
  const s=await start({view:base,routes:{request:()=>({status:200,body:{status:'sent'}}),release:(b)=>b.code==='123456'?{status:200,body:{status:'otp_verified'}}:{status:403,body:{error:'invalid_or_expired_code'}},address:addressRoute}});
  assert.equal(s.get('evm-step').hidden,true,'the address step stays hidden until the code is verified');
  assert.match(s.doc.title,/Secure USDT Claim/);assert.match(html,/Secure NIM Claim/);
- assert.equal(s.get('cashlink-iqon').src,'/usdt-coin.png');assert.equal(s.get('nimicon').hidden,false);
+ assert.equal(s.get('cashlink-iqon').src,'/brand/usdt-polygon.png');assert.equal(s.get('nimicon').hidden,false);
  await s.get('send').onclick();
  s.get('otp').value='000000';await s.get('verify').onclick();assert.match(s.get('status').textContent,/incorrect or no longer valid/);assert.equal(s.get('evm-step').hidden,true);
  s.get('otp').value='123456';await s.get('verify').onclick();
@@ -84,3 +84,4 @@ test('USDT cards use mint/seafoam on Ethereum and lavender/orchid on Polygon',()
  const eth=ids.map(id=>fn({id,chain:'ethereum'})),pol=ids.map(id=>fn({id,chain:'polygon'}));
  assert.deepEqual(new Set(eth),new Set([2,11]));assert.deepEqual(new Set(pol),new Set([1,8]));
 });
+

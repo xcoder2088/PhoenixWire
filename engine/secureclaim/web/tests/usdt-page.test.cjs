@@ -44,6 +44,13 @@ test('stablecoin recipient expiry dates and unavailable/expired responses cover 
  }
 });
 
+test('recipient cards show a distinct token/network coin and precise alternate text in five languages',async()=>{
+ const patterns={fr:'{symbol} sur {chain}',en:'{symbol} on {chain}',es:'{symbol} en {chain}',de:'{symbol} auf {chain}',zh:'{chain} 上的 {symbol}'};
+ for(const [language,pattern]of Object.entries(patterns))for(const [asset,symbol,chain]of [['usdc_polygon','USDC','Polygon'],['usdt_polygon','USDT','Polygon'],['usdt_ethereum','USDT','Ethereum']]){
+  const w=world(),chain_id=chain==='Ethereum'?1:137,safe=w.C.checksum(w.C.cardAddress({id:w.id,owners:w.owners,threshold:2},chain_id)),s=await start(w,{view:()=>cardView(w,{asset,symbol,chain:chain.toLowerCase(),chain_id,safe}),extra:{globals:{location:{search:'?lang='+language,hash:w.fragment,replace(){}}}}});
+  assert.equal(s.get('card-coin').hidden,false);assert.equal(s.get('card-coin').src,'/brand/'+asset.replace('_','-')+'.png');assert.equal(s.get('card-coin').alt,pattern.replace('{symbol}',symbol).replace('{chain}',chain));assert.equal(s.get('sub').textContent,chain);
+ }
+});
 test('a card that is not paid yet says so and offers nothing',async()=>{
  const w=world(),s=await start(w,{view:()=>cardView(w,{state:'awaiting_funds'})});
  assert.match(s.get('msg').textContent,/not paid this card yet/);assert.equal(s.get('step-address').hidden,true);
@@ -269,3 +276,4 @@ test('the idempotency key is kept before the first request, so a lost answer of 
  await s.get('next').onclick();await tick();await tick();
  assert.equal(keys.length,2);assert.equal(keys[0],keys[1],'the same idempotency key: the service returns the same attempt');
 });
+

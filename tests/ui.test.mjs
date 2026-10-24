@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
-import { assets, previewAmount, resolveLanguage,cardPresentation,paintCard } from '../internal/web/static/model.js';
+import { assets, previewAmount, resolveLanguage,cardPresentation,paintCard,assetMark } from '../internal/web/static/model.js';
 
 // Dependency-free DOM contract harness. Real browser visual QA remains a release task.
 function start({ storageUnavailable = false, languages = ['fr-CA'], language = 'fr-CA', savedLanguage } = {}) {
@@ -18,7 +18,7 @@ function start({ storageUnavailable = false, languages = ['fr-CA'], language = '
   if (savedLanguage) stored.set('wire-language', savedLanguage);
   const localStorage = { getItem(k) { if (storageUnavailable) throw Error('unavailable'); return stored.get(k); }, setItem(k,v) { if (storageUnavailable) throw Error('unavailable'); stored.set(k,v); } };
   const source = readFileSync(new URL('../internal/web/static/app.js', import.meta.url), 'utf8').replace(/^import[^\n]+\n/, '');
-  vm.runInNewContext(source, { document, localStorage, assets, previewAmount, resolveLanguage,cardPresentation,paintCard, navigator: { languages, language } });
+  vm.runInNewContext(source, { document, localStorage, assets, previewAmount, resolveLanguage,cardPresentation,paintCard,assetMark, navigator: { languages, language } });
   const event = (id, name, value) => { const node = nodes.get(id); if (value !== undefined) node.value = value; node.handlers[name]({ target: node, preventDefault() {} }); };
   return { document, nodes, translations, stored, event };
 }
@@ -99,3 +99,4 @@ test('the card never names the NIM for another coin, and the heading carries no 
   const heading = ui.translations.find(n => n.dataset.i18n === 'cardHeading');
   assert.ok(!/nimiq/i.test(heading.textContent));
 });
+

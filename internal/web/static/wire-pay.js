@@ -1,9 +1,9 @@
 import { mountAdmin,adminText } from './admin.js?v=0.4.28';
-import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.29';
+import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.30';
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
-import { resolveLanguage,renderCardPreview } from './model.js?v=0.4.29';
-import { mountNimFlow } from './flow.js?v=0.4.29';
+import { resolveLanguage,renderCardPreview,assetMark } from './model.js?v=0.4.30';
+import { mountNimFlow } from './flow.js?v=0.4.30';
 import { flowText } from './flow-text.js?v=0.4.29';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
@@ -301,8 +301,8 @@ function applyPalette(value){
 document.addEventListener('visibilitychange',schedulePalette);window.addEventListener('pageshow',schedulePalette);
 function styleClose(button){button.replaceChildren($('wire-close-icon').content.cloneNode(true));}
 function coinIcon(asset){
- const image=document.createElement('img');image.className='wire-coin-icon';image.width=24;image.height=24;image.alt='';image.setAttribute('aria-hidden','true');
- image.src=asset==='nim'||asset==='NIM'?'/brand/nimiq-logo.svg?v=0.3.0':asset==='usdc_polygon'?'/brand/usdc-coin.png?v=0.3.0':'/brand/usdt-coin.png?v=0.4.0';return image;
+ const image=document.createElement('img');image.className='wire-coin-icon';image.width=24;image.height=24;image.dataset.asset=asset;
+ const mark=assetMark(asset,lang);if(mark){image.src=mark.src;image.alt=mark.alt;}return image;
 }
 function buttonAsset(button){const label=button.textContent;return label.startsWith('NIM')?'nim':label.includes('USDC')?'usdc_polygon':label.includes('Ethereum')?'usdt_ethereum':'usdt_polygon';}
 function paintNim(root) {
@@ -656,6 +656,11 @@ function stablePreview(win){
 }
 function enhanceStableWindow(win){
  if(win.classList.contains('wire-nim-window'))return;
+ const activeButton=win.querySelector('.nimiq-payment-assets button[aria-pressed="true"]'),activeAsset=activeButton&&buttonAsset(activeButton);
+ // Replace only displayed mirrored artwork; the original files and email generation stay unchanged.
+ for(const image of win.querySelectorAll('.wire-coin-icon,.usdt-coin')){
+  const mark=assetMark(image.dataset.asset||activeAsset,lang);if(mark){if(image.getAttribute('src')!==mark.src)image.setAttribute('src',mark.src);image.alt=mark.alt;}
+ }
  const draft=stablePreview(win);
  const amount=win.querySelector('input[inputmode="decimal"]');
  const host=draft||amount?.closest('label')||win.querySelector('.usdt-pay');
@@ -821,6 +826,7 @@ setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
   if(handoffError){say(t(handoffError));if(scopedID)$('wire-handoff-state').textContent=t(handoffError);}
  } catch { say(t('off'));if(scopedID){$('wire-entry').hidden=false;$('wire-sender').hidden=false;} }
 })();
+
 
 
 

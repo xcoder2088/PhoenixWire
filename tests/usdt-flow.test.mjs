@@ -8,7 +8,7 @@ import { webcrypto } from 'node:crypto';
 import { TextEncoder, TextDecoder } from 'node:util';
 import { JSDOM } from 'jsdom';
 import { flowText } from '../internal/web/static/flow-text.js';
-import { addressValid, cardPresentation, paintCard, renderCardPreview } from '../internal/web/static/model.js';
+import { addressValid, cardPresentation, paintCard, assetMark, renderCardPreview } from '../internal/web/static/model.js';
 import { usdtText } from '../internal/web/static/usdt-text.js';
 
 const read = p => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -60,7 +60,7 @@ async function start({ sessionEmail='sender@example.test', local={}, serverCards
     throw Error('unexpected API ' + path);
   };
   window.confirm = () => true;
-  Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText,  flowText, addressValid, cardPresentation, paintCard, renderCardPreview, usdtText });
+  Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText,  flowText, addressValid, cardPresentation, paintCard, assetMark, renderCardPreview, usdtText });
   const strip = s => '{' + s.replace(/^import[^\n]+\n/gm, '').replace(/^export /gm, '') + '\n}';
   vm.runInContext(strip(read('../internal/web/static/flow.js')), ctx);
   vm.runInContext(strip(read('../internal/web/static/usdt-flow.js')), ctx);
@@ -226,6 +226,7 @@ test('the five languages all have every word', () => {
     for (const k of ['payTitle', 'payHelp', 'invited', 'refundConfirm']) assert.deepEqual((usdtText[lang][k].match(/\{\w+\}/g) || []).sort(), (usdtText.en[k].match(/\{\w+\}/g) || []).sort(), lang + ' ' + k + ' keeps its placeholders');
   }
 });
+
 
 
 

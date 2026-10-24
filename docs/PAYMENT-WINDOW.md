@@ -1,5 +1,52 @@
 # The payment window is PhoenixMail's
 
+## Token and network marks (cache 0.4.30)
+
+Three new **192×192 transparent RGBA PNG files** distinguish the token and its
+network. The original USDT/USDC artwork is unchanged; a network badge sits at
+the lower right, approximately 38% of the token diameter, with a 2px white rim.
+Polygon uses its existing connected-hexagon mark in white on `#8247E5`;
+Ethereum uses its existing diamond facets in white/grey on `#627EEA`.
+The finished files are checked visually and by decoding their PNG pixels.
+
+**Server registration required before deploying** (no Go change is included):
+
+- `internal/web/static/brand/usdt-polygon.png` → `/brand/usdt-polygon.png`
+- `internal/web/static/brand/usdt-ethereum.png` → `/brand/usdt-ethereum.png`
+- `internal/web/static/brand/usdc-polygon.png` → `/brand/usdc-polygon.png`
+
+These are the only new files under `internal/web/static/`. Serve them from Wire's
+static allowlist with an image/png content type; the sender and recipient pages
+use these same absolute paths. No separate engine copy, new script route or 96px
+variant is needed. Existing token-only image routes remain available for older
+pages and server-generated emails. Email rendering and assets in Go are untouched.
+
+The existing `model.js` exports `assetMark(asset, language)` for the exact asset
+path and FR/EN/ES/DE/ZH alternative text, e.g. `USDT on Polygon` versus `USDT on
+Ethereum`. NIM keeps its existing mark. The shared live-card renderer, classic
+preview/funding card, currency picker, window heading and My cards rows use this
+mapping. Wire's existing window observer replaces only the mirrored page's
+displayed `.usdt-coin` source/alternative text, including its real funding/sent
+card; no mirrored code or emailed HTML is modified. Language changes repaint
+the marks. Network names remain written on the cards as well.
+
+The recipient HTML (`engine/secureclaim/web/usdt.html`, plus the older EVM
+recipient renderer in `index.html`) uses the same paths and five-language naming
+convention. It shows a coin only for one of the three known token/network pairs,
+after the card is known. Existing verification, signing and transfer logic is
+unchanged. Plain inline scripts remain plain scripts so the existing generated
+content-security-policy hashes continue to apply.
+
+Regression checks cover three distinct images and paths, dimensions, alpha,
+badge colours/rim, alternative text in all five languages, every live preview,
+the picker, history, native funding/sent card and recipient pages. No deployment,
+real payment or physical iPhone validation is performed. Artwork provenance and
+upstream license are recorded in `THIRD-PARTY-NOTICES.md`.
+
+Validation: `npm ci --ignore-scripts`, then
+`node --test --test-timeout=90000 tests/*.test.mjs engine/secureclaim/web/tests/*.cjs`:
+245 tests executed, 245 passed, none failed or skipped.
+
 ## Local stablecoin card preview (Wire override, cache 0.4.29)
 
 `wire-pay.js` enhances the mirrored USDC/USDT window without changing `pm/`.
@@ -523,6 +570,7 @@ These are automated simulations, not a physical iPhone/Safari/Nimiq Pay validati
 L'aperçu NIM se met à jour localement pendant la saisie d'un montant valide, du destinataire et du message. Il ne crée pas de carte serveur et n'ouvre aucun portefeuille. Le Nimicon réel apparaît après la préparation de la carte. Le texte des 24 heures n'est ajouté qu'une fois ; l'enrichissement stablecoin ignore la fenêtre NIM. Les modules modifiés utilisent la version de cache `0.4.27`.
 
 Revue de sécurité et limites de validation : voir `AUDIT-2026-10-24.md`. Les défauts Go recensés dans ce rapport restent à corriger ; le correctif d'aperçu n'est pas une validation générale des remboursements.
+
 
 
 

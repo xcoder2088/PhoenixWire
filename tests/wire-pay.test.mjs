@@ -8,7 +8,7 @@ import { webcrypto } from 'node:crypto';
 import { TextEncoder, TextDecoder } from 'node:util';
 import { JSDOM } from 'jsdom';
 import { flowText } from '../internal/web/static/flow-text.js';
-import { addressValid, cardPresentation, paintCard, renderCardPreview } from '../internal/web/static/model.js';
+import { addressValid, cardPresentation, paintCard, assetMark, renderCardPreview } from '../internal/web/static/model.js';
 import { resolveLanguage } from '../internal/web/static/model.js';
 
 const read = p => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
@@ -195,7 +195,7 @@ async function start({inviteOnly=false,adminAccess=null,cancelCode="",cancelConf
     throw Error('unexpected API ' + path);
   };
   const source = read('../internal/web/static/wire-pay.js').replace(/^import[^\n]+\n/gm, '');
-  Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText,  resolveLanguage, flowText, addressValid, cardPresentation, paintCard, renderCardPreview });
+  Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText,  resolveLanguage, flowText, addressValid, cardPresentation, paintCard, assetMark, renderCardPreview });
   vm.runInContext(read('../internal/web/static/flow.js').replace(/^import[^\n]+\n/gm, '').replace(/^export /gm, ''), ctx);
   if(!classic)vm.runInContext('{' + source + '\n}', ctx);
   await settle();
@@ -230,7 +230,8 @@ for(const language of ['fr','en','es','de','zh'])for(const [asset,label,symbol,n
   for(const invalid of ['', '0','-1','1e2','Infinity','0.001','1000.1','2.1234567','<b>2</b>']){input(amount,invalid);assert.equal(field('card-amount').textContent,'0');}
   input(amount,'2');assert.equal(field('card-amount').textContent,'2');input(amount,'2.123456');assert.equal(field('card-amount').textContent,'2.123456');
   const inert='<img src=x onerror="alert(1)"><script>alert(2)</script>';input(message,inert);input(recipient,'demo@example.com');
-  assert.equal(field('card-message').textContent,inert);assert.equal(field('card-message').children.length,0);assert.equal(card.querySelector('script,[onerror]'),null);assert.equal(field('card-recipient').textContent,'demo@example.com');assert.match(field('coin').querySelector('img').getAttribute('src'),symbol==='USDC'?/usdc-coin\.png$/:/usdt-coin\.png$/);
+  assert.equal(field('card-message').textContent,inert);assert.equal(field('card-message').children.length,0);assert.equal(card.querySelector('script,[onerror]'),null);assert.equal(field('card-recipient').textContent,'demo@example.com');assert.match(field('coin').querySelector('img').getAttribute('src'),new RegExp(asset.replace('_','-')+'\\.png$'));
+  assert.equal(field('coin').querySelector('img').alt,assetMark(asset,language).alt);
   assert.equal(card.querySelector('.lock').textContent,flowText(language,'cardCode'));assert.equal(win.querySelectorAll('.wire-lifetime-note').length,1);assert.equal(card.querySelector('.wire-lifetime-note').textContent,flowText(language,'cardLife'));assert.equal(win.textContent.split(flowText(language,'cardLife')).length-1,1);assert.equal(card.querySelectorAll('[id]').length,0);assert.doesNotMatch(card.textContent,/Mainnet|OTP|Hub/);
   await settle();assert.equal(app.calls.length,before);assert.equal(app.opened.length,opened);assert.equal(app.checkouts.length,0);assert.equal(app.nativeCalls.length,0);assert.equal(app.window.localStorage.getItem('phoenixmail.usdt.sent.v2'),null);
  });
@@ -240,6 +241,21 @@ test('stablecoin draft refreshes its language without resetting fields and stays
  const win=app.doc.querySelector('.nimiq-payment-window'),amount=win.querySelector('input[inputmode="decimal"]');amount.value='7';amount.dispatchEvent(new app.window.Event('input',{bubbles:true}));const card=win.querySelector('.wire-local-card'),color=card.style.getPropertyValue('--card-bg');
  for(const language of ['fr','en','es','de','zh']){app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));await settle();assert.equal(win.querySelector('.wire-local-card'),card);assert.equal(card.querySelector('.lock').textContent,flowText(language,'cardCode'));assert.equal(card.querySelector('[data-card-part="card-amount"]').textContent,'7');assert.equal(card.style.getPropertyValue('--card-bg'),color);assert.equal(win.querySelectorAll('.wire-lifetime-note').length,1);}
  assert.equal(win.dataset.view,'form');const css=read('../internal/web/static/wire-pay.css');assert.match(css,/\.wire-body \.wire-has-local-preview\[data-view="form"\] \.nimiq-payment-preview\{display:block\}/);assert.match(css,/@media\(max-width:680px\)\{\.wire-has-local-preview \.nimiq-payment-body\{grid-template-columns:minmax\(0,1fr\)\}/);
+});
+test('network marks identify the asset picker, native server card, sent card and history in all languages',async()=>{
+ for(const language of ['fr','en','es','de','zh']){
+  const app=await start({clocked:true,state:()=>({state:'ready',balanceUnits:2650000})});app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));app.$('pay').click();await settle();
+  const icons=[...app.doc.querySelectorAll('.nimiq-payment-assets .wire-coin-icon')];
+  for(const asset of ['usdc_polygon','usdt_polygon','usdt_ethereum']){const image=icons.find(i=>i.dataset.asset===asset);assert.equal(image.getAttribute('src'),assetMark(asset,language).src);assert.equal(image.alt,assetMark(asset,language).alt);}
+  assert.notEqual(icons.find(i=>i.dataset.asset==='usdt_polygon').src,icons.find(i=>i.dataset.asset==='usdt_ethereum').src);
+  // The service fixture creates a USDC card; check the mirrored artwork is overridden before and after funding.
+  app.$('wire-language').value='en';app.$('wire-language').dispatchEvent(new app.window.Event('change'));await makeCard(app);
+  app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));await app.clock.advance(3000);
+  const server=app.doc.querySelector('.nimiq-payment-preview .usdt-coin');assert.ok(server);assert.equal(server.getAttribute('src'),'/brand/usdc-polygon.png');assert.equal(server.alt,assetMark('usdc_polygon',language).alt);assert.ok(app.doc.querySelector('.usdt-funded'));
+  const rows=JSON.parse(app.window.localStorage.getItem('wire-usdt-cards')),original=rows[0];
+  app.window.localStorage.setItem('wire-usdt-cards',JSON.stringify(['usdc_polygon','usdt_polygon','usdt_ethereum'].map((asset,i)=>({...original,id:String(i+1).repeat(32),asset,created:app.clock.now()}))));app.window.dispatchEvent(new app.window.StorageEvent('storage',{key:'wire-usdt-cards'}));await settle();
+  for(const asset of ['usdc_polygon','usdt_polygon','usdt_ethereum']){const image=app.doc.querySelector('#wire-cards-list img[data-asset="'+asset+'"]');assert.ok(image);assert.equal(image.getAttribute('src'),assetMark(asset,language).src);assert.equal(image.alt,assetMark(asset,language).alt);}
+ }
 });
 test('a verified sender gets PhoenixMail’s window: four coins behind one session, protected cards only, Wire on the card', async () => {
   const t = await start();
@@ -1701,12 +1717,12 @@ test('claimed status stays inside My cards, with official currency icons in hist
  const id='1'.repeat(32),t=await start({clocked:true,serverCards:[{id,asset:'usdc_polygon',amount:'2',recipient:'friend@example.test',invited:true}],state:()=>({state:'paid'})});
  await t.clock.advance(2500);assert.equal(t.$('wire-status').textContent,'');
  assert.match(t.$('wire-cards-list').textContent,/Claimed/);assert.ok(t.$('wire-cards').compareDocumentPosition(t.$('pay'))&t.window.Node.DOCUMENT_POSITION_PRECEDING);
- assert.equal(t.$('wire-cards-list').querySelector('.wire-coin-icon').getAttribute('src'),'/brand/usdc-coin.png?v=0.3.0');
+ assert.equal(t.$('wire-cards-list').querySelector('.wire-coin-icon').getAttribute('src'),'/brand/usdc-polygon.png');
  t.$('pay').click();await settle();
  const buttons=[...t.doc.querySelectorAll('.wire-coin-picker .nimiq-payment-assets button')];
- assert.equal(buttons.length,4);for(const button of buttons){const img=button.querySelector('.wire-coin-icon');assert.ok(img);assert.equal(img.width,24);assert.equal(img.height,24);assert.equal(img.alt,'');}
+ assert.equal(buttons.length,4);for(const button of buttons){const img=button.querySelector('.wire-coin-icon');assert.ok(img);assert.equal(img.width,24);assert.equal(img.height,24);assert.equal(img.alt,assetMark(img.dataset.asset,'en').alt);}
  buttons.find(b=>b.textContent==='USDT · Ethereum').click();await settle();
- assert.equal(t.doc.querySelector('.nimiq-payment-head h3 img').getAttribute('src'),'/brand/usdt-coin.png?v=0.4.0');
+ assert.equal(t.doc.querySelector('.nimiq-payment-head h3 img').getAttribute('src'),'/brand/usdt-ethereum.png');
  assert.equal(t.doc.querySelector('.nimiq-payment-head h3').textContent,'USDT · Ethereum');
 });
 
@@ -1761,7 +1777,7 @@ async function recipientPage({language='en',accounts=null,accountError=null,payo
   if(path.endsWith('/release'))return answer(200,{cashlink:'https://hub.nimiq.com/cashlink/#'+Buffer.alloc(40,5).toString('base64url')});
   throw Error('Unexpected recipient request '+path);
  };
- Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText, flowText,addressValid,cardPresentation,paintCard,renderCardPreview});
+ Object.assign(ctx, { nimFunded,unpaidCard:p=>unpaidCard(p,window.Date.now()),recoverableCard,historyEntries:entries=>historyEntries(entries,window.Date.now()),historyPending:p=>historyPending(p,window.Date.now()),senderHistoryText,nimHistoryLabel:(p,language)=>nimHistoryLabel(p,language,window.Date.now()),cancelUnpaidCard,mountAdmin,adminText, flowText,addressValid,cardPresentation,paintCard,assetMark,renderCardPreview});
  const src=read('../internal/web/static/flow.js').replace(/^import[^\n]+\n/gm,'').replace(/^export /gm,'');
  // Keep the lifecycle handle so tests can assert timer cleanup too.
  vm.runInContext(src.replace("if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();","window.testFlow=mountNimFlow();"),ctx);
@@ -2087,5 +2103,6 @@ test('cancelled recent cards keep checking for late funds without showing paymen
  app.setClaimState('unclaimed');await app.clock.advance(6000);
  assert.match(app.$('wire-cards-list').textContent,/Recover funds/);assert.ok(!app.$('wire-cards-list').textContent.includes('Retry payment'));
 });
+
 
 
