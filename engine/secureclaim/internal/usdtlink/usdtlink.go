@@ -1300,24 +1300,28 @@ func (s *Service) FloatStatus(ctx context.Context) map[string]bool {
 // FloatCards is how many cards' gas the relayer must be able to pay for (claim or refund) before it takes a NEW one.
 var FloatCards int64 = 10
 
-// minFloat is the native coin the relayer must hold to take a new card. With FloatMin set it follows the price of gas: FloatCards times the
-// gas one card uses at the node's current fee estimate, between FloatMin and MinFloat. If the node cannot say, MinFloat (the prudent
-// value) is used.
+// minFloat is the native coin the relayer must hold to take a new card (see floorFor).
 func (s *Service) minFloat(ctx context.Context, c Chain) *big.Int {
-	if c.FloatMin == nil || c.MinFloat == nil || c.Node == nil {
-		return c.MinFloat
+	return s.floorFor(ctx, c, c.MinFloat)
+}
+
+// floorFor is a float that follows the price of gas: FloatCards times the gas one card uses at the node's current fee estimate, never
+// less than c.FloatMin and never more than `limit` (the prudent value). Without FloatMin, or if the node cannot say, it is `limit`.
+func (s *Service) floorFor(ctx context.Context, c Chain, limit *big.Int) *big.Int {
+	if c.FloatMin == nil || limit == nil || c.Node == nil {
+		return limit
 	}
 	_, maxFee, err := c.Node.Fees(ctx)
 	if err != nil || maxFee == nil || maxFee.Sign() <= 0 {
-		return c.MinFloat
+		return limit
 	}
 	need := new(big.Int).Mul(maxFee, new(big.Int).SetUint64(CardGas))
 	need.Mul(need, big.NewInt(FloatCards))
 	if need.Cmp(c.FloatMin) < 0 {
 		need = new(big.Int).Set(c.FloatMin)
 	}
-	if need.Cmp(c.MinFloat) > 0 {
-		need = new(big.Int).Set(c.MinFloat)
+	if need.Cmp(limit) > 0 {
+		need = new(big.Int).Set(limit)
 	}
 	return need
 }

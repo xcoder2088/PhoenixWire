@@ -201,3 +201,20 @@ func TestTheFloorFollowsThePriceOfGas(t *testing.T) {
 		t.Fatal("explicit floor", got)
 	}
 }
+
+func TestTheFreeGasLightFollowsThePriceOfGasToo(t *testing.T) {
+	coin := func(n int64) *big.Int { return new(big.Int).Mul(big.NewInt(n), big.NewInt(1_000_000_000_000_000)) } // n / 1000 coin
+	node := &feedNode{usd: 2, maxFee: big.NewInt(160_000_000)}                                                   // 0.16 gwei
+	s := feeService(t, node)
+	c := s.chains[evm.AssetUSDTPolygon]
+	c.MinFloat, c.Floor, c.FloatMin, c.DripCap = coin(10), coin(10), coin(1), coin(5) // keep at most 0.01, give at most 0.005
+	s.chains[evm.AssetUSDTPolygon] = c
+	node.native[c.Relayer.Address()] = coin(3) // 0.003 coin on the relayer: far under the old 0.015, plenty at this price
+	if ok, why := s.GasStatus(context.Background(), evm.AssetUSDTPolygon); !ok {
+		t.Fatal("the light should be green at a quiet price:", why)
+	}
+	node.maxFee = big.NewInt(50_000_000_000) // gas at 50 gwei: the float needed rises to its cap and one gift costs much more
+	if ok, why := s.GasStatus(context.Background(), evm.AssetUSDTPolygon); ok || why != "float" {
+		t.Fatal("the light should turn red when gas is dear and the relayer is low", ok, why)
+	}
+}

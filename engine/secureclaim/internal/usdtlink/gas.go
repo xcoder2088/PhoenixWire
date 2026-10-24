@@ -150,7 +150,7 @@ func (s *Service) GasTopUp(ctx context.Context, cardID, senderToken, sender stri
 	if err := s.update(r); err != nil {
 		return DripResult{}, err
 	}
-	floor := new(big.Int).Add(c.Floor, pending) // the float, plus what earlier drips are still going to spend
+	floor := new(big.Int).Add(s.floorFor(ctx, c, c.Floor), pending) // the float (it follows the price of gas), plus what earlier drips are still going to spend
 	hash, err := c.Relayer.SendNative(ctx, to, missing, floor, func(h string) error {
 		drip.Tx = h
 		return s.update(r) // the hash is on disk before it is broadcast
@@ -203,7 +203,7 @@ func (s *Service) GasStatus(ctx context.Context, asset string) (bool, string) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	have, err := c.Node.NativeBalance(ctx, c.Relayer.Address())
-	if err != nil || have.Cmp(new(big.Int).Add(c.Floor, c.DripCap)) < 0 {
+	if err != nil || have.Cmp(new(big.Int).Add(s.floorFor(ctx, c, c.Floor), s.dripWant(ctx, c))) < 0 {
 		return false, "float"
 	}
 	s.mu.Lock()
@@ -224,4 +224,19 @@ func (s *Service) GasStatus(ctx context.Context, asset string) (bool, string) {
 		return false, "busy"
 	}
 	return true, "ok"
+}
+
+// dripWant is what one gift costs at today's price: one transfer's gas with a margin, never more than DripCap (which is the cost when the
+// node cannot say).
+func (s *Service) dripWant(ctx context.Context, c Chain) *big.Int {
+	_, maxFee, err := c.Node.Fees(ctx)
+	if err != nil || maxFee == nil || maxFee.Sign() <= 0 {
+		return c.DripCap
+	}
+	want := new(big.Int).Mul(maxFee, big.NewInt(transferGas))
+	want.Mul(want, big.NewInt(3)).Div(want, big.NewInt(2))
+	if want.Cmp(c.DripCap) > 0 {
+		return c.DripCap
+	}
+	return want
 }
