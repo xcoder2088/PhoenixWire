@@ -94,7 +94,7 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 		case "/site.webmanifest":
 			w.Header().Set("Content-Type", "application/manifest+json")
 			static.ServeHTTP(w, r)
-		case "/favicon.ico", "/brand/wire-icon-32.png", "/brand/wire-icon-180.png", "/brand/wire-icon-192.png", "/brand/wire-icon-512.png", "/", "/classic.html", "/wire-pay.js", "/wire-pay.css", "/brand/usdt-coin.png", "/brand/phoenixmail-approved-icon-transparent.webp", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/card-mirror.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/design.css", "/usdt-flow.js", "/usdt-text.js", "/usdt-refund-text.js", "/admin.js", "/qrcode.js", "/brand/phoenix-wire.webp", "/brand/phoenix-emblem.webp", "/brand/nimiq-logo.svg", "/brand/usdt.svg", "/brand/usdc-coin.png":
+		case "/favicon.ico", "/brand/wire-icon-32.png", "/brand/wire-icon-180.png", "/brand/wire-icon-192.png", "/brand/wire-icon-512.png", "/", "/classic.html", "/wire-pay.js", "/wire-pay.css", "/brand/usdt-coin.png", "/brand/usdt-polygon.png", "/brand/usdt-ethereum.png", "/brand/usdc-polygon.png", "/brand/phoenixmail-approved-icon-transparent.webp", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/card-mirror.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/design.css", "/usdt-flow.js", "/usdt-text.js", "/usdt-refund-text.js", "/admin.js", "/qrcode.js", "/brand/phoenix-wire.webp", "/brand/phoenix-emblem.webp", "/brand/nimiq-logo.svg", "/brand/usdt.svg", "/brand/usdc-coin.png":
 			static.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)

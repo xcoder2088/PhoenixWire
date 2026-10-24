@@ -346,18 +346,21 @@ func TestEveryFileAPageNamesIsServed(t *testing.T) {
 // whatever loads it, including the files a script loads by itself, which no page names.
 func TestEveryShippedFileIsServed(t *testing.T) {
 	h := NewHandler()
-	entries, err := assets.ReadDir("static")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, e := range entries {
-		if e.IsDir() || strings.HasPrefix(e.Name(), "LICENSE") || e.Name() == "index.html" { // index.html is served at "/"
-			continue
+	for _, dir := range []string{"static", "static/brand"} {
+		entries, err := assets.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
 		}
-		r := httptest.NewRecorder()
-		h.ServeHTTP(r, httptest.NewRequest("GET", "/"+e.Name(), nil))
-		if r.Code != 200 {
-			t.Errorf("/%s is shipped with the page and the server answers %d", e.Name(), r.Code)
+		for _, e := range entries {
+			if e.IsDir() || strings.HasPrefix(e.Name(), "LICENSE") || e.Name() == "index.html" { // index.html is served at "/"
+				continue
+			}
+			path := strings.TrimPrefix(dir, "static") + "/" + e.Name()
+			r := httptest.NewRecorder()
+			h.ServeHTTP(r, httptest.NewRequest("GET", path, nil))
+			if r.Code != 200 {
+				t.Errorf("%s is shipped with the page and the server answers %d", path, r.Code)
+			}
 		}
 	}
 }

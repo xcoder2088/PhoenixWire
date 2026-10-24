@@ -19,6 +19,32 @@ var usdcCoin []byte
 //go:embed assets/usdt-coin.png
 var usdtCoin []byte
 
+// The coin with the badge of its network (Polygon, Ethereum), so that USDT on Polygon and USDT on Ethereum do not look alike.
+//
+//go:embed assets/usdt-polygon.png
+var usdtPolygonCoin []byte
+
+//go:embed assets/usdt-ethereum.png
+var usdtEthereumCoin []byte
+
+//go:embed assets/usdc-polygon.png
+var usdcPolygonCoin []byte
+
+// coinFor picks the image and its description for a token on a network. The badge sits outside the coin's circle: no rounded crop for these.
+func coinFor(symbol, chain string) (image []byte, alt string, badged bool) {
+	switch {
+	case symbol == "USDC" && chain == "polygon":
+		return usdcPolygonCoin, "USD Coin USDC · Polygon", true
+	case symbol == "USDT" && chain == "polygon":
+		return usdtPolygonCoin, "Tether USDT · Polygon", true
+	case symbol == "USDT" && chain == "ethereum":
+		return usdtEthereumCoin, "Tether USDT · Ethereum", true
+	case symbol == "USDC":
+		return usdcCoin, "USD Coin USDC", false
+	}
+	return usdtCoin, "Tether USDT", false
+}
+
 // USDTCard is what the card of an invitation needs.
 type USDTCard struct {
 	ID, Chain, Symbol, Amount, Message, ClaimURL string // Chain: ethereum | polygon; Symbol: USDC | USDT
@@ -59,12 +85,15 @@ func USDTCardHTML(c USDTCard, lang string) (string, error) {
 	lang = Language(lang)
 	w := usdtWords[lang]
 	heading, chip, hint, button := w[0], w[1], w[2], w[3]
-	coin, alt := usdtCoin, "Tether USDT"
+	coin, alt, badged := coinFor(c.Symbol, c.Chain)
 	if c.Symbol == "USDC" {
-		coin, alt = usdcCoin, "USD Coin USDC"
 		hint, button = strings.ReplaceAll(hint, "USDT", "USDC"), strings.ReplaceAll(button, "USDT", "USDC")
 	}
-	body := fmt.Sprintf(`<p style="margin:12px 0 6px"><img src="%s" width="64" height="64" alt="%s" style="border-radius:32px"></p>`, dataPNG(coin), alt) +
+	rounding := ` style="border-radius:32px"`
+	if badged {
+		rounding = ` style="border:0"`
+	}
+	body := fmt.Sprintf(`<p style="margin:12px 0 6px"><img src="%s" width="64" height="64" alt="%s"%s></p>`, dataPNG(coin), html.EscapeString(alt), rounding) +
 		`<p style="font-size:14px">` + html.EscapeString(hint) + `</p>`
 	if c.Message != "" {
 		body += `<p style="font-size:13px">` + html.EscapeString(c.Message) + `</p>`

@@ -96,3 +96,23 @@ func TestNoticesSayTheEndOfACardInFiveLanguages(t *testing.T) {
 		t.Fatal("a link that is not a web address was accepted")
 	}
 }
+
+func TestEachNetworkHasItsOwnCoinInTheEmail(t *testing.T) {
+	seen := map[string]string{}
+	for _, c := range []struct{ symbol, chain string }{{"USDT", "polygon"}, {"USDT", "ethereum"}, {"USDC", "polygon"}} {
+		card := usdtFixture("0a" + strings.Repeat("0", 30))
+		card.Symbol, card.Chain = c.symbol, c.chain
+		body, err := USDTCardHTML(card, "fr")
+		if err != nil {
+			t.Fatal(err)
+		}
+		image, alt, badged := coinFor(c.symbol, c.chain)
+		if !badged || len(image) < 1000 || !strings.Contains(body, dataPNG(image)) || !strings.Contains(body, strings.ToUpper(c.chain[:1])+c.chain[1:]) {
+			t.Fatalf("%s %s: badge %v alt %q", c.symbol, c.chain, badged, alt)
+		}
+		if other, dup := seen[string(image)]; dup {
+			t.Fatalf("%s %s shares its coin with %s", c.symbol, c.chain, other)
+		}
+		seen[string(image)] = c.symbol + " " + c.chain
+	}
+}
