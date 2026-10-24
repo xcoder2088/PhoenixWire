@@ -559,20 +559,21 @@ const (
 )
 
 var usdtlinkNetworks = map[string]struct {
-	asset   string
-	minTip  *big.Int
-	minFee  uint64
-	drip    *big.Int // the most native coin one sender is given (gas.go)
-	floor   *big.Int // the float the relayer keeps
-	feed    string   // Chainlink USD price feed of the chain's coin (fee.go); "" on test networks
-	gecko   string   // the coin's CoinGecko id
-	safeUSD float64  // a deliberately high price used only when neither source answers
+	asset    string
+	minTip   *big.Int
+	minFee   uint64
+	drip     *big.Int // the most native coin one sender is given (gas.go)
+	floor    *big.Int // the float the relayer keeps
+	floorMin *big.Int // the least float to take a new card when gas is cheap: the float follows the price of gas between this and floor
+	feed     string   // Chainlink USD price feed of the chain's coin (fee.go); "" on test networks
+	gecko    string   // the coin's CoinGecko id
+	safeUSD  float64  // a deliberately high price used only when neither source answers
 }{
-	"polygon":      {evm.AssetUSDTPolygon, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000"), polygonFeed, "polygon-ecosystem-token", 0.50}, // drip up to 0.3 POL, keep 0.2 POL
-	"ethereum":     {evm.AssetUSDTEthereum, wei("100000000"), 400_000, wei("5000000000000000"), wei("10000000000000000"), ethereumFeed, "ethereum", 6000},        // drip up to 0.005 ETH, keep 0.01 ETH
-	"amoy":         {evm.AssetUSDCAmoyTest, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000"), "", "", 0},                                   // test network, test coins
-	"polygon-usdc": {evm.AssetUSDCPolygon, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000"), polygonFeed, "polygon-ecosystem-token", 0.50}, // USDC on Polygon (shares the Polygon relayer and its key)
-	"sepolia":      {evm.AssetUSDCSepoliaTest, gwei(1), 50_000, wei("5000000000000000"), wei("10000000000000000"), "", "", 0},                                    // test network, test coins
+	"polygon":      {evm.AssetUSDTPolygon, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000"), wei("100000000000000000"), polygonFeed, "polygon-ecosystem-token", 0.50}, // drip up to 0.3 POL, keep 0.2 POL
+	"ethereum":     {evm.AssetUSDTEthereum, wei("100000000"), 400_000, wei("5000000000000000"), wei("10000000000000000"), wei("500000000000000"), ethereumFeed, "ethereum", 6000},           // drip up to 0.005 ETH, keep 0.01 ETH
+	"amoy":         {evm.AssetUSDCAmoyTest, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000"), nil, "", "", 0},                                                         // test network, test coins
+	"polygon-usdc": {evm.AssetUSDCPolygon, gwei(30), 50_000, wei("300000000000000000"), wei("200000000000000000"), wei("100000000000000000"), polygonFeed, "polygon-ecosystem-token", 0.50}, // USDC on Polygon (shares the Polygon relayer and its key)
+	"sepolia":      {evm.AssetUSDCSepoliaTest, gwei(1), 50_000, wei("5000000000000000"), wei("10000000000000000"), nil, "", "", 0},                                                          // test network, test coins
 }
 
 // setupUSDTLink starts the USDT cashlink service when NIMIQ_CLAIM_USDTLINK_CHAINS names at least one chain
@@ -619,7 +620,7 @@ func setupUSDTLink(s *server, stateDir string) (*usdtHTTP, error) {
 			return nil, err
 		}
 		log.Printf("USDT cashlink %s: relayer address %s (fund it with the chain's native coin for gas)", name, rl.Address().Hex())
-		chainCfg := usdtlink.Chain{Network: n, Node: node, Relayer: rl, MinFee: spec.minFee, MinFloat: spec.floor, PriceFeed: spec.feed, FallbackUSD: spec.safeUSD}
+		chainCfg := usdtlink.Chain{Network: n, Node: node, Relayer: rl, MinFee: spec.minFee, MinFloat: spec.floor, FloatMin: spec.floorMin, PriceFeed: spec.feed, FallbackUSD: spec.safeUSD}
 		if os.Getenv("NIMIQ_CLAIM_USDTLINK_COINGECKO") != "off" { // CoinGecko is the second price source, after the chain's own feed
 			chainCfg.CoinGeckoID = spec.gecko
 		}
@@ -629,7 +630,7 @@ func setupUSDTLink(s *server, stateDir string) (*usdtHTTP, error) {
 		for _, key := range []string{"NIMIQ_CLAIM_USDTLINK_MIN_FLOAT_WEI_" + strings.ToUpper(strings.ReplaceAll(name, "-", "_")), "NIMIQ_CLAIM_USDTLINK_MIN_FLOAT_WEI"} {
 			if raw := os.Getenv(key); raw != "" {
 				if v, ok := new(big.Int).SetString(raw, 10); ok && v.Sign() >= 0 {
-					chainCfg.MinFloat = v
+					chainCfg.MinFloat, chainCfg.FloatMin = v, nil // an explicit setting is the floor, exactly
 					log.Printf("USDT cashlink %s: minimum relayer float set to %s wei by %s", name, v, key)
 					break
 				}

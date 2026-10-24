@@ -131,6 +131,9 @@ type Chain struct {
 	// MinFloat is the native coin the relayer must hold for the service to accept NEW cards: below it, claims and refunds could not
 	// be paid, so no new card is taken (cards already funded keep their refund route as long as some gas remains).
 	MinFloat *big.Int
+	// FloatMin, when set, makes the float follow the price of gas (see minFloat): the service keeps enough native coin for FloatCards cards at
+	// today's gas price, never less than FloatMin and never more than MinFloat. Unset: MinFloat is the floor, whatever gas costs.
+	FloatMin *big.Int
 	// PriceFeed is the address of the chain's USD price feed for its coin (Chainlink) and FallbackUSD a deliberately high price used when the
 	// feed cannot be read: the fee of a new card follows the price of gas (fee.go).
 	PriceFeed   string
@@ -1281,7 +1284,7 @@ func (s *Service) FloatLow(ctx context.Context, asset string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return have.Cmp(c.MinFloat) < 0, nil
+	return have.Cmp(s.minFloat(ctx, c)) < 0, nil
 }
 
 // FloatStatus lists, per served asset, whether the relayer's float is below its minimum (for the health route and the operator).
@@ -1292,4 +1295,29 @@ func (s *Service) FloatStatus(ctx context.Context) map[string]bool {
 		out[asset] = low || err != nil
 	}
 	return out
+}
+
+// FloatCards is how many cards' gas the relayer must be able to pay for (claim or refund) before it takes a NEW one.
+var FloatCards int64 = 10
+
+// minFloat is the native coin the relayer must hold to take a new card. With FloatMin set it follows the price of gas: FloatCards times the
+// gas one card uses at the node's current fee estimate, between FloatMin and MinFloat. If the node cannot say, MinFloat (the prudent
+// value) is used.
+func (s *Service) minFloat(ctx context.Context, c Chain) *big.Int {
+	if c.FloatMin == nil || c.MinFloat == nil || c.Node == nil {
+		return c.MinFloat
+	}
+	_, maxFee, err := c.Node.Fees(ctx)
+	if err != nil || maxFee == nil || maxFee.Sign() <= 0 {
+		return c.MinFloat
+	}
+	need := new(big.Int).Mul(maxFee, new(big.Int).SetUint64(CardGas))
+	need.Mul(need, big.NewInt(FloatCards))
+	if need.Cmp(c.FloatMin) < 0 {
+		need = new(big.Int).Set(c.FloatMin)
+	}
+	if need.Cmp(c.MinFloat) > 0 {
+		need = new(big.Int).Set(c.MinFloat)
+	}
+	return need
 }

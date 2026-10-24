@@ -173,3 +173,31 @@ func TestACardKeepsItsRefundFee(t *testing.T) {
 		t.Fatal("a card's refund fee moved with the price of gas")
 	}
 }
+
+func TestTheFloorFollowsThePriceOfGas(t *testing.T) {
+	ten := func(n int64) *big.Int { return new(big.Int).Mul(big.NewInt(n), big.NewInt(1_000_000_000_000_000)) } // n / 1000 coin
+	node := &feedNode{usd: 2, maxFee: big.NewInt(160_000_000)}                                                  // 0.16 gwei, like Ethereum today
+	s := feeService(t, node)
+	c := s.chains[evm.AssetUSDTPolygon]
+	c.MinFloat, c.FloatMin = ten(10), ten(1) // at most 0.01, at least 0.001
+	s.chains[evm.AssetUSDTPolygon] = c
+	// 10 cards x 450 000 gas x 0.16 gwei = 0.00072: under the least, so the least (0.001) is the floor.
+	if got := s.minFloat(context.Background(), c); got.Cmp(ten(1)) != 0 {
+		t.Fatal("quiet gas: the floor is the least", got)
+	}
+	// Gas at 1 gwei: 0.0045 coin for ten cards: the floor follows it.
+	node.maxFee = big.NewInt(1_000_000_000)
+	if got := s.minFloat(context.Background(), c); got.Cmp(ten(4)) < 0 || got.Cmp(ten(5)) > 0 {
+		t.Fatal("the floor should be about 0.0045", got)
+	}
+	// Gas at 50 gwei: 0.225 for ten cards: never more than the prudent maximum.
+	node.maxFee = big.NewInt(50_000_000_000)
+	if got := s.minFloat(context.Background(), c); got.Cmp(ten(10)) != 0 {
+		t.Fatal("the floor never goes above the cap", got)
+	}
+	// An explicit floor (no least): exactly that, whatever gas costs.
+	c.FloatMin = nil
+	if got := s.minFloat(context.Background(), c); got.Cmp(ten(10)) != 0 {
+		t.Fatal("explicit floor", got)
+	}
+}
