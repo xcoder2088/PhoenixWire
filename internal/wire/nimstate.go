@@ -2,6 +2,7 @@ package wire
 
 import (
 	"context"
+	"sort"
 	"time"
 )
 
@@ -29,6 +30,9 @@ const (
 )
 
 // withCardStates fills ClaimState on the copies of a list (already sorted, newest first). Called under a.mu.
+//
+// The reads of the chain are few per list (cardStateLooks), and they go first to the cards whose state is not known yet and then to the ones
+// asked about the longest ago, so a long history is read in turns and no card is left unknown for ever.
 func (a *API) withCardStates(list []payment) {
 	a.stateMu.Lock()
 	defer a.stateMu.Unlock()
@@ -36,7 +40,11 @@ func (a *API) withCardStates(list []payment) {
 		a.cardStates = map[string]cardState{}
 	}
 	now := a.now()
-	looks := 0
+	type due struct {
+		id string
+		at time.Time
+	}
+	var wanting []due
 	for i := range list {
 		p := &list[i]
 		cancelled := p.Stage == "cancelled"
@@ -48,19 +56,29 @@ func (a *API) withCardStates(list []payment) {
 		if !cancelled || entry.State == "unclaimed" || entry.State == "claiming" {
 			p.ClaimState = entry.State
 		}
+		if cancelled && entry.State == "claimed" {
+			p.ClaimState = "" // nothing was ever paid to it: an empty card is not a received one
+		}
 		final := entry.State == "claimed" && !cancelled
-		if final || entry.Looking || looks >= cardStateLooks || entry.State != "" && now.Sub(entry.At) < cardStateTTL {
-			a.cardStates[p.ID] = entry
+		a.cardStates[p.ID] = entry
+		if final || entry.Looking || entry.State != "" && now.Sub(entry.At) < cardStateTTL {
 			continue
 		}
-		looks++
+		wanting = append(wanting, due{p.ID, entry.At}) // zero time: never read, first in line
+	}
+	sort.SliceStable(wanting, func(i, j int) bool { return wanting[i].at.Before(wanting[j].at) })
+	if len(wanting) > cardStateLooks {
+		wanting = wanting[:cardStateLooks]
+	}
+	for _, w := range wanting {
+		entry := a.cardStates[w.id]
 		entry.Looking = true
-		a.cardStates[p.ID] = entry
+		a.cardStates[w.id] = entry
 		a.looks.Add(1)
 		go func(id string) {
 			defer a.looks.Done()
 			a.lookCardState(id, now)
-		}(p.ID)
+		}(w.id)
 	}
 }
 

@@ -29,7 +29,8 @@ func (a *API) accessView() map[string]any {
 		}
 		return l
 	}
-	return map[string]any{"open": a.accessOpen(), "allowed": nonNil(a.db.state.Access.Allowed), "blocked": nonNil(a.db.state.Access.Blocked), "registered": a.registeredSenders(), "admins": nonNil(admins)}
+	return map[string]any{"open": a.accessOpen(), "locked_open": envList("PHOENIXWIRE_SENDERS") == "open", // the configuration forces it open: closing in the panel changes nothing until it is lifted
+		"allowed": nonNil(a.db.state.Access.Allowed), "blocked": nonNil(a.db.state.Access.Blocked), "registered": a.registeredSenders(), "admins": nonNil(admins)}
 }
 
 func removeFrom(list []string, address string) []string {

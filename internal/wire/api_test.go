@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -844,5 +845,124 @@ func TestTheAdministratorOpensAndClosesAccess(t *testing.T) {
 	f.restart()
 	if v := f.api.db.state.Access; len(v.Allowed) == 0 {
 		t.Fatal("the list was not kept", v)
+	}
+}
+
+func TestOneSenderCannotFillTheStateAndAFullStateDoesNotStopEveryone(t *testing.T) {
+	f := newFixture(t)
+	f.verifySender("sender@example.test")
+	// a sender may create a limited number of NIM cards a day
+	for i := 0; i < nimCardsPerDay; i++ {
+		in := paymentInput()
+		in["request_id"] = fmt.Sprintf("%032x", i+1)
+		w := f.call("POST", "/api/payments", in)
+		if w.Code != 200 && w.Code != 201 {
+			t.Fatalf("card %d: %d %s", i, w.Code, w.Body)
+		}
+	}
+	over := paymentInput()
+	over["request_id"] = fmt.Sprintf("%032x", 999)
+	if w := f.call("POST", "/api/payments", over); w.Code != 429 {
+		t.Fatal("a sender created more than the daily limit", w.Code)
+	}
+	// the state nearly full: new cards and new artwork are refused where they come in, and the others keep working
+	f.api.mu.Lock()
+	big := strings.Repeat("A", 1024*1024)
+	for i := 0; i < 7; i++ {
+		id := fmt.Sprintf("%048x", 5000+i)
+		f.api.db.state.Payments[id] = savedPayment{Payment: payment{ID: id, Sender: "ballast@example.test", Stage: "ready", Created: f.api.now()}, Nimicon: big}
+	}
+	f.api.mu.Unlock()
+	f.cookie = nil
+	f.verifySender("other@example.test")
+	again := paymentInput()
+	again["request_id"] = fmt.Sprintf("%032x", 4242)
+	if w := f.call("POST", "/api/payments", again); w.Code != 429 || !strings.Contains(w.Body.String(), "payment_capacity") {
+		t.Fatal("a card was taken in a full state", w.Code, w.Body)
+	}
+	if f.api.db.failed {
+		t.Fatal("a full state locked the whole application")
+	}
+	if w := f.call("GET", "/api/session", nil); w.Code != 200 {
+		t.Fatal("the application stopped answering", w.Code)
+	}
+	// old drafts nobody paid are forgotten, which gives the room back
+	f.api.mu.Lock()
+	for id, saved := range f.api.db.state.Payments {
+		saved.Payment.Created = f.api.now().Add(-3 * 24 * time.Hour)
+		f.api.db.state.Payments[id] = saved
+	}
+	f.api.pruneDrafts(f.api.now())
+	left := len(f.api.db.state.Payments)
+	f.api.mu.Unlock()
+	if left != 0 {
+		t.Fatal("unpaid drafts older than two days were kept", left)
+	}
+}
+
+func TestAPaymentThatLandedWhileNobodyLookedStillEndsLikeAnyCard(t *testing.T) {
+	f := newFixture(t)
+	f.verifySender("sender@example.test")
+	p := f.create()
+	good(f.call("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t) // the wallet is asked: the window is closed, nobody confirms
+	ctx := context.Background()
+	stage := func() string { return f.api.db.state.Payments[p.ID].Payment.Stage }
+	f.api.now = func() time.Time { return p.Created.Add(time.Hour) }
+	f.api.sweepExpiry(ctx)
+	if stage() != "funding_started" {
+		t.Fatal("nothing was paid yet", stage())
+	}
+	f.rpcMu.Lock()
+	f.funded = true // the payment lands later
+	f.rpcMu.Unlock()
+	f.api.sweepExpiry(ctx)
+	if stage() != "funded" || f.mail.invites != 0 {
+		t.Fatal("a late payment must be known as funded, without any invitation", stage(), f.mail.invites)
+	}
+	// and a card cancelled and then paid is refunded at the end like the others
+	q := f.create() // the same payment: create is idempotent per request
+	_ = q
+	f.api.now = func() time.Time { return p.Created.Add(25 * time.Hour) }
+	f.api.sweepExpiry(ctx)
+	if stage() != "refunding" || len(f.sent) != 1 {
+		t.Fatal("the late-paid card was not refunded at the end", stage(), len(f.sent))
+	}
+}
+
+func TestTheVisitorsAddressIsTheTunnelsOnlyFromThisMachine(t *testing.T) {
+	req := func(remote, header string) *http.Request {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = remote
+		if header != "" {
+			r.Header.Set("CF-Connecting-IP", header)
+		}
+		return r
+	}
+	if got := clientIP(req("127.0.0.1:5000", "203.0.113.9")); got != "203.0.113.9" {
+		t.Fatal("behind the tunnel the edge's address counts", got)
+	}
+	if got := clientIP(req("198.51.100.4:5000", "203.0.113.9")); got != "198.51.100.4" {
+		t.Fatal("a direct visitor cannot choose his address", got)
+	}
+	if got := clientIP(req("127.0.0.1:5000", "not an address")); got != "127.0.0.1" {
+		t.Fatal("a bad header is ignored", got)
+	}
+}
+
+func TestThePanelSaysWhenTheConfigurationForcesAccessOpen(t *testing.T) {
+	t.Setenv("PHOENIXWIRE_ADMINS", "owner@example.test")
+	f := newFixture(t) // the fixture opens access through the environment
+	f.verifySender("owner@example.test")
+	var v map[string]any
+	w := f.call("GET", "/api/admin/access", nil)
+	json.Unmarshal(w.Body.Bytes(), &v)
+	if v["locked_open"] != true || v["open"] != true {
+		t.Fatal("the panel must say the configuration keeps access open", v)
+	}
+	t.Setenv("PHOENIXWIRE_SENDERS", "")
+	w = f.call("GET", "/api/admin/access", nil)
+	json.Unmarshal(w.Body.Bytes(), &v)
+	if v["locked_open"] != false {
+		t.Fatal("not locked when the configuration does not force it", v)
 	}
 }

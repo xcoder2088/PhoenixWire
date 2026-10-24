@@ -74,15 +74,48 @@ func (a *API) sendNotice(ctx context.Context, to, kind, symbol, amount, recipien
 	return a.mail.Notice(ctx, to, cards.Notice{Kind: kind, Amount: amount, Symbol: symbol, Recipient: recipient, URL: a.origin + "/", Auto: auto}, lang)
 }
 
+// Drafts nobody paid are not kept: a card that never began its funding goes after two days, a cancelled one after two weeks (it is watched for a late
+// payment for two). They carry artwork, which is most of what the state holds.
+const (
+	draftKept     = 48 * time.Hour
+	cancelledKept = 14 * 24 * time.Hour
+)
+
+// pruneDrafts forgets what is old and unpaid. Called under a.mu; it saves only if it removed something.
+func (a *API) pruneDrafts(now time.Time) {
+	removed := false
+	for id, saved := range a.db.state.Payments {
+		p := saved.Payment
+		old := p.Stage == "cancelled" && now.Sub(p.Created) > cancelledKept || (p.Stage == "preparing" || p.Stage == "ready") && now.Sub(p.Created) > draftKept
+		if old {
+			delete(a.db.state.Payments, id)
+			delete(a.db.state.Notices, id)
+			removed = true
+		}
+	}
+	if removed {
+		if err := a.db.save(); err != nil {
+			log.Printf("expiry: state not saved after pruning: %v", err)
+		}
+	}
+}
+
 // sweepExpiry does one pass over every card Wire knows.
 func (a *API) sweepExpiry(ctx context.Context) {
 	a.mu.Lock()
 	now := a.now()
+	a.pruneDrafts(now)
 	var nim []payment
 	for _, saved := range a.db.state.Payments {
 		switch saved.Payment.Stage {
 		case "funded", "delivery_pending", "delivery_failed", "sent", "refunding":
 			nim = append(nim, saved.Payment)
+		case "funding_started", "cancelled":
+			// a payment that arrived while nobody was looking (the wallet answered after the window was closed), or after the card was cancelled:
+			// the money is on the card all the same, and the card ends like any other. Watched for two weeks.
+			if now.Sub(saved.Payment.Created) < 14*24*time.Hour {
+				nim = append(nim, saved.Payment)
+			}
 		}
 	}
 	var stable []usdtCard
@@ -106,6 +139,18 @@ func (a *API) sweepExpiry(ctx context.Context) {
 
 func (a *API) sweepNIM(ctx context.Context, p payment, now time.Time) {
 	age := now.Sub(p.Created)
+	if p.Stage == "funding_started" && age < cardLifetime {
+		// the wallet's payment may have landed while the window was closed: confirm it (no invitation goes out from here), so the card is
+		// known as funded and ends like the others
+		cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		ok, err := a.engine.Confirm(cctx, p.ID)
+		cancel()
+		if err == nil && ok {
+			p.Stage = "funded"
+			a.storePayment(p)
+		}
+		return
+	}
 	a.mu.Lock()
 	reminded, refundedMailed := a.noticeSent(p.ID, "reminder"), a.noticeSent(p.ID, "refunded")
 	skipUntil := a.refundSkip[p.ID]
@@ -149,7 +194,7 @@ func (a *API) sweepNIM(ctx context.Context, p payment, now time.Time) {
 			a.refundSkip[p.ID] = now.Add(refundRetryAfter)
 			a.mu.Unlock()
 		}
-	case age >= cardLifetime-reminderBefore && !reminded && p.Stage != "refunded":
+	case age >= cardLifetime-reminderBefore && !reminded && (p.Stage == "funded" || p.Stage == "delivery_pending" || p.Stage == "delivery_failed" || p.Stage == "sent"):
 		cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		state, err := a.engine.CardState(cctx, p.ID)
 		cancel()

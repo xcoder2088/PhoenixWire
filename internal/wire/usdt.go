@@ -120,8 +120,8 @@ func (a *API) usdtServe(w http.ResponseWriter, r *http.Request, s session) {
 			}
 		}
 		sort.Slice(list, func(i, j int) bool { return list[i]["created"].(time.Time).After(list[j]["created"].(time.Time)) })
-		if len(list) > 50 {
-			list = list[:50]
+		if len(list) > listMax {
+			list = list[:listMax]
 		}
 		respond(w, 200, map[string]any{"cards": list})
 	case strings.HasPrefix(path, "/api/usdt/card/") && r.Method == "POST":

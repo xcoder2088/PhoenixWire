@@ -69,6 +69,12 @@ type API struct {
 	claimAsks     map[string][]time.Time
 }
 
+// listMax is how many cards a list answers with (newest first).
+const listMax = 300
+
+// nimCardsPerDay is how many NIM cards one sender may create in a day (the USDC / USDT cards have their own limit).
+const nimCardsPerDay = 20
+
 var idRE = regexp.MustCompile(`^[a-f0-9]{48}$`)
 var nonceRE = regexp.MustCompile(`^[a-f0-9]{32}$`)
 var codeRE = regexp.MustCompile(`^[0-9]{6}$`)
@@ -293,8 +299,8 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			sort.Slice(list, func(i, j int) bool { return list[i].Created.After(list[j].Created) })
-			if len(list) > 50 {
-				list = list[:50]
+			if len(list) > listMax { // the page picks the three recent ones and the old ones that still hold money: it needs them all, up to a bound
+				list = list[:listMax]
 			}
 			a.withCardStates(list)
 			respond(w, 200, map[string]any{"payments": list})
@@ -339,6 +345,10 @@ func (a *API) paymentAction(w http.ResponseWriter, r *http.Request, s session, p
 			return
 		}
 		if p.Nimicon == "" {
+			if !a.db.room(2 * len(image)) {
+				failure(w, 503, "capacity") // the state is nearly full: refused here, the state itself is not touched
+				return
+			}
 			p.Nimicon = base64.StdEncoding.EncodeToString(image)
 			if !a.savePayment(w, p) {
 				return
@@ -473,7 +483,7 @@ func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
 		failure(w, 429, "wait_before_resend")
 		return
 	}
-	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	host := clientIP(r)
 	rateKey := hex.EncodeToString(digest(a.master, "ip:"+host))
 	limit := a.db.state.Rates[rateKey]
 	if now.After(limit.Until) {
@@ -590,9 +600,21 @@ func (a *API) create(w http.ResponseWriter, r *http.Request, s session) {
 			return
 		}
 	}
-	if len(a.db.state.Payments) >= 10000 {
+	if len(a.db.state.Payments) >= 10000 || !a.db.room(8*1024) {
 		failure(w, 429, "payment_capacity")
 		return
+	}
+	if _, again := a.db.state.Payments[id]; !again { // a new card: one sender may not fill the state with drafts
+		recent := 0
+		for _, other := range a.db.state.Payments {
+			if other.Payment.Sender == s.Email && a.now().Sub(other.Payment.Created) < 24*time.Hour {
+				recent++
+			}
+		}
+		if recent >= nimCardsPerDay {
+			failure(w, 429, "rate_limited")
+			return
+		}
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
 	defer cancel()
@@ -756,4 +778,19 @@ const checkoutRetryAfter = 3 * time.Minute
 
 func checkoutOf(p payment) map[string]any {
 	return map[string]any{"appName": "Phoenix Wire", "recipient": p.Address, "value": p.Luna, "recipientData": []int{0, 130, 128, 146, 135}}
+}
+
+// clientIP is the visitor's address. Behind the tunnel every request comes from the machine itself, so the address the tunnel's edge saw
+// (CF-Connecting-IP) is taken, and only when the request really comes from this machine: the header of a direct visitor is never believed.
+func clientIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		if c := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); c != "" && net.ParseIP(c) != nil {
+			return c
+		}
+	}
+	return host
 }

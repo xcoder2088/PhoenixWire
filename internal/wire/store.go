@@ -123,15 +123,37 @@ func newStore(dir string, master []byte) (*diskStore, error) {
 	}
 	return d, nil
 }
+
+var errStateFull = errors.New("state_full")
+
+// stateBudget is how much of the 8 MiB the state may take before new things are refused: the rest is room for what already exists to change.
+const stateBudget = 7 * 1024 * 1024
+
 func (d *diskStore) save() error {
 	if d.failed {
 		return errors.New("state_unavailable")
 	}
 	err := d.write()
+	if errors.Is(err, errStateFull) {
+		// Not a disk fault: the memory is ahead of the file and the next save, once something was pruned, writes it all. Locking the whole
+		// application for a full state would let one sender stop everyone (the quotas and room() are there to keep it from coming to this).
+		return err
+	}
 	if err != nil {
 		d.failed = true
 	}
 	return err
+}
+
+// room says whether `extra` more bytes still fit in the state's budget.
+func (d *diskStore) room(extra int) bool {
+	plain, err := json.Marshal(d.state)
+	if err != nil {
+		return false
+	}
+	n := len(plain)
+	clear(plain)
+	return n+extra <= stateBudget
 }
 func (d *diskStore) write() error {
 	plain, err := json.Marshal(d.state)
@@ -140,7 +162,7 @@ func (d *diskStore) write() error {
 	}
 	defer clear(plain)
 	if len(plain) > 8*1024*1024 {
-		return errors.New("state_full")
+		return errStateFull
 	}
 	nonce := make([]byte, d.aead.NonceSize())
 	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
