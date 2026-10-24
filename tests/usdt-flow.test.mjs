@@ -183,6 +183,23 @@ test('taking the money back: only the flat gas fee fixed at creation is accepted
   assert.ok(!t.calls.some(c => c[0].endsWith('/refund-claim')));
 });
 
+test('refund confirmations retain the full relayer fee in all five languages and both interfaces', () => {
+  const retained = { en: /fees .*are retained/, fr: /frais .*sont conservés/, es: /se retienen las comisiones/, de: /Gebühren .*werden einbehalten/, zh: /中继费用.*将被保留/ };
+  const context = { window: { PhoenixUSDTCashlink: { WORDS: Object.fromEntries(Object.keys(retained).map(lang => [lang, { refundConfirm: 'old', untouched: 'kept' }])) } } };
+  vm.runInNewContext(read('../internal/web/static/usdt-refund-text.js'), context);
+  for (const [lang, meaning] of Object.entries(retained)) {
+    const confirmation = usdtText[lang].refundConfirm;
+    assert.match(confirmation, meaning, lang);
+    assert.doesNotMatch(confirmation, /gas|gaz|Gas|燃料/);
+    assert.deepEqual(confirmation.match(/\{\w+\}/g).sort(), ['{fee}', '{net}', '{symbol}', '{symbol}'].sort());
+    assert.equal(context.window.PhoenixUSDTCashlink.WORDS[lang].refundConfirm, confirmation.replaceAll('{symbol}', 'USDT'));
+    assert.equal(context.window.PhoenixUSDTCashlink.WORDS[lang].untouched, 'kept');
+  }
+  const page = read('../internal/web/static/index.html');
+  assert.ok(page.indexOf('/pm/usdt-cashlink.js?') < page.indexOf('/usdt-refund-text.js?'));
+  assert.ok(page.indexOf('/usdt-refund-text.js?') < page.indexOf('/pm/usdt-payments.js?'));
+});
+
 test('the five languages all have every word', () => {
   const keys = Object.keys(usdtText.en), errorKeys = Object.keys(usdtText.en.errors);
   for (const lang of ['fr', 'es', 'de', 'zh']) {
