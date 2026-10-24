@@ -98,6 +98,13 @@ func MaxFeeFor(units uint64) uint64 {
 
 // refundFee is what a REFUND pays the relayer. Cards made since the fee followed the price of gas keep their whole fee (gas and
 // percentage: RefundFeeUnits, fixed at creation); older cards, which have none, pay only the flat gas fee.
+// refundLease is how long a card is held back from its recipient after the sender asked for a refund and before he confirmed it.
+const refundLease = 15 * time.Minute
+
+func (s *Service) reserved(r *Record) bool {
+	return r.Reserved != nil && s.now().Sub(*r.Reserved) <= refundLease
+}
+
 func (s *Service) refundFee(r *Record) uint64 {
 	if r.RefundFeeUnits > 0 && r.RefundFeeUnits <= r.FeeUnits {
 		return r.RefundFeeUnits
@@ -168,10 +175,14 @@ type Record struct {
 	Held           uint64    `json:"held,omitempty"`      // token units the card holds, as last read (a part-payment or a leftover is recoverable money)
 	HeldAt         time.Time `json:"held_at,omitempty"`   // when Held was last read; zero: never read, so what the card holds is UNKNOWN
 	Cancelled      bool      `json:"cancelled,omitempty"`
-	ClaimTx        string    `json:"claim_tx,omitempty"`      // the confirmed payout to the recipient (kept when a later refund recovers a surplus)
-	ClaimedAt      time.Time `json:"claimed_at,omitempty"`    // when the block that holds that payout was mined; zero: not known (never made up from the time of a look)
-	Settled        uint64    `json:"settled,omitempty"`       // payouts of ours confirmed on chain: the Safe nonce we expect
-	SettledOther   bool      `json:"settled_other,omitempty"` // the Safe nonce moved without any payout of ours
+	// Reserved is when a refund was asked for a card that was never paid (the sender's co-signature was given): the card is held back from the
+	// recipient for refundLease, long enough to confirm and relay the refund. A sender who asks and then declines does not cancel his own card: the
+	// reservation lapses by itself. Cancelled (the sender's own "cancel") is permanent.
+	Reserved     *time.Time `json:"reserved_at,omitempty"`
+	ClaimTx      string     `json:"claim_tx,omitempty"`      // the confirmed payout to the recipient (kept when a later refund recovers a surplus)
+	ClaimedAt    time.Time  `json:"claimed_at,omitempty"`    // when the block that holds that payout was mined; zero: not known (never made up from the time of a look)
+	Settled      uint64     `json:"settled,omitempty"`       // payouts of ours confirmed on chain: the Safe nonce we expect
+	SettledOther bool       `json:"settled_other,omitempty"` // the Safe nonce moved without any payout of ours
 	// Op is the one operation (claim or refund) in flight or last settled. It is written to disk BEFORE the transaction is
 	// broadcast, hash included (Journal), so that whatever happens next (crash, lost answer, failed write) the chain can say
 	// what became of it. The Safe's own nonce on chain is the other source of truth.
@@ -519,7 +530,7 @@ func (s *Service) state(r *Record) string {
 		return StateSettledOther
 	case op != nil && !op.Done && !op.Failed:
 		return StateVerifying
-	case r.Cancelled:
+	case r.Cancelled || s.reserved(r):
 		return StateCancelled
 	case s.now().After(r.Created.Add(Lifetime)):
 		return StateExpired
@@ -1171,7 +1182,8 @@ func (s *Service) Refund(ctx context.Context, id, senderToken, to string) (cl.Ad
 	}
 	r.Refund = intent
 	if n == 0 {
-		r.Cancelled = true // the card was never paid: no new co-signature for the recipient
+		at := s.now().UTC() // the card was never paid: no new co-signature for the recipient while the refund is being confirmed (refundLease)
+		r.Reserved = &at
 	}
 	if err := s.update(r); err != nil { // the intent is durable BEFORE the signature leaves
 		return cl.Address{}, nil, 0, err

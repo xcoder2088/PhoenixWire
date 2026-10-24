@@ -714,7 +714,7 @@ func TestRefundIsAFullSweepWithOneFixedDestination(t *testing.T) { // UL-04, C4
 	if err != nil || len(sig) != 65 || units != 2_500_000 {
 		t.Fatalf("refund: %v, units %d", err, units)
 	}
-	if r, _ := s.get(c.ID); !r.Cancelled || r.Refund == nil || r.Refund.Nonce != 0 {
+	if r, _ := s.get(c.ID); r.Reserved == nil || !s.reserved(r) || r.Refund == nil || r.Refund.Nonce != 0 {
 		t.Fatalf("refund intent not recorded: %+v", r.Refund)
 	}
 	// The same destination again is idempotent; another one is refused: no concurrent intents.
@@ -1682,5 +1682,37 @@ func TestRefundIsNotAClaimAndOldCardsAreNotInvented(t *testing.T) {
 	s.chains[evm.AssetUSDTPolygon] = chainCfg
 	if at := claimedAtOf(t, s, older.ID); at != nil {
 		t.Fatalf("no date when the node cannot say: %v", at)
+	}
+}
+
+func TestDecliningARefundDoesNotCancelTheCard(t *testing.T) {
+	s, node := newService(t)
+	c := newCard(t, s)
+	ctx := context.Background()
+	node.balance = big.NewInt(int64(c.Units + c.FeeUnits))
+	// the sender asks for the co-signature of a refund, then does not confirm it
+	if _, _, _, err := s.Refund(ctx, c.ID, c.SenderToken, "0x4444444444444444444444444444444444444444"); err != nil {
+		t.Fatal(err)
+	}
+	if in, _ := s.Status(ctx, c.ID); in.State != StateCancelled {
+		t.Fatal("the card must be held back while the refund is being confirmed", in.State)
+	}
+	// the lease runs out: the card is his recipient's again, and still the sender's to refund
+	s.now = func() time.Time { return time.Now().Add(refundLease + time.Minute) }
+	if in, _ := s.Status(ctx, c.ID); in.State == StateCancelled {
+		t.Fatal("declining a refund cancelled the card for good", in.State)
+	}
+	if _, _, _, err := s.Refund(ctx, c.ID, c.SenderToken, "0x4444444444444444444444444444444444444444"); err != nil {
+		t.Fatal("the same refund can be asked again", err)
+	}
+	// a card the sender cancelled himself stays cancelled
+	s2, _ := newService(t)
+	c2 := newCard(t, s2)
+	if _, err := s2.Cancel(c2.ID, c2.SenderToken); err != nil {
+		t.Fatal(err)
+	}
+	s2.now = func() time.Time { return time.Now().Add(refundLease + time.Hour) }
+	if in, _ := s2.Status(ctx, c2.ID); in.State != StateCancelled {
+		t.Fatal("a card cancelled by its sender must stay cancelled", in.State)
 	}
 }
