@@ -115,5 +115,12 @@ const payoutWords={
     "openPay": "请在 Nimiq Pay 中继续。如果应用未打开，请重试或使用 Nimiq Wallet。"
   }
 };
-export function flowText(language,key){const row=rows[language]||rows.en;return (key.startsWith('claim_')?(payoutWords[language]||payoutWords.en)[key.slice(6)]:null)||(claimWords[language]||claimWords.en)[key]||row[keys.indexOf(key)]||key;}
+const senderWords={
+ fr:{inviteOnly:"Phoenix Wire est ouvert sur invitation pour le moment. Tu peux quand même ouvrir une carte que quelqu'un t'a envoyée."},
+ en:{inviteOnly:'Phoenix Wire is invite-only for now. You can still open a card someone has sent you.'},
+ es:{inviteOnly:'Por ahora, Phoenix Wire está disponible solo por invitación. Aun así, puedes abrir una tarjeta que alguien te haya enviado.'},
+ de:{inviteOnly:'Phoenix Wire ist zurzeit nur auf Einladung verfügbar. Du kannst weiterhin eine Karte öffnen, die dir jemand geschickt hat.'},
+ zh:{inviteOnly:'Phoenix Wire 目前仅限受邀用户发送。你仍然可以打开别人发给你的卡片。'}
+};
+export function flowText(language,key){const row=rows[language]||rows.en;return (senderWords[language]||senderWords.en)[key]||(key.startsWith('claim_')?(payoutWords[language]||payoutWords.en)[key.slice(6)]:null)||(claimWords[language]||claimWords.en)[key]||row[keys.indexOf(key)]||key;}
 export const flowLanguages=Object.keys(rows);

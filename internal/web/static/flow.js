@@ -1,5 +1,5 @@
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.20';
-import { flowText } from './flow-text.js?v=0.4.19';
+import { flowText } from './flow-text.js?v=0.4.22';
 import { addressValid,cardPresentation,paintCard } from './model.js?v=0.4.20';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
@@ -9,6 +9,7 @@ if(!embedded)window.PhoenixNimiqPayments={addressValid};
 
 const $=id=>root.querySelector('[id="'+id+'"]');
 const t=key=>flowText(document.documentElement.lang,key);
+let senderInviteOnly=false;
 const walletWords={
  en:{cancelled:'Payment cancelled in Nimiq Pay.',failed:'Nimiq Pay could not complete the request. Check your wallet before using Nimiq Wallet: a payment may already have been sent.',hub:'Nimiq Wallet',confirm:'Only continue if your wallet shows that this card has NOT been paid. Pay the same card with Nimiq Wallet?',network:'Switch Nimiq Pay to the network used by this service before paying.'},
  fr:{cancelled:'Paiement annulé dans Nimiq Pay.',failed:'Nimiq Pay n’a pas pu terminer la demande. Vérifiez votre portefeuille avant d’utiliser Nimiq Wallet : un paiement peut déjà être parti.',hub:'Portefeuille Nimiq',confirm:'Continuez seulement si votre portefeuille indique que cette carte n’a PAS été payée. Alimenter la même carte avec Nimiq Wallet ?',network:'Choisissez dans Nimiq Pay le réseau utilisé par ce service avant de payer.'},
@@ -338,8 +339,9 @@ async function api(path,data,{timeout=false}={}){
  }finally{if(timer!==null)clearTimeout(timer);if(controller)controllers.delete(controller);}
 }
 function status(id,key){$(id).textContent=t(key);}
-function explain(error){if(error.message==='funding_pending'||error.message==='funding_already_started')return t('pending');if(error.status===403)return t('invalid');if(error.status===410)return t('expired');if(error.status===401)return t('verifyFirst');return t('failed');}
+function explain(error){if(error.message==='invite_only')return t('inviteOnly');if(error.message==='funding_pending'||error.message==='funding_already_started')return t('pending');if(error.status===403)return t('invalid');if(error.status===410)return t('expired');if(error.status===401)return t('verifyFirst');return t('failed');}
 function refreshText(){
+ if(senderInviteOnly)status('sender-status','inviteOnly');
  fallback.textContent=wt('hub');
  root.querySelectorAll('[data-wire]').forEach(el=>el.textContent=t(el.dataset.wire));
  if(configured&&!claimMode){$('preview-submit').textContent=t(active&&active.stage!=='ready'?'retry':'pay');$('notice').textContent=t(ready?'note':'unavailable');root.querySelector('.security').textContent=t('security');root.querySelector('.lock').textContent=cardPresentation(document.documentElement.lang).locked;}
@@ -528,7 +530,11 @@ $('nim-progress-resend').addEventListener('click',()=>{if(displayed)resendCard(d
 async function withReferrer(run){const meta=document.createElement('meta');meta.name='referrer';meta.content='strict-origin';document.head.append(meta);try{return await run();}finally{meta.remove();}}
 function mobile(){return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
 $('send-sender-code').addEventListener('click',()=>task(async()=>{
- if(!$('sender').reportValidity())return;await api('/api/sender/request',{email:$('sender').value,language:document.documentElement.lang});$('sender-code-box').hidden=false;status('sender-status','codeSent');
+ if(!$('sender').reportValidity())return;
+ senderInviteOnly=false;
+ try{await api('/api/sender/request',{email:$('sender').value,language:document.documentElement.lang});}
+ catch(error){if(error.message==='invite_only'){senderInviteOnly=true;$('sender-code-box').hidden=true;$('sender-code').value='';$('sender').readOnly=false;}throw error;}
+ $('sender-code-box').hidden=false;status('sender-status','codeSent');
 },'sender-status'));
 $('verify-sender-code').addEventListener('click',()=>task(async()=>{
  const result=await api('/api/sender/verify',{code:$('sender-code').value});$('sender-code').value='';senderUI(result.email);await loadHistory();

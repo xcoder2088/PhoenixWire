@@ -1,5 +1,24 @@
 # The payment window is PhoenixMail's
 
+## Sender access by invitation
+
+As of server `f25eb40`, `POST /api/sender/request` returns HTTP 403 with
+`code: "invite_only"` for an address that cannot send yet. No email is sent.
+Wire's classic sender screen and payment-window entry show the same friendly
+invitation notice in FR, EN, ES, DE and ZH, from `flow-text.js`. The notice
+explicitly says that received cards can still be opened. The public pages and
+recipient claim flow remain available.
+
+After this refusal, the sender address remains editable, the code-entry box is
+hidden, and no resend countdown starts. Another address can be tried immediately;
+the payment-window cooldown starts only after a successful request. Neither
+interface advertises new-sender registration. All handling lives in Wire's own
+files; `internal/web/static/pm/` is unchanged.
+
+Regression coverage in `tests/wire-pay.test.mjs` exercises all five languages in
+both sender interfaces, immediate retries, timer cleanup and a successful request
+after changing the email address.
+
 Wire's page (`internal/web/static/index.html`) opens **PhoenixMail's own payment window**, mirrored from PhoenixMail
 `6d2b3b6` into `internal/web/static/pm/`: `nimiq-payments.js`, `usdt-payments.js`, `usdt-cashlink.js`, `nimiq-hub.js`,
 `phoenix-nimiq.js`, `nimiq-iqons.js` and the styles `app.css`, `nimiq-payments.css`, `theme-light.css`.

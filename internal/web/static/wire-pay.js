@@ -2,7 +2,8 @@ import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,send
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.4.20';
-import { mountNimFlow } from './flow.js?v=0.4.20';
+import { mountNimFlow } from './flow.js?v=0.4.22';
+import { flowText } from './flow-text.js?v=0.4.22';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
@@ -135,7 +136,7 @@ function read(key, fallback) { try { return localStorage.getItem(key) || fallbac
 function save(key, value) { try { localStorage.setItem(key, value); } catch { /* storage may be unavailable */ } }
 let preference = read('wire-language', 'auto'), lang = 'en', email = '', payments = null, usdtOn = false, nimOn = false, enabled = false, nimView = null, resumed = false;
 let nimCache=null;
-let choosingCoin=false,codeSending=false,codeSentTo='',codeUntil=0,codeTimer=null;
+let choosingCoin=false,codeSending=false,codeSentTo='',codeUntil=0,codeTimer=null,senderInviteOnly=false;
 const t = key => (words[lang] || words.en)[key];
 // Only an opaque, one-use credential crosses contexts. Remove it before any request.
 let incomingToken=null,handoffError='',handoffPayment=null,scopedID='',fundingBlocked=false;
@@ -348,6 +349,7 @@ function setLanguage(value) {
  const nav = typeof navigator === 'undefined' ? {} : navigator;
  lang = resolveLanguage(value, nav.languages?.length ? nav.languages : [nav.language]);
  paint();
+ if(senderInviteOnly)say(flowText(lang,'inviteOnly'));
 }
 
 // ---- the money of a card the window has just made: watch it, and e-mail the recipient once it is funded ----
@@ -645,10 +647,10 @@ $('wire-email').addEventListener('input',()=>{
 $('wire-send-code').addEventListener('click', async () => {
  if(codeSending||Date.now()<codeUntil)return;
  if (!$('wire-email').reportValidity() || !$('wire-email').value) return;
- codeSending=true;$('wire-email').disabled=true;$('wire-verify').disabled=true;paintCodeRequest();
+ senderInviteOnly=false;codeSending=true;$('wire-email').disabled=true;$('wire-verify').disabled=true;paintCodeRequest();
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
  try {const to=$('wire-email').value.trim();await api('/api/sender/request', { email: to, language: lang },controller.signal);codeSentTo=to;codeUntil=Date.now()+30000;$('wire-code-box').hidden = false;say(t('codeSent'));$('wire-code').focus();}
- catch {codeSentTo='';codeUntil=0;say(t('fail'));}
+ catch(error){senderInviteOnly=error.code==='invite_only';codeSentTo='';codeUntil=0;$('wire-code-box').hidden=true;$('wire-code').value='';say(senderInviteOnly?flowText(lang,'inviteOnly'):t('fail'));}
  finally{clearTimeout(timeout);codeSending=false;$('wire-email').disabled=false;$('wire-verify').disabled=false;paintCodeRequest();}
 });
 $('wire-verify').addEventListener('click', async () => {

@@ -175,7 +175,7 @@ async function start({cancelCode="",cancelConfirm=true,classic=false,extraNim=[]
     if (path === '/api/sender/verify') {currentSession={verified:true,email:'sender@example.test'};return answer(200,currentSession);}
     if(path==='/api/sender/request'){
      if(heldCode){const held=heldCode;heldCode=null;await new Promise((resolve,reject)=>{held.release=resolve;options.signal?.addEventListener('abort',()=>reject(Error('aborted')),{once:true});});}
-     return codeFails?answer(503,{code:'mail_unavailable'}):answer(200,{email:'sender@example.test',ok:true});
+     return codeFails==='invite_only'?answer(403,{code:'invite_only'}):codeFails?answer(503,{code:'mail_unavailable'}):answer(200,{email:'sender@example.test',ok:true});
     }
     if (path === '/api/logout') {if(logoutFails)return answer(503,{code:'unavailable'});currentSession={verified:false};return answer(200, {ok: true});}
     throw Error('unexpected API ' + path);
@@ -860,6 +860,43 @@ test('code request visibly changes from sending to sent in five languages and bl
  }
  assert.match(read('../internal/web/static/wire-pay.css'),/#wire-send-code\[data-state="sent"\]\{[^}]*border-color:#369d70/);
 });
+
+const inviteOnlyCopy={
+ fr:"Phoenix Wire est ouvert sur invitation pour le moment. Tu peux quand même ouvrir une carte que quelqu'un t'a envoyée.",
+ en:'Phoenix Wire is invite-only for now. You can still open a card someone has sent you.',
+ es:'Por ahora, Phoenix Wire está disponible solo por invitación. Aun así, puedes abrir una tarjeta que alguien te haya enviado.',
+ de:'Phoenix Wire ist zurzeit nur auf Einladung verfügbar. Du kannst weiterhin eine Karte öffnen, die dir jemand geschickt hat.',
+ zh:'Phoenix Wire 目前仅限受邀用户发送。你仍然可以打开别人发给你的卡片。'
+};
+for(const classic of [false,true])for(const [language,message]of Object.entries(inviteOnlyCopy)){
+ test(`invite-only sender access in ${classic?'classic':'payment-window'} / ${language} keeps retry and receiving available`,async()=>{
+  const app=await start({session:{verified:false},clocked:true,classic});
+  if(classic){app.doc.documentElement.lang=language;app.window.dispatchEvent(new app.window.Event('wire-language'));}
+  else{app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));}
+  const input=app.$(classic?'sender':'wire-email'),button=app.$(classic?'send-sender-code':'wire-send-code');
+  const status=app.$(classic?'sender-status':'wire-status'),box=app.$(classic?'sender-code-box':'wire-code-box');
+  input.value='new@example.test';app.failCode('invite_only');const timers=app.clock.pending();
+  button.click();await settle();
+  assert.equal(status.textContent,message);assert.equal(flowText(language,'inviteOnly'),message);
+  assert.doesNotMatch(status.textContent,/invite_only|Mainnet|OTP|Hub/);
+  assert.equal(input.disabled,false);assert.equal(input.readOnly,false);assert.equal(button.disabled,false);assert.equal(box.hidden,true);
+  assert.equal(app.clock.pending(),timers,'no resend countdown or request timeout survives the refusal');
+  if(!classic){assert.equal(button.dataset.state,'idle');assert.equal(app.$('wire-code-delivery').hidden,true);}
+  const other=language==='en'?'fr':'en';
+  for(const selected of [other,language]){
+   if(classic){app.doc.documentElement.lang=selected;app.window.dispatchEvent(new app.window.Event('wire-language'));}
+   else{app.$('wire-language').value=selected;app.$('wire-language').dispatchEvent(new app.window.Event('change'));}
+   assert.equal(status.textContent,inviteOnlyCopy[selected],'the invitation follows a language change');
+  }
+  button.click();await settle();
+  assert.equal(app.calls.filter(([path])=>path==='/api/sender/request').length,2,'an immediate retry is allowed');
+  await app.clock.advance(31000);assert.equal(status.textContent,message);assert.equal(button.disabled,false);
+  input.value='invited@example.test';input.dispatchEvent(new app.window.Event('input'));app.failCode(false);
+  button.click();await settle();assert.equal(box.hidden,false,'another address can request a code');
+  assert.equal(app.calls.filter(([path])=>path==='/api/sender/request').length,3);
+  if(!classic){assert.equal(button.dataset.state,'sent');assert.equal(button.disabled,true,'only a successful request starts the cooldown');}
+ });
+}
 
 test('a failed or stalled code request never says sent and leaves retry available',async()=>{
  for(const stalled of [false,true]){
