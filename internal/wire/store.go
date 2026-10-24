@@ -63,7 +63,8 @@ type snapshot struct {
 	Sessions map[string]session
 	Payments map[string]savedPayment
 	Rates    map[string]rate
-	USDT     map[string]usdtCard `json:",omitempty"` // USDC / USDT cards of the senders (their claim links are never kept)
+	Notices  map[string]map[string]time.Time `json:",omitempty"` // card id -> notice kind -> when it was sent to the sender (expiry.go)
+	USDT     map[string]usdtCard             `json:",omitempty"` // USDC / USDT cards of the senders (their claim links are never kept)
 }
 type diskStore struct {
 	state  snapshot

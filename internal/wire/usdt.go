@@ -48,7 +48,7 @@ const (
 	usdtCardsPerDay  = 20
 	usdtInviteSpace  = 30 * time.Second
 	usdtInviteMax    = 6
-	usdtCardLifetime = 14 * 24 * time.Hour
+	usdtCardLifetime = 24 * time.Hour
 )
 
 // engineAnswer parses the engine's JSON answer; a status that is not a success becomes a failure with the engine's own error code.

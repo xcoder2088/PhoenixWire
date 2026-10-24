@@ -1,6 +1,7 @@
 package wire
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/xcoder2088/NimiqSecureClaim/service"
 )
@@ -201,6 +203,21 @@ func TestUSDCCardFromTheSenderToTheInvitation(t *testing.T) {
 	if w := f.call("POST", card+"/invite", map[string]string{"claim_url": claim}); w.Code != 429 {
 		t.Fatalf("a second invitation at once: %d", w.Code)
 	}
+	// the end of the card: one reminder an hour before and one notice at the end, each once; Wire never moves the money by itself
+	created := f.api.db.state.USDT[cardID].Created
+	f.api.now = func() time.Time { return created.Add(23*time.Hour + 10*time.Minute) }
+	f.api.sweepExpiry(context.Background())
+	f.api.sweepExpiry(context.Background())
+	if len(f.mail.notices) != 1 || f.mail.notices[0] != "sender@example.test|reminder" {
+		t.Fatalf("one reminder expected: %v", f.mail.notices)
+	}
+	f.api.now = func() time.Time { return created.Add(24*time.Hour + time.Minute) }
+	f.api.sweepExpiry(context.Background())
+	f.api.sweepExpiry(context.Background())
+	if len(f.mail.notices) != 2 || f.mail.notices[1] != "sender@example.test|expired" {
+		t.Fatalf("one end notice expected: %v", f.mail.notices)
+	}
+	f.api.now = func() time.Time { return time.Now().UTC() }
 	// the claim link is never kept: not in the state file
 	f.restart()
 	raw, _ := json.Marshal(f.api.db.state.USDT)

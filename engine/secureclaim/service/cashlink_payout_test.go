@@ -27,6 +27,7 @@ type fakeChain struct {
 	confirms   int64
 	executed   bool
 	broadcasts []string
+	origin     string // where the funding came from, as the node shows it
 }
 
 func (f *fakeChain) Height(context.Context) (uint32, error)                { return f.height, nil }
@@ -35,6 +36,7 @@ func (f *fakeChain) RawHash(_ context.Context, raw string) (string, error) { ret
 func (f *fakeChain) ConfirmedSpendable(context.Context, string, string, uint64) (bool, error) {
 	return f.funded, nil
 }
+func (f *fakeChain) FundingSender(context.Context, string) (string, error) { return f.origin, nil }
 func (f *fakeChain) Broadcast(_ context.Context, raw string) (string, error) {
 	f.broadcasts = append(f.broadcasts, raw)
 	return fakeHash(raw), nil
@@ -237,5 +239,70 @@ func TestPayoutSignsAgainOnlyWhenTheFirstCanNoLongerBeIncluded(t *testing.T) {
 	count := len(f.chain.broadcasts)
 	if _, answer := f.call("payout", "", f.to); answer["status"] != "payout_pending" || len(f.chain.broadcasts) != count {
 		t.Fatal("signed again for an empty Cashlink", answer)
+	}
+}
+
+func TestAnExpiredCardGoesBackWhereItCameFrom(t *testing.T) {
+	f := newPayoutFixture(t)
+	origin, _ := (nimiq.AddressDeriver{}).CashlinkAddress(bytes.Repeat([]byte{0x55}, 32))
+	f.chain.origin = origin
+	e := &Engine{server: f.s}
+	ctx := context.Background()
+	// the coins are on the card and nobody opened it: they are paid back to the address that funded it, once
+	state, err := e.RefundExpired(ctx, f.id, 325000)
+	if err != nil || state != "pending" || len(f.chain.broadcasts) != 1 {
+		t.Fatal("refund", state, err, len(f.chain.broadcasts))
+	}
+	raw, _ := hex.DecodeString(f.chain.broadcasts[0])
+	to, _ := nimiq.AddressBytes(origin)
+	if len(raw) != 139 || !bytes.Equal(raw[34:54], to[:]) {
+		t.Fatal("the refund does not pay the funding address")
+	}
+	// asked again: the same transaction is followed, never another one; the destination is not given away by the public route
+	if state, _ = e.RefundExpired(ctx, f.id, 325000); state != "pending" || len(f.chain.broadcasts) != 2 || f.chain.broadcasts[1] != f.chain.broadcasts[0] {
+		t.Fatal("a second look must push the same transaction", state)
+	}
+	if status, answer := f.call("payout_status", "", ""); status != 200 || answer["status"] != "payout_refunded" || answer["to"] != nil || answer["hash"] != nil {
+		t.Fatal("the public status of a refund", status, answer)
+	}
+	if status, _ := f.call("payout", "000000", f.to); status != 409 {
+		t.Fatal("a recipient could still start a payout on a refunded card", status)
+	}
+	if status, _ := f.call("release", "000000", ""); status != 409 {
+		t.Fatal("the Hub link stayed open on a refunded card", status)
+	}
+	// in a block: done
+	f.chain.known[fakeHash(f.chain.broadcasts[0])] = true
+	f.chain.confirms = 2
+	if state, _ = e.RefundExpired(ctx, f.id, 325000); state != "done" {
+		t.Fatal("refund not seen as done", state)
+	}
+}
+
+func TestAnExpiredCardIsLeftAloneWhenItIsNotTheSendersToTake(t *testing.T) {
+	f := newPayoutFixture(t)
+	origin, _ := (nimiq.AddressDeriver{}).CashlinkAddress(bytes.Repeat([]byte{0x55}, 32))
+	f.chain.origin = origin
+	e := &Engine{server: f.s}
+	ctx := context.Background()
+	// empty: the recipient took it
+	f.chain.balance = 0
+	if state, _ := e.RefundExpired(ctx, f.id, 325000); state != "claimed" || len(f.chain.broadcasts) != 0 {
+		t.Fatal("an empty card", state)
+	}
+	f.chain.balance = 325000
+	// the origin cannot be read: nothing is sent
+	f.chain.origin = ""
+	if state, _ := e.RefundExpired(ctx, f.id, 325000); state != "unknown" || len(f.chain.broadcasts) != 0 {
+		t.Fatal("no origin", state)
+	}
+	f.chain.origin = origin
+	// the recipient opened the Hub link before the end: it is theirs
+	code := f.code(t)
+	if status, _ := f.call("release", code, ""); status != 200 {
+		t.Fatal("release", status)
+	}
+	if state, _ := e.RefundExpired(ctx, f.id, 325000); state != "released" || len(f.chain.broadcasts) != 0 {
+		t.Fatal("a card the recipient opened was refunded", state)
 	}
 }

@@ -67,3 +67,32 @@ func TestUSDTCardRefusesWhatItShouldNot(t *testing.T) {
 		}
 	}
 }
+
+func TestNoticesSayTheEndOfACardInFiveLanguages(t *testing.T) {
+	for _, lang := range []string{"fr", "en", "es", "de", "zh"} {
+		for _, kind := range []string{"reminder", "refunded", "expired"} {
+			for _, auto := range []bool{true, false} {
+				subject, plain, body, err := NoticeEmail(Notice{Kind: kind, Amount: "2.5", Symbol: "USDC", Recipient: "friend@example.test", URL: "https://wire.example.test/", Auto: auto}, lang)
+				if err != nil || subject == "" || !strings.Contains(plain, "friend@example.test") || !strings.Contains(plain, "https://wire.example.test/") {
+					t.Fatal(lang, kind, err, subject)
+				}
+				for _, bad := range []string{"Mainnet", "OTP", "Hub", "%!"} {
+					if strings.Contains(subject+plain+body, bad) {
+						t.Fatalf("%s %s says %q", lang, kind, bad)
+					}
+				}
+			}
+		}
+	}
+	// the recipient's address is shown, never run as HTML
+	_, _, body, err := NoticeEmail(Notice{Kind: "expired", Amount: "1", Symbol: "NIM", Recipient: "a<script>@example.test", URL: "https://wire.example.test/"}, "en")
+	if err != nil || strings.Contains(body, "<script>") {
+		t.Fatal("an address was not escaped", err)
+	}
+	if _, _, _, err := NoticeEmail(Notice{Kind: "other", Amount: "1", Symbol: "NIM", Recipient: "a@example.test", URL: "https://wire.example.test/"}, "en"); err == nil {
+		t.Fatal("an unknown kind was accepted")
+	}
+	if _, _, _, err := NoticeEmail(Notice{Kind: "expired", Amount: "1", Symbol: "NIM", Recipient: "a@example.test", URL: "javascript:alert(1)"}, "en"); err == nil {
+		t.Fatal("a link that is not a web address was accepted")
+	}
+}

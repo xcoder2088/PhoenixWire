@@ -206,6 +206,17 @@ func (s *Store) lookupLocked(id string) (*record, error) {
 	return r, nil
 }
 
+// Peek is Get without the expiry: what the service itself may read about a claim whose time is over (to refund it).
+func (s *Store) Peek(id string) (Public, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.values[id]
+	if !ok {
+		return Public{}, ErrNotFound
+	}
+	return r.public, nil
+}
+
 func (s *Store) Get(id string) (Public, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

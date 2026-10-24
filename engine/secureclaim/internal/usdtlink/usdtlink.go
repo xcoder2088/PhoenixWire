@@ -64,7 +64,7 @@ var (
 
 const (
 	// Lifetime is how long the claim link works. After it the sender simply takes his money back with his own key.
-	Lifetime = 14 * 24 * time.Hour
+	Lifetime = 24 * time.Hour
 	MaxCards = 20000
 )
 

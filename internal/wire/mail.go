@@ -19,6 +19,8 @@ type Delivery interface {
 	Send(context.Context, string, string) error
 	Invite(context.Context, payment, string) error
 	InviteUSDT(context.Context, usdtInvite, string) error
+	// Notice tells a SENDER about a card whose time is running out or over (expiry.go).
+	Notice(ctx context.Context, to string, n cards.Notice, lang string) error
 }
 type MailerSend struct {
 	APIKey, From string
@@ -51,6 +53,13 @@ func (m MailerSend) InviteUSDT(ctx context.Context, i usdtInvite, lang string) e
 		return err
 	}
 	return m.send(ctx, i.Recipient, subject, plain, body)
+}
+func (m MailerSend) Notice(ctx context.Context, to string, n cards.Notice, lang string) error {
+	subject, plain, body, err := cards.NoticeEmail(n, lang)
+	if err != nil {
+		return err
+	}
+	return m.send(ctx, to, subject, plain, body)
 }
 func (m MailerSend) send(ctx context.Context, to, subject, plain, body string) error {
 	if err := m.Validate(); err != nil {

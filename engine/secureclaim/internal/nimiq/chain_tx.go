@@ -94,3 +94,33 @@ func (v *MainnetVerifier) RawHash(ctx context.Context, rawHex string) (string, e
 	}
 	return strings.ToLower(info.Hash), nil
 }
+
+// FundingSender is the address a Cashlink was funded from: the sender of its oldest confirmed funding transaction (the one that carries the
+// funding mark). "" with a nil error when the node does not show one yet. The answer is the node's, like every chain fact here.
+func (v *MainnetVerifier) FundingSender(ctx context.Context, address string) (string, error) {
+	if v == nil || ctx == nil || !ValidAddress(address) {
+		return "", ErrRPC
+	}
+	raw, err := v.call(ctx, "getTransactionsByAddress", []any{address, 50, nil})
+	if err != nil {
+		return "", err
+	}
+	var txs []struct {
+		From            string `json:"from"`
+		To              string `json:"to"`
+		RecipientData   string `json:"recipientData"`
+		Confirmations   int64  `json:"confirmations"`
+		ExecutionResult bool   `json:"executionResult"`
+	}
+	if json.Unmarshal(raw, &txs) != nil {
+		return "", ErrRPC
+	}
+	want := normalized(address)
+	for i := len(txs) - 1; i >= 0; i-- { // the node lists the newest first: the oldest funding is the last match
+		tx := txs[i]
+		if normalized(tx.To) == want && tx.ExecutionResult && tx.Confirmations >= 1 && fundingMarker(tx.RecipientData) && ValidAddress(tx.From) && normalized(tx.From) != want {
+			return tx.From, nil
+		}
+	}
+	return "", nil
+}

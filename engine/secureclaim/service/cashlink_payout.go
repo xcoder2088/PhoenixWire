@@ -34,6 +34,7 @@ type payoutChain interface {
 	Broadcast(ctx context.Context, rawHex string) (string, error)
 	RawHash(ctx context.Context, rawHex string) (string, error)
 	TxState(ctx context.Context, hash string) (found bool, confirmations int64, executed bool)
+	FundingSender(ctx context.Context, address string) (string, error)
 	ConfirmedSpendable(ctx context.Context, network, address string, exactLuna uint64) (bool, error)
 }
 
@@ -44,6 +45,7 @@ type payoutRecord struct {
 	Value    uint64 `json:"value"`
 	Validity uint32 `json:"validity"`
 	Created  int64  `json:"created"`
+	Kind     string `json:"kind,omitempty"` // "refund": the card expired and its coins went back where they came from (refund.go); empty: the recipient's payout
 }
 
 func (s *server) payoutFile(id string) (string, bool) {
@@ -148,6 +150,9 @@ func (s *server) signPayout(ctx context.Context, id, to string, value uint64, va
 }
 
 func payoutAnswer(rec *payoutRecord, status string, confirmations int64) map[string]any {
+	if rec.Kind == "refund" { // a refund tells nothing about where the money went: this route is public
+		return map[string]any{"status": "payout_refunded", "confirmations": confirmations}
+	}
 	return map[string]any{"status": status, "hash": rec.Hash, "to": rec.To, "value": rec.Value, "confirmations": confirmations}
 }
 
@@ -233,6 +238,14 @@ func (s *server) payoutExistingCashlink(w http.ResponseWriter, r *http.Request, 
 	rec, err := s.loadPayout(id)
 	if err != nil {
 		write(w, 503, map[string]string{"error": "payout_unavailable"})
+		return
+	}
+	if rec != nil && rec.Kind == "refund" { // the card expired and was paid back to its sender
+		if statusOnly {
+			write(w, 200, map[string]any{"status": "payout_refunded"})
+		} else {
+			write(w, 409, map[string]string{"error": "card_refunded"})
+		}
 		return
 	}
 	if statusOnly {

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/xcoder2088/NimiqSecureClaim/service"
+	"github.com/xcoder2088/PhoenixWire/internal/cards"
 )
 
 // Explicit fixtures: no real email, chain transaction or production credentials.
@@ -25,6 +26,7 @@ type testDelivery struct {
 	mu       sync.Mutex
 	codes    map[string]string
 	invites  int
+	notices  []string // "<sender>|<kind>" of every notice sent
 	fail     bool
 	lastLink string
 	lastArt  string
@@ -34,6 +36,12 @@ func (m *testDelivery) Send(_ context.Context, to, code string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.codes[to] = code
+	return nil
+}
+func (m *testDelivery) Notice(_ context.Context, to string, n cards.Notice, _ string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.notices = append(m.notices, to+"|"+n.Kind)
 	return nil
 }
 func (m *testDelivery) Invite(_ context.Context, p payment, link string) error {
@@ -101,7 +109,7 @@ func newFixture(t *testing.T) *fixture {
 		case "getTransactionsByAddress":
 			var address string
 			json.Unmarshal(in.Params[0], &address)
-			data = []map[string]any{{"to": address, "value": 250000, "recipientData": "0082809287", "confirmations": 2, "executionResult": true}}
+			data = []map[string]any{{"from": "NQ28 CQ7G QEBT 10UK R9LG 83C7 YAMY JD8Q K8S4", "to": address, "value": 250000, "recipientData": "0082809287", "confirmations": 2, "executionResult": true}}
 		case "getRawTransactionInfo", "sendRawTransaction":
 			var raw string
 			json.Unmarshal(in.Params[0], &raw)
@@ -686,5 +694,54 @@ func TestOnlyRegisteredSendersCanSignIn(t *testing.T) {
 	t.Setenv("PHOENIXWIRE_SENDERS", "open")
 	if w := f.call("POST", "/api/sender/request", map[string]string{"email": "stranger@example.test"}); w.Code != 200 {
 		t.Fatal("open mode refused a sender", w.Code)
+	}
+}
+
+func TestAnExpiredNIMCardGoesBackToItsSenderByItself(t *testing.T) {
+	f := newFixture(t)
+	f.verifySender("sender@example.test")
+	p := f.create()
+	good(f.call("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t)
+	f.rpcMu.Lock()
+	f.funded = true
+	f.rpcMu.Unlock()
+	good(f.call("POST", "/api/payments/"+p.ID+"/confirm", map[string]string{}), t)
+	ctx := context.Background()
+	at := func(h time.Duration) { f.api.now = func() time.Time { return p.Created.Add(h) } }
+	stage := func() string { return f.api.db.state.Payments[p.ID].Payment.Stage }
+	// early on, nothing happens
+	at(time.Hour)
+	f.api.sweepExpiry(ctx)
+	if len(f.mail.notices) != 0 || len(f.sent) != 0 {
+		t.Fatal("a young card was touched", f.mail.notices, len(f.sent))
+	}
+	// an hour before the end: one reminder, once
+	at(23*time.Hour + 5*time.Minute)
+	f.api.sweepExpiry(ctx)
+	f.api.sweepExpiry(ctx)
+	if len(f.mail.notices) != 1 || f.mail.notices[0] != "sender@example.test|reminder" {
+		t.Fatal("one reminder to the sender expected", f.mail.notices)
+	}
+	// the time is over: the money is paid back to the address that funded the card, once
+	at(24*time.Hour + time.Minute)
+	f.api.sweepExpiry(ctx)
+	if stage() != "refunding" || len(f.sent) != 1 {
+		t.Fatal("refund not started", stage(), len(f.sent))
+	}
+	f.rpcMu.Lock()
+	f.mined = 2
+	f.rpcMu.Unlock()
+	f.api.sweepExpiry(ctx)
+	f.api.sweepExpiry(ctx)
+	if stage() != "refunded" || len(f.sent) < 1 {
+		t.Fatal("refund not completed", stage(), len(f.sent))
+	}
+	if len(f.mail.notices) != 2 || f.mail.notices[1] != "sender@example.test|refunded" {
+		t.Fatal("the sender must be told once", f.mail.notices)
+	}
+	// a refunded card cannot be opened any more
+	f.cookie = nil
+	if w := f.call("GET", "/api/claims/"+p.ID, nil); w.Code != 404 {
+		t.Fatal("a refunded card can be opened", w.Code)
 	}
 }

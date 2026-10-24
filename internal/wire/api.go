@@ -30,6 +30,7 @@ type Engine interface {
 	PublicHandler() http.Handler
 	Recovery(string) (string, error)
 	CardState(context.Context, string) (string, error)
+	RefundExpired(context.Context, string, uint64) (string, error)
 }
 type senderOTP interface {
 	IssueClaim(context.Context, string, string) error
@@ -58,6 +59,8 @@ type API struct {
 	handoffs    map[string]handoff
 	handoffAsks map[string][]time.Time
 	// where each NIM card's coins are, asked of the chain in the background (nimstate.go)
+	stop       chan struct{}        // closed by Close: ends the expiry sweep (expiry.go)
+	refundSkip map[string]time.Time // cards the engine would not refund, asked about again later (under mu)
 	stateMu    sync.Mutex
 	looks      sync.WaitGroup // the background looks: Close waits for them before the engine goes
 	cardStates map[string]cardState
@@ -98,9 +101,19 @@ func New(c Config) (*API, error) {
 		return nil, err
 	}
 	ok = true
-	return &API{db: db, otp: otp, engine: c.Engine, mail: c.Mail, origin: strings.TrimSuffix(c.Origin, "/"), master: append([]byte(nil), c.Master...), unlock: unlock, now: func() time.Time { return time.Now().UTC() }}, nil
+	api := &API{db: db, otp: otp, engine: c.Engine, mail: c.Mail, origin: strings.TrimSuffix(c.Origin, "/"), master: append([]byte(nil), c.Master...), unlock: unlock, now: func() time.Time { return time.Now().UTC() }, stop: make(chan struct{})}
+	api.looks.Add(1)
+	go api.sweepLoop() // cards whose time is over (expiry.go)
+	return api, nil
 }
-func (a *API) Close() { a.looks.Wait(); clear(a.master); a.unlock() }
+func (a *API) Close() {
+	if a.stop != nil {
+		close(a.stop)
+	}
+	a.looks.Wait()
+	clear(a.master)
+	a.unlock()
+}
 
 // USDTEngine is what the embedded engine offers when the USDC / USDT cashlinks run in the same process.
 type USDTEngine interface {

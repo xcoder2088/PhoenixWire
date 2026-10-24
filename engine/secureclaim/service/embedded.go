@@ -201,3 +201,83 @@ func ParseAmount(raw string) (string, uint64, error) { return claim.ParseAmount(
 func NewSenderOTP(sender otp.Sender, dir string, master []byte) (*otp.Manager, error) {
 	return otp.NewPersistent(sender, dir, master)
 }
+
+// RefundExpired pays a NIM card back to where it came from once its time is over: the sender of the transaction that funded it. It is
+// asked by the gateway for each expired payment it knows (amount = what the card was made for) and answers:
+//
+//	"pending"  a refund was sent (or is being followed) and is not in a block yet
+//	"done"     the refund is in a block
+//	"claimed"  nothing to refund: the card is empty (the recipient took it, or it was refunded another way)
+//	"released" the recipient already has the Hub link (they opened it before the end): the coins are theirs to take, nothing is sent
+//	"started"  the recipient's own payout to an address began: it is not touched
+//	"unknown"  where the money came from cannot be read yet: asked again later
+//
+// The destination is only ever the funding transaction's sender, recorded in the journal BEFORE anything is broadcast, so a retry can only
+// repeat this very refund. The network fee of a basic transaction is nothing; a NIM card carries no service fee.
+func (e *Engine) RefundExpired(ctx context.Context, id string, luna uint64) (string, error) {
+	s := e.server
+	if s.chain == nil || s.cashlinkVault == nil || s.payoutDir == "" || !s.cashlinkVault.Has(id) {
+		return "", errors.New("refund_unavailable")
+	}
+	s.payoutMu.Lock()
+	defer s.payoutMu.Unlock()
+	rec, err := s.loadPayout(id)
+	if err != nil {
+		return "", err
+	}
+	if rec != nil {
+		if rec.Kind != "refund" {
+			return "started", nil
+		}
+		answer, status := s.followPayout(ctx, id, rec)
+		if status != 200 {
+			return "pending", nil
+		}
+		if answer["status"] == "payout_refunded" {
+			if found, confirmations, executed := s.chain.TxState(ctx, rec.Hash); found && executed && confirmations >= 1 {
+				return "done", nil
+			}
+		}
+		return "pending", nil
+	}
+	view, err := s.claims.Peek(id)
+	if err != nil {
+		return "", err
+	}
+	if view.EmailVerified {
+		return "released", nil
+	}
+	seed, own, err := s.cashlinkKey(id)
+	if err != nil {
+		return "", err
+	}
+	clear(seed)
+	balance, err := s.chain.Balance(ctx, own)
+	if err != nil {
+		return "", err
+	}
+	if balance == 0 {
+		return "claimed", nil
+	}
+	origin, err := s.chain.FundingSender(ctx, own)
+	if err != nil {
+		return "", err
+	}
+	if origin == "" {
+		return "unknown", nil
+	}
+	height, err := s.chain.Height(ctx)
+	if err != nil {
+		return "", err
+	}
+	fresh, err := s.signPayout(ctx, id, origin, balance, height)
+	if err != nil {
+		return "", err
+	}
+	fresh.Kind = "refund"
+	if err := s.savePayout(id, fresh); err != nil { // journal first, broadcast second
+		return "", err
+	}
+	_, _ = s.chain.Broadcast(ctx, fresh.Raw)
+	return "pending", nil
+}
