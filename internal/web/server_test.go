@@ -341,3 +341,23 @@ func TestEveryFileAPageNamesIsServed(t *testing.T) {
 		}
 	}
 }
+
+// A file that is shipped with the page (the top of the static folder) is served. A new file that is not on the server's list answers 404 and breaks
+// whatever loads it, including the files a script loads by itself, which no page names.
+func TestEveryShippedFileIsServed(t *testing.T) {
+	h := NewHandler()
+	entries, err := assets.ReadDir("static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || strings.HasPrefix(e.Name(), "LICENSE") || e.Name() == "index.html" { // index.html is served at "/"
+			continue
+		}
+		r := httptest.NewRecorder()
+		h.ServeHTTP(r, httptest.NewRequest("GET", "/"+e.Name(), nil))
+		if r.Code != 200 {
+			t.Errorf("/%s is shipped with the page and the server answers %d", e.Name(), r.Code)
+		}
+	}
+}
