@@ -20,7 +20,7 @@ import (
 //	fee = FeeMargin x (the gas of one card at today's price) + FeeBps of the amount
 //
 // "What the gas costs now" is the node's own fee estimate (the highest fee per gas a transaction would be sent with) times the gas one card
-// is assumed to use, in the chain's coin, converted to token units by the price of that coin. The price is read from the chain itself
+// is assumed to use (its deployment and payout, plus the gift of gas money to the sender where that is on), in the chain's coin, converted to token units by the price of that coin. The price is read from the chain itself
 // (a Chainlink USD feed, one read-only call), remembered for priceTTL, and, when the feed cannot be read, CoinGecko's public price is
 // asked next; the last good price is kept for priceStale; past that, a deliberately HIGH fallback price is used, so an outage makes fees
 // higher, never lower. When a chain has no price source at all, the flat gas fee of the chain (DefaultFee) stands for the gas.
@@ -204,7 +204,11 @@ func margined(units uint64) uint64 {
 // quote is the fee a new card of this many token units carries, and the refund fee (the same: a refund keeps it all).
 func (s *Service) quote(ctx context.Context, asset string, c Chain, units uint64) (fee, refund uint64, err error) {
 	gas := DefaultFee[asset]
-	if cost, ok := s.gasCostUnits(ctx, asset, c, CardGas); ok {
+	gasUnits := CardGas
+	if c.DripCap != nil { // the gift of gas money to the sender is the relayer's cost too, and the fee of the card pays it back
+		gasUnits += transferGas
+	}
+	if cost, ok := s.gasCostUnits(ctx, asset, c, gasUnits); ok {
 		gas = margined(cost)
 	}
 	pct := (units*FeeBps + 9999) / 10000
