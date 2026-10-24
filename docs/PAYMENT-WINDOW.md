@@ -384,7 +384,6 @@ in the selected language and the browser's local time zone. USDC/USDT dates are 
 cashlink status response; NIM dates come from `/api/payments`. A NIM `claimed_at` must mean an actual confirmed claim,
 not release of the claim link. Missing, invalid and zero dates are omitted. Polling time and local creation estimates are
 never substituted for these dates. The current server exposes stablecoin `claimed_at` and NIM `claim_state`; receipt labels use those fields as described below.
-`archive/HANDOFF-DATES-CARTES-2026-10-23.md` records the earlier date handoff.
 
 ## Hand-over of one payment to the Nimiq Pay app (server)
 

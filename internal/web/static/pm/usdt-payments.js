@@ -1,4 +1,4 @@
-/* MIT. Copyright (c) 2026 xcoder2088. USDT cards (Ethereum, Polygon): the same window as Nimiq, other asset. No wallet connection: the sender pays from any wallet. */
+/* MIT. Copyright (c) 2026 Xcoder. USDT cards (Ethereum, Polygon): the same window as Nimiq, other asset. No wallet connection: the sender pays from any wallet. */
 (function(root){'use strict';
 const CHAINS={
  usdt_ethereum:{key:'ethereum',symbol:'USDT',name:'Ethereum',label:'USDT · Ethereum',gas:'ETH',explorer:/^https:\/\/etherscan\.io\/tx\/0x[0-9a-fA-F]{64}$/},

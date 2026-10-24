@@ -1,4 +1,4 @@
-/* MIT. Copyright (c) 2026 xcoder2088. Wallet keys remain in the Nimiq Keyguard. */
+/* MIT. Copyright (c) 2026 Xcoder. Wallet keys remain in the Nimiq Keyguard. */
 (function(root){
 'use strict';
 const words={

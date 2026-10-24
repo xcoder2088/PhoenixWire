@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: MIT (originally AGPL-3.0-only in PhoenixMail; licensed here under the MIT License by the copyright holder, see docs/THIRD-PARTY-NOTICES.md). Copyright (c) 2026 xcoder2088. USDT cashlinks (Ethereum, Polygon): the card is a small wallet that HOLDS the money.
+/* SPDX-License-Identifier: MIT (originally AGPL-3.0-only in PhoenixMail; licensed here under the MIT License by the copyright holder, see docs/THIRD-PARTY-NOTICES.md). Copyright (c) 2026 Xcoder. USDT cashlinks (Ethereum, Polygon): the card is a small wallet that HOLDS the money.
    The sender's browser makes the card (random id + link key, kept in the link and in this browser), asks PhoenixMail to register
    it, and pays amount + a fee reserve with ONE transfer. A sender who holds only the token can ask for the gas of that transfer.
    The recipient pays nothing. Depends on cashlink.js (PhoenixCashlink, a mirror of the PhoenixCashlink repository). */

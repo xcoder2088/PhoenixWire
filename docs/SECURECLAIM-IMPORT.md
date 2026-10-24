@@ -59,7 +59,7 @@ already granted for copies distributed under that license.
 
 - **2026-10-22 — NimiqSecureClaim `addff7a65d7b4ebb038bd17c1eae5ecf07e086dd`**: shared sender/recipient verification template in FR/EN/ES/DE/ZH. Mirrored `internal/otp/mailer.go`, `mail_language.go`, `mail_language_test.go` after upstream Go race/vet and JS tests passed. Legacy default English claim email remains unchanged. Wire's service adapter exports the language context; the shared files remain exact upstream copies.
 
-- **2026-10-22 — NimiqSecureClaim `89bc070`** (by the maintainer, at the owner's request). Mirrored: `internal/otp/{mailer.go,mailer_test.go,challenge.go,challenge_test.go}`,
+- **2026-10-22 — NimiqSecureClaim `89bc070`** (at the owner's request). Mirrored: `internal/otp/{mailer.go,mailer_test.go,challenge.go,challenge_test.go}`,
   `internal/otp/assets/phoenixmail-email-icon.png`, `web/index.html`, `web/tests/claim.test.cjs`. What this brings: claim page with visible feedback (hover/press/busy,
   message under the button, resend countdown), the verify button turning into "Receive my NIM in Nimiq →", no "MAINNET" badge or network name; verification email with the
   logo as a `data:` URI, provider tracking off, User-Agent header, header colours "Phoenix" navy + brand in orange; resend after 20 s, 8 requests / 5 wrong guesses per 15 min;

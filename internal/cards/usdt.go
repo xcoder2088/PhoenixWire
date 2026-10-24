@@ -1,4 +1,4 @@
-// MIT. Copyright (c) 2026 xcoder2088.
+// MIT. Copyright (c) 2026 Xcoder.
 // The e-mail card of a USDC / USDT payment, on the mirrored PhoenixMail renderer with Wire's brand. It carries a claim link whose
 // key is in the fragment (the recipient's mail provider sees it, as with any link) and no QR code: the card is protected.
 package cards

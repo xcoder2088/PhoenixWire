@@ -40,7 +40,7 @@ Done: <numéro de version> is live.
 
 **Si une question « Continue? [y/N] » apparaît** (il y a des changements non enregistrés dans le dossier) : réponds `y` seulement si tu sais pourquoi, sinon `N`.
 
-**Si un test échoue** : le script s'arrête avant d'envoyer quoi que ce soit. Rien n'est cassé. Copie le message d'erreur et envoie-le à the maintainer ou à the maintainer.
+**Si un test échoue** : le script s'arrête avant d'envoyer quoi que ce soit. Rien n'est cassé. Copie le message d'erreur et ouvre un ticket (ou demande au mainteneur).
 
 ## 2. Vérifier que ça marche
 
@@ -172,13 +172,13 @@ sudo journalctl -u phoenixwire --no-pager | grep "ledger"
 
 ## 9. Le site de présentation (phoenixmail.ca) : déploiement séparé
 
-Ce n'est pas le même programme : ce sont des fichiers statiques du dépôt PhoenixMail (`website/public/`), copiés dans `/var/www/phoenixmail/public/` du portable. the maintainer le fait ; en cas de besoin, copie `index.html`, `site.css`, `site.js` (et les images ajoutées) dans ce dossier avec `sudo install -o root -g root -m 644`, après avoir gardé une copie dans un dossier `.backup-<date>`. Cloudflare garde l'ancienne page jusqu'à 4 heures : *Caching → Purge Everything* pour tout voir tout de suite.
+Ce n'est pas le même programme : ce sont des fichiers statiques du dépôt PhoenixMail (`website/public/`), copiés dans `/var/www/phoenixmail/public/` du portable. Le mainteneur le fait ; en cas de besoin, copie `index.html`, `site.css`, `site.js` (et les images ajoutées) dans ce dossier avec `sudo install -o root -g root -m 644`, après avoir gardé une copie dans un dossier `.backup-<date>`. Cloudflare garde l'ancienne page jusqu'à 4 heures : *Caching → Purge Everything* pour tout voir tout de suite.
 
 ## 10. Problèmes courants
 
 | Symptôme | Cause probable | Quoi faire |
 |---|---|---|
 | `Permission denied` / `Connection timed out` | pas sur le même réseau que le portable, ou clé ssh non chargée | se brancher au bon réseau ; `ssh-add` |
-| Page vide après déploiement | un fichier de la page n'est pas servi | le script l'affiche (`MISSING ...`) ; sinon `--rollback` puis prévenir the maintainer |
+| Page vide après déploiement | un fichier de la page n'est pas servi | le script l'affiche (`MISSING ...`) ; sinon `--rollback` puis prévenir le mainteneur |
 | `phoenixwire` pas `active` | erreur de configuration ou de permissions | `sudo journalctl -u phoenixwire -n 50 --no-pager`, puis remettre la copie de la configuration |
-| Un test échoue | changement incomplet | ne pas déployer ; envoyer le message à the maintainer ou à the maintainer |
+| Un test échoue | changement incomplet | ne pas déployer ; envoyer le message au mainteneur |

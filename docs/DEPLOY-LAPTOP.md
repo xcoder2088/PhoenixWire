@@ -1,4 +1,4 @@
-# Déployer Phoenix Wire sur le portable (sans the maintainer)
+# Déployer Phoenix Wire sur le portable 
 
 > Le guide pas à pas, avec toutes les commandes à copier, est [DEPLOIEMENT-SIMPLE.md](DEPLOIEMENT-SIMPLE.md). Cette page garde les détails (où est quoi, adresses des relais, transfert des fonds).
 
@@ -34,7 +34,7 @@ Il faut Go sur ton ordinateur (Node aussi pour les tests JavaScript ; sans Node 
 ### Si ça échoue
 
 - `Permission denied` / `Connection timed out` : tu n'es pas sur le même réseau que le portable, ou ta clé ssh n'est pas chargée.
-- Un test échoue : ne déploie pas. Regarde le message, ou demande à the maintainer de corriger.
+- Un test échoue : ne déploie pas. Regarde le message, ou demande au mainteneur de corriger.
 - Le site ne répond plus après le déploiement : `./scripts/deploy-laptop.sh --rollback`.
 - Voir ce que dit le service (sur le portable) : `sudo journalctl -u phoenixwire -n 50 --no-pager`
 

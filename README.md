@@ -91,8 +91,7 @@ owner-controlled; this repository's documentation is not a statement that a part
 - `internal/cards`: mirrored email presentation and Wire adapters.
 - `engine/secureclaim`: integrated engine with its own Go module and retained upstream provenance.
 - [Architecture](docs/ARCHITECTURE.md), [design](docs/DESIGN.md), [hosting](docs/DEPLOYMENT.md), [end of a card](docs/FIN-DES-CARTES.md),
-  [engine import](docs/IMPORT-USDT-CASHLINK-2026-10-23.md). The files in `docs/archive/` (reviews, plans, hand-offs of the build) are history, not
-  current instructions.
+  [engine import](docs/IMPORT-USDT-CASHLINK-2026-10-23.md).
 
 Original code in this repository is MIT ([LICENSE](LICENSE)); third-party terms remain intact ([THIRD-PARTY-NOTICES.md](docs/THIRD-PARTY-NOTICES.md)),
 and the copies of the owner's own AGPL projects (PhoenixMail's payment window, PhoenixCashlink's protocol) are licensed here under MIT by the

@@ -38,8 +38,8 @@ the Safe's current nonce, so a surplus or a late deposit stays recoverable; one 
 
 ## Limits worth knowing
 A co-signature already handed out stays valid on chain until the Safe nonce is used (a cancel stops new ones only; the first
-transaction mined wins). Confirmation depth (the specification's 64 / 12 blocks) is not enforced yet. See the the maintainer reviews in the
-PhoenixWire repository (`docs/archive/REVIEW-USDTLINK-*`, `docs/archive/PLAN-TESTS-*`) for the open findings.
+transaction mined wins). Confirmation depth (the specification's 64 / 12 blocks) is not enforced yet. See `docs/AUDIT-2026-10-24.md` in the PhoenixWire
+repository for the open findings.
 
 ## Tests
 `go test ./...`, `node --test web/tests/usdt-page.test.cjs`.

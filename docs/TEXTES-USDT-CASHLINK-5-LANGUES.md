@@ -12,7 +12,7 @@ Format monétaire localisé ; les calculs restent en unités entières à six d�
 
 Ne jamais traduire une annulation applicative par « fonds remboursés ». Après émission d'une signature, une course avec une réclamation reste possible. « Payé » et les notifications de succès exigent une confirmation et une persistance fiables ; un simple appel de co-signature ne déclenche pas de notification de paiement.
 
-Les textes de remise du lien ci-dessous sont des variantes à activer selon la [décision R3](archive/DECISION-R3-LIEN-COURRIEL.md). Ne pas afficher « carte envoyée » après une simple copie ou ouverture d'une feuille de partage.
+Les textes de remise du lien ci-dessous sont des variantes à activer selon la décision R3. Ne pas afficher « carte envoyée » après une simple copie ou ouverture d'une feuille de partage.
 
 ## Page d'envoi PhoenixMail
 

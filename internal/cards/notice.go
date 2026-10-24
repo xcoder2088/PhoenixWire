@@ -1,4 +1,4 @@
-// MIT. Copyright (c) 2026 xcoder2088.
+// MIT. Copyright (c) 2026 Xcoder.
 package cards
 
 import (

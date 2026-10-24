@@ -12,13 +12,13 @@ renderer = (source / 'internal/nimiq/card_design.go').read_text()
 (target / 'renderer_mirror.go').write_text(header + renderer.replace('package nimiq', 'package cards', 1))
 payment = (source / 'internal/nimiq/payment_request.go').read_text()
 palettes = payment[payment.index('var legacyPaymentPalettes'):payment.index('\nfunc PaymentHTML')]
-(target / 'palette_mirror.go').write_text(header + '// MIT. Copyright (c) 2026 xcoder2088.\npackage cards\nimport "strconv"\n' + palettes)
+(target / 'palette_mirror.go').write_text(header + '// MIT. Copyright (c) 2026 Xcoder.\npackage cards\nimport "strconv"\n' + palettes)
 protected = (source / 'internal/nimiq/protected_cashlink_card.go').read_text()
 render = protected[protected.index('func ProtectedCashlinkHTML'):protected.index('\nfunc ProtectedCashlinkPlain')]
-(target / 'protected_mirror.go').write_text(header + '// MIT. Copyright (c) 2026 xcoder2088.\npackage cards\nimport("fmt";"html")\n' + render)
+(target / 'protected_mirror.go').write_text(header + '// MIT. Copyright (c) 2026 Xcoder.\npackage cards\nimport("fmt";"html")\n' + render)
 main = (source / 'cmd/phoenixmail/main.go').read_text()
 footer = main[main.index('func phoenixMailFooterHTML'):main.index('\nfunc phoenixMailHTMLBody')]
-(target / 'footer_mirror.go').write_text(header + '// MIT. Copyright (c) 2026 xcoder2088.\npackage cards\nimport "strings"\n' + footer)
+(target / 'footer_mirror.go').write_text(header + '// MIT. Copyright (c) 2026 Xcoder.\npackage cards\nimport "strings"\n' + footer)
 # The web card consumes the exact same palette and protected-card wording.
 words = re.findall(r'"(fr|en|es|de|zh)":\s*\{([^\n]+)\}', render)
 import json
