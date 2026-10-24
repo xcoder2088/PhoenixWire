@@ -90,6 +90,8 @@ func usdtlinkError(w http.ResponseWriter, err error) {
 		code, status = "quote_changed", 409
 	case errors.Is(err, usdtlink.ErrIdempotency), errors.Is(err, usdtlink.ErrAuthState), errors.Is(err, usdtlink.ErrAuthNotSigned), errors.Is(err, usdtlink.ErrDuplicate):
 		code, status = "conflict", 409
+	case errors.Is(err, usdtlink.ErrNotFinal):
+		code, status = "card_not_final", 409
 	case errors.Is(err, usdtlink.ErrFeeTooHigh):
 		code, status = "gas_too_high", 503
 	case errors.Is(err, usdtlink.ErrFloatLow):
@@ -447,6 +449,12 @@ func (h *usdtHTTP) issuer(s *server, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		write(w, 200, st)
+	case "forget": // issuer route: erase the personal data of a card that is over (the gateway's retention rule)
+		if err := h.svc.Forget(ctx, id); err != nil {
+			usdtlinkError(w, err)
+			return
+		}
+		write(w, 200, map[string]bool{"forgotten": true})
 	case "cancel":
 		if decode(w, r, &in) != nil {
 			write(w, 400, map[string]string{"error": "invalid_json"})

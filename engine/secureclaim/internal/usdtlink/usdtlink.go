@@ -981,6 +981,40 @@ func (s *Service) Status(ctx context.Context, id string) (Issuer, error) {
 	return in, nil
 }
 
+// ErrNotFinal: a card that is still live, or still holds money, keeps its data.
+var ErrNotFinal = errors.New("card_not_final")
+
+// Forget ends the retention of a card's personal data: the recipient's and the sender's e-mail addresses and the message are erased from its record
+// (the card's id, amounts and public address stay: they are on the chain anyway). Only a card whose life is over and that holds nothing: paid,
+// withdrawn, expired or cancelled, with a zero balance read just now. Idempotent.
+func (s *Service) Forget(ctx context.Context, id string) error {
+	defer s.lock(id)()
+	r, err := s.get(id)
+	if err != nil {
+		return err
+	}
+	if err := s.refresh(ctx, r); err != nil {
+		return err
+	}
+	switch s.state(r) {
+	case StatePaid, StateWithdrawn, StateExpired, StateCancelled, StateSettledOther:
+	default:
+		return ErrNotFinal
+	}
+	bal, err := s.balance(ctx, r)
+	if err != nil {
+		return err
+	}
+	if bal.Sign() != 0 || inFlight(r) {
+		return ErrNotFinal
+	}
+	if r.Email == "" && r.SenderEmail == "" && r.Message == "" {
+		return nil
+	}
+	r.Email, r.SenderEmail, r.Message = "", "", ""
+	return s.update(r)
+}
+
 // Cancel asks that the recipient no longer be co-signed (the sender's token proves who asks). It does not move money: the
 // sender takes it back with Refund.
 func (s *Service) Cancel(id, token string) (Public, error) {

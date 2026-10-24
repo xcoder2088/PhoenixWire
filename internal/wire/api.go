@@ -31,6 +31,7 @@ type Engine interface {
 	Recovery(string) (string, error)
 	CardState(context.Context, string) (string, error)
 	RefundExpired(context.Context, string, uint64) (string, error)
+	ForgetNIM(context.Context, string) (string, error)
 }
 type senderOTP interface {
 	IssueClaim(context.Context, string, string) error

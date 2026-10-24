@@ -341,3 +341,22 @@ func TestARefundThatCannotBeIncludedIsSignedAgainAsARefundAndJournaledFirst(t *t
 		t.Fatal("the public answer for a refund", status, answer)
 	}
 }
+
+func TestANimCardIsForgottenOnlyWhenItHoldsNothing(t *testing.T) {
+	f := newPayoutFixture(t)
+	e := &Engine{server: f.s}
+	ctx := context.Background()
+	if state, err := e.ForgetNIM(ctx, f.id); err != nil || state != "keep" {
+		t.Fatal("a card that holds money must be kept", state, err)
+	}
+	if _, err := f.s.claims.Peek(f.id); err != nil {
+		t.Fatal("the claim was erased from a card that holds money", err)
+	}
+	f.chain.balance = 0
+	if state, err := e.ForgetNIM(ctx, f.id); err != nil || state != "forgotten" {
+		t.Fatal("an empty card past its retention must be forgotten", state, err)
+	}
+	if _, err := f.s.claims.Peek(f.id); err == nil {
+		t.Fatal("the recipient's e-mail address is still in the claim")
+	}
+}

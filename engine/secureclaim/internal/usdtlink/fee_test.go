@@ -245,3 +245,35 @@ func TestTheLedgerSaysWhatAPayoutEarnedAndCost(t *testing.T) {
 		t.Fatal("a 2.50 card at this price must leave a margin", sums[0])
 	}
 }
+
+func TestAnEndedEmptyCardLosesItsPersonalData(t *testing.T) {
+	s, node := newService(t)
+	c := newCard(t, s)
+	ctx := context.Background()
+	rec := s.records[c.Issuer.ID]
+	rec.SenderEmail, rec.Message = "sender@example.com", "hello"
+	// a live card is not forgotten
+	if err := s.Forget(ctx, rec.ID); !errors.Is(err, ErrNotFinal) {
+		t.Fatal("a live card was forgotten", err)
+	}
+	// its time is over but it still holds money: kept, so that its sender can recover it
+	node.balance = big.NewInt(int64(rec.Units + rec.FeeUnits))
+	s.now = func() time.Time { return time.Now().Add(Lifetime + time.Hour) }
+	if err := s.Forget(ctx, rec.ID); !errors.Is(err, ErrNotFinal) {
+		t.Fatal("a card that holds money was forgotten", err)
+	}
+	if rec.Email == "" {
+		t.Fatal("the recipient's e-mail was erased from a card that holds money")
+	}
+	// over and empty: the addresses and the message go, the card's id and amounts stay, and asking again changes nothing
+	node.balance = big.NewInt(0)
+	if err := s.Forget(ctx, rec.ID); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Email != "" || rec.SenderEmail != "" || rec.Message != "" || rec.Units == 0 {
+		t.Fatalf("personal data kept or card erased: %+v", rec)
+	}
+	if err := s.Forget(ctx, rec.ID); err != nil {
+		t.Fatal("forgetting twice must be harmless", err)
+	}
+}

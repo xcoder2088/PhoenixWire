@@ -3,6 +3,7 @@ package wire
 import (
 	"context"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/xcoder2088/PhoenixWire/internal/cards"
@@ -100,6 +101,88 @@ func (a *API) pruneDrafts(now time.Time) {
 	}
 }
 
+// Retention. Sixty days after a card has ended (24 hours after it was made, plus sixty days) its personal data is deleted: the sender's and the
+// recipient's e-mail addresses and the message, in Wire's state and in the engine's. A card that still holds money keeps everything (its sender may
+// need to recover it), and so does one whose payout or refund is under way. The chain keeps what it keeps: payments are public and permanent.
+const (
+	dataKept        = 60 * 24 * time.Hour
+	retentionPerRun = 40 // cards examined per pass, oldest first: a long backlog is worked through over several passes
+)
+
+// forgetOld applies the retention rule. Called without a.mu.
+func (a *API) forgetOld(ctx context.Context, now time.Time) {
+	a.mu.Lock()
+	type old struct {
+		id      string
+		created time.Time
+	}
+	var nim, stable []old
+	for id, saved := range a.db.state.Payments {
+		if now.Sub(saved.Payment.Created) >= cardLifetime+dataKept {
+			nim = append(nim, old{id, saved.Payment.Created})
+		}
+	}
+	for id, c := range a.db.state.USDT {
+		if now.Sub(c.Created) >= cardLifetime+dataKept {
+			stable = append(stable, old{id, c.Created})
+		}
+	}
+	a.mu.Unlock()
+	oldestFirst := func(l []old) { sort.Slice(l, func(i, j int) bool { return l[i].created.Before(l[j].created) }) }
+	oldestFirst(nim)
+	oldestFirst(stable)
+	if len(nim) > retentionPerRun {
+		nim = nim[:retentionPerRun]
+	}
+	if len(stable) > retentionPerRun {
+		stable = stable[:retentionPerRun]
+	}
+	for _, o := range nim {
+		if ctx.Err() != nil {
+			return
+		}
+		cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+		state, err := a.engine.ForgetNIM(cctx, o.id)
+		cancel()
+		if err != nil || state != "forgotten" {
+			continue
+		}
+		a.mu.Lock()
+		delete(a.db.state.Payments, o.id)
+		delete(a.db.state.Notices, o.id)
+		delete(a.refundSkip, o.id)
+		if err := a.db.save(); err != nil {
+			log.Printf("retention: state not saved: %v", err)
+		}
+		a.mu.Unlock()
+		a.stateMu.Lock()
+		delete(a.cardStates, o.id)
+		a.stateMu.Unlock()
+	}
+	engine := a.USDT()
+	if engine == nil {
+		return
+	}
+	for _, o := range stable {
+		if ctx.Err() != nil {
+			return
+		}
+		cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		_, status, code := engineAnswer(engine.IssuerCall(cctx, "POST", "/api/v1/usdt/issuer/cards/"+o.id+"/forget", []byte("{}")))
+		cancel()
+		if code != "" || status != 0 { // not final, still holding money, or the chain could not be read: kept, asked again later
+			continue
+		}
+		a.mu.Lock()
+		delete(a.db.state.USDT, o.id)
+		delete(a.db.state.Notices, o.id)
+		if err := a.db.save(); err != nil {
+			log.Printf("retention: state not saved: %v", err)
+		}
+		a.mu.Unlock()
+	}
+}
+
 // sweepExpiry does one pass over every card Wire knows.
 func (a *API) sweepExpiry(ctx context.Context) {
 	a.mu.Lock()
@@ -135,6 +218,7 @@ func (a *API) sweepExpiry(ctx context.Context) {
 		}
 		a.sweepUSDT(ctx, c, now)
 	}
+	a.forgetOld(ctx, now)
 }
 
 func (a *API) sweepNIM(ctx context.Context, p payment, now time.Time) {

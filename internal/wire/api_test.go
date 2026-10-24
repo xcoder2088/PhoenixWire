@@ -966,3 +966,51 @@ func TestThePanelSaysWhenTheConfigurationForcesAccessOpen(t *testing.T) {
 		t.Fatal("not locked when the configuration does not force it", v)
 	}
 }
+
+func TestPersonalDataGoesSixtyDaysAfterACardEndsAndOnlyWhenItHoldsNothing(t *testing.T) {
+	f := newFixture(t)
+	f.verifySender("sender@example.test")
+	p := f.create()
+	other := paymentInput()
+	other["request_id"] = fmt.Sprintf("%032x", 777)
+	var made struct {
+		Payment payment `json:"payment"`
+	}
+	w := f.call("POST", "/api/payments", other)
+	if w.Code != 200 && w.Code != 201 {
+		t.Fatal(w.Code, w.Body)
+	}
+	json.Unmarshal(w.Body.Bytes(), &made)
+	q := made.Payment
+	good(f.call("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t)
+	f.rpcMu.Lock()
+	f.funded = true
+	f.rpcMu.Unlock()
+	good(f.call("POST", "/api/payments/"+p.ID+"/confirm", map[string]string{}), t)
+	ctx := context.Background()
+	has := func() bool { _, ok := f.api.db.state.Payments[p.ID]; return ok }
+	// sixty days after the end: still kept while the card holds money
+	f.api.now = func() time.Time { return p.Created.Add(24*time.Hour + 61*24*time.Hour) }
+	young := f.api.db.state.Payments[q.ID] // another card, made ten days ago from that moment: never touched
+	young.Payment.Created = f.api.now().Add(-10 * 24 * time.Hour)
+	f.api.db.state.Payments[q.ID] = young
+	f.api.forgetOld(ctx, f.api.now())
+	if !has() {
+		t.Fatal("a card that still holds money was forgotten")
+	}
+	// the money is gone (claimed): the personal data goes
+	f.rpcMu.Lock()
+	f.funded = false
+	f.rpcMu.Unlock()
+	f.api.forgetOld(ctx, f.api.now())
+	if has() {
+		t.Fatal("an empty card past its retention kept its data")
+	}
+	if _, ok := f.api.db.state.Notices[p.ID]; ok {
+		t.Fatal("notices of a forgotten card were kept")
+	}
+	// a young card is never touched, empty or not
+	if _, ok := f.api.db.state.Payments[q.ID]; !ok {
+		t.Fatal("a young card was forgotten")
+	}
+}

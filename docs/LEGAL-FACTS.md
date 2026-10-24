@@ -15,8 +15,8 @@ automatically to the address that funded it, and the sender of a USDC/USDT card 
 | Data | Why | How long |
 |---|---|---|
 | Sender e-mail address; session (random token, only its hash is kept) | to let the sender use the window | a confirmation code lives 15 minutes; a signed-in session 24 hours; sessions are deleted when they expire or the sender is blocked |
-| Each NIM payment: sender and recipient e-mail, amount, optional message (160 characters), language, the card's public address, stage, dates, a small decorative image (Nimicon) | to run the card, show "Mes cartes", send the e-mail, refund | **no automatic deletion of finished cards today** (see "Gaps"); unpaid drafts are deleted after 2 days, cancelled cards after 14 days |
-| Each USDC/USDT card: sender and recipient e-mail, amount, message, public card address, a refund token held by Wire, dates | same | **no automatic deletion of finished cards today** |
+| Each NIM payment: sender and recipient e-mail, amount, optional message (160 characters), language, the card's public address, stage, dates, a small decorative image (Nimicon) | to run the card, show "Mes cartes", send the e-mail, refund | **deleted 60 days after the card ends** (24 hours after it was made, plus 60 days), if the card holds nothing; unpaid drafts are deleted after 2 days, cancelled cards after 14 days |
+| Each USDC/USDT card: sender and recipient e-mail, amount, message, public card address, a refund token held by Wire, dates | same | **the e-mail addresses and the message are erased 60 days after the card ends**, if the card holds nothing (its id, amounts and public address stay: they are on the chain) |
 | Rate-limit counters: a **hash** of the visitor's IP address with a secret, and a count | to stop abuse | about 1 hour |
 | Administrator lists (allowed, blocked addresses) | to run invitation-only access | until an administrator removes them |
 | Which reminders and notices were sent for a card | to send each once | with the card |
@@ -25,6 +25,7 @@ Separately, in the engine's own files (also private and encrypted where they hol
 - the **private key of each NIM card**, sealed with the master key (needed to pay the recipient or to refund);
 - the co-signing and relayer keys for USDC/USDT, derived from the master key;
 - one journal file per NIM payout or refund (destination address, signed transaction, hash; no key);
+- the recipient's e-mail address inside the NIM claim, **erased with the card's data after the same 60 days** (and the USDC/USDT card's addresses and message, as above);
 - hashed one-time codes with their expiry;
 - the **margin ledger**: one line per settled USDC/USDT payout (first 8 characters of the card id, amounts, gas paid). No e-mail, no address.
 
@@ -45,7 +46,8 @@ clicks) is switched off in every message [`internal/wire/mail.go`].
 
 ## What a user can ask, and the honest limits
 
-- **Delete my data:** Wire can remove a sender's and a recipient's e-mail address and messages from its own state on request. It cannot remove anything from
+- **Delete my data:** Wire erases a card's e-mail addresses and message by itself 60 days after the card ends, if it holds nothing; it can do it sooner on request
+  for a card that is over. A card that still holds money keeps its data (its sender may need to recover it). It cannot remove anything from
   the blockchain, or from MailerSend's delivery logs (their retention applies), or from Cloudflare.
 - **A card's money is on-chain:** nobody, including Wire, can reverse a payment that was claimed.
 - **Refunds:** an unopened NIM card goes back to its funding address; a USDC/USDT card is taken back by its sender with his browser's key. The relayer keeps
@@ -57,10 +59,15 @@ clicks) is switched off in every message [`internal/wire/mail.go`].
   amount to pay.
 - **Access:** sending is by invitation unless an administrator opens it; opening or closing it never changes a card already sent.
 
+## What stays, whatever the retention
+
+- The **card's key** (NIM) stays sealed in the vault, and the journal of a payout or refund (a destination address, a signed transaction, a hash; no e-mail):
+  a payment someone sends to a card's address later can still be recovered, and a payout can still be explained.
+- The **margin ledger** lines (no e-mail, no address) and the chain's own records.
+- Backups: an encrypted backup of the state keeps what it held on the day it was made, until that backup is deleted.
+
 ## Gaps to decide before promising anything in the pages
 
-1. **No automatic deletion of finished cards.** The state keeps them (and e-mail addresses) until removed by hand. Either say so, or add a retention rule
-   (for example: remove the recipient's e-mail and the message 90 days after a card ends).
-2. **Contact for requests.** The pages need a real address to write to (the owner chooses it).
-3. **Who is the operator / which law.** The pages must name the operator and the governing law; that is the owner's decision.
-4. **Minors, and prohibited uses.** Decide whether to state an age limit and what may not be sent.
+1. **Contact for requests.** The pages need a real address to write to (the owner chooses it).
+2. **Who is the operator / which law.** The pages must name the operator and the governing law; that is the owner's decision.
+3. **Minors, and prohibited uses.** Decide whether to state an age limit and what may not be sent.

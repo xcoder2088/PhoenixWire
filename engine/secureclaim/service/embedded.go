@@ -286,3 +286,20 @@ func (e *Engine) RefundExpired(ctx context.Context, id string, luna uint64) (str
 	_, _ = s.chain.Broadcast(ctx, fresh.Raw)
 	return "pending", nil
 }
+
+// ForgetNIM ends the retention of a NIM card: its claim (with the recipient's e-mail address) is erased, but only when the card holds nothing and no payout
+// or refund is under way. The card's key stays sealed in the vault: a payment that someone sends to its address later could still be recovered.
+// It answers "forgotten" or "keep".
+func (e *Engine) ForgetNIM(ctx context.Context, id string) (string, error) {
+	state, err := e.CardState(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	if state != "claimed" { // "claimed" is also what an empty card reads: nothing is on it
+		return "keep", nil
+	}
+	if err := e.server.claims.Forget(id); err != nil {
+		return "", err
+	}
+	return "forgotten", nil
+}

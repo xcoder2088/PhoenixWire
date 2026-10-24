@@ -94,3 +94,20 @@ func TestParseAmountCanonicalLuna(t *testing.T) {
 		}
 	}
 }
+
+func TestForgetErasesAClaimAndIsHarmlessTwice(t *testing.T) {
+	s := NewStore()
+	c, err := s.Create("recipient@example.test", "1", "mainnet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Forget(c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Peek(c.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatal("the claim and its e-mail address are still there", err)
+	}
+	if err := s.Forget(c.ID); err != nil {
+		t.Fatal("forgetting twice", err)
+	}
+}

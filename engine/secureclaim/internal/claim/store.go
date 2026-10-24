@@ -206,6 +206,24 @@ func (s *Store) lookupLocked(id string) (*record, error) {
 	return r, nil
 }
 
+// Forget deletes a claim and the recipient's e-mail address it holds (the end of its retention). It is idempotent.
+func (s *Store) Forget(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.values[id]
+	if !ok {
+		return nil
+	}
+	delete(s.values, id)
+	if s.persist != nil {
+		if err := s.persist(s.values); err != nil {
+			s.values[id] = r
+			return err
+		}
+	}
+	return nil
+}
+
 // Peek is Get without the expiry: what the service itself may read about a claim whose time is over (to refund it).
 func (s *Store) Peek(id string) (Public, error) {
 	s.mu.Lock()
