@@ -439,3 +439,9 @@ The unpaid panel has short status lines, Close, Retry, Cancel card and collapsed
 the theme accent. All new labels and prompts exist in FR/EN/ES/DE/ZH. Tests cover selection, boundaries, old balances,
 state changes, polling, receipt dates, successful/refused/racing cancellation, scoped permissions and 375 px DOM/CSS.
 These are automated simulations, not a physical iPhone/Safari/Nimiq Pay validation or real payments. No deployment.
+## Vérification du 24 octobre 2026 : aperçu avant paiement
+
+L'aperçu NIM se met à jour localement pendant la saisie d'un montant valide, du destinataire et du message. Il ne crée pas de carte serveur et n'ouvre aucun portefeuille. Le Nimicon réel apparaît après la préparation de la carte. Le texte des 24 heures n'est ajouté qu'une fois ; l'enrichissement stablecoin ignore la fenêtre NIM. Les modules modifiés utilisent la version de cache `0.4.27`.
+
+Revue de sécurité et limites de validation : voir `AUDIT-2026-10-24.md`. Les défauts Go recensés dans ce rapport restent à corriger ; le correctif d'aperçu n'est pas une validation générale des remboursements.
+

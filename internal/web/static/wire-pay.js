@@ -3,7 +3,7 @@ import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,send
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage } from './model.js?v=0.4.24';
-import { mountNimFlow } from './flow.js?v=0.4.25';
+import { mountNimFlow } from './flow.js?v=0.4.27';
 import { flowText } from './flow-text.js?v=0.4.24';
 
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
@@ -629,6 +629,7 @@ function loadCashlink() {
 
 
 function enhanceStableWindow(win){
+ if(win.classList.contains('wire-nim-window'))return;
  const amount=win.querySelector('input[inputmode="decimal"]');
  const host=amount?.closest('label')||win.querySelector('.usdt-pay');
  if(host){let note=host.querySelector('.wire-lifetime-note');if(!note){note=document.createElement('p');note.className='wire-lifetime-note';host.append(note);}if(note.textContent!==life('life'))note.textContent=life('life');}

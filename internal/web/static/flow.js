@@ -330,7 +330,7 @@ function newCard(id=displayed?.id){
  if($('nim-handoff-card')?.contains($('payment-card')))root.querySelector('.preview-area').append($('payment-card'));
  $('card-form').append($('feedback'),fallback);fallback.hidden=true;fallbackCheckout=null;
  $('feedback').textContent=busy?rt('busy'):'';
- renderProgress();renderHistory();$('recipient').focus();
+ renderProgress();renderHistory();renderDraftPreview();$('recipient').focus();
 }
 let requestID=read('wire-request-id');
 function nextID(){const bytes=crypto.getRandomValues(new Uint8Array(16));return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');}
@@ -358,7 +358,21 @@ function refreshText(){
  if(cooling)updateClaimControls();
  if(claimMode)updateClaimControls();
  renderProgress();
+ renderDraftPreview();
 }
+function renderDraftPreview(){
+ if(claimMode||preparedContext||active||displayed||$('currency').value!=='NIM')return;
+ const amount=$('amount').value.trim().replace(',','.');
+ const valid=/^\d{1,7}(?:\.\d{1,5})?$/.test(amount)&&Number(amount)>0&&Number(amount)<=1000;
+ $('preview-empty').hidden=valid;$('payment-card').hidden=!valid;$('preview-title').hidden=!valid;
+ if(!valid)return;
+ const words=paintCard($('payment-card'),document.documentElement.lang,requestID);
+ $('card-amount').textContent=amount;$('card-unit').textContent='NIM';$('card-network').hidden=true;
+ $('card-message').textContent=$('message').value;$('card-recipient').textContent=$('recipient').value;
+ root.querySelector('.card-heading').textContent='Nimiq · '+words.heading;root.querySelector('.sample').textContent=words.protected;root.querySelector('.lock').textContent=words.locked;
+ if(!$('coin').firstChild){const icon=document.createElement('img');icon.src='/brand/nimiq-logo.svg';icon.alt='Nimiq';icon.width=62;icon.height=62;$('coin').append(icon);}
+}
+for(const id of ['recipient','amount','message'])$(id).addEventListener('input',renderDraftPreview);
 window.addEventListener('wire-language',refreshText);
 async function task(run,target='feedback',cleanup){
  if(busy){$(target).textContent=rt('busy');return;}busy=true;status(target,'working');
@@ -928,7 +942,7 @@ async function boot(){
    hub.on(window.HubApi.RequestType.CHECKOUT,()=>task(async()=>{const p=paymentList.find(p=>p.id===pending);if(p)approve(p);await poll(pending);}),()=>{status('feedback','unknownWallet');resume();});
    await hub.checkRedirectResponse();
   }
-  resume();
+  resume();renderDraftPreview();
  }catch{status('feedback','unavailable');}
 }
 const started=boot();

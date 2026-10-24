@@ -16,6 +16,18 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 const settle = async () => { for (let i = 0; i < 30; i++) await tick(); };
 const proxy = read('../engine/secureclaim/web/usdt.html').match(/PROXY_CREATION_CODE='(0x[0-9a-f]+)'/)[1];
 const doms = [];
+test('NIM draft shows a safe live card without creating or paying, with one lifetime note',async()=>{
+ for(const language of ['fr','en','es','de','zh']){
+  const app=await start({nimOnly:true,clocked:true});app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));app.$('pay').click();await settle();
+  const before=app.calls.length;
+  for(const [id,value]of Object.entries({recipient:'demo@example.com',amount:'1,25',message:'<img src=x onerror=alert(1)>'})){
+   app.$(id).value=value;app.$(id).dispatchEvent(new app.window.Event('input',{bubbles:true}));
+  }
+  await settle();assert.equal(app.$('payment-card').hidden,false);assert.equal(app.$('card-amount').textContent,'1.25');assert.equal(app.$('card-recipient').textContent,'demo@example.com');assert.equal(app.$('card-message').children.length,0);assert.equal(app.$('card-message').textContent,'<img src=x onerror=alert(1)>');
+  assert.equal(app.doc.querySelectorAll('.wire-nim-window .wire-lifetime-note').length,1);assert.equal(app.calls.length,before);assert.equal(app.checkouts.length,0);
+  app.$('amount').value='0';app.$('amount').dispatchEvent(new app.window.Event('input'));assert.equal(app.$('payment-card').hidden,true);
+ }
+});
 test.after(() => doms.forEach(d => d.window.close()));
 
 // Advance logical time without sleeping, including a phone that suspends its timers.
