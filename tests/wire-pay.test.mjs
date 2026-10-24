@@ -1639,7 +1639,7 @@ test('the compact footer attribution keeps fixed PhoenixMail colours across Wire
  const link=app.doc.querySelector('footer .wire-powered');assert.equal(link.textContent,'Powered by PhoenixMail');assert.equal(link.href,'https://phoenixmail.ca/');assert.equal(link.rel,'noopener noreferrer');
  for(const theme of ['dark','light-paper'])for(const palette of ['phoenixfire','aurora','ocean']){
   app.doc.documentElement.dataset.theme=theme;app.doc.documentElement.dataset.palette=palette;
-  const css=app.window.getComputedStyle(link);assert.equal(css.borderTopColor,'rgb(255, 138, 24)');assert.equal(css.backgroundColor,'rgb(23, 27, 34)');assert.equal(css.fontSize,'14px');assert.equal(css.borderRadius,'999px');assert.equal(app.window.getComputedStyle(link.querySelector('span')).color,'rgb(255, 138, 24)');
+  const css=app.window.getComputedStyle(link);assert.equal(css.borderTopColor,'rgb(255, 138, 24)');assert.equal(css.backgroundColor,'rgb(23, 27, 34)');assert.equal(css.fontSize,'14px');assert.equal(css.borderRadius,'999px');assert.equal(app.window.getComputedStyle(link.querySelector('strong span')).color,'rgb(255, 138, 24)');
  }
 });
 

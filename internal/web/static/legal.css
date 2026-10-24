@@ -1,0 +1,41 @@
+/* Self-hosted legal pages and shared legal navigation. */
+.wire-legal-links{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:10px 20px;margin:12px 0;font:inherit;line-height:1.6;white-space:normal}
+.wire-legal-links a{color:inherit;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.wire-legal-links a:focus-visible{outline:2px solid currentColor;outline-offset:4px;border-radius:3px}
+.wire-foot:has(>.wire-legal-links),footer:has(>.wire-legal-links){flex-wrap:wrap;white-space:normal}
+.wire-foot>.wire-legal-links,footer>.wire-legal-links{flex-basis:100%}
+.nimiq-card-content>.wire-legal-links,.payment-card>.wire-legal-links{font-size:13px}
+html:has(>.legal-page){color-scheme:dark;background:#121416}
+html[data-theme="light-paper"]:has(>.legal-page){color-scheme:light;background:#f3f4f6}
+.legal-page{--bg:#121416;--panel:#1b1e22;--text:#f0f2f8;--muted:#b9bec8;--line:#454b53;--accent:#ffb16b;background:var(--bg);color:var(--text);margin:0;font:16px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+[data-theme="light-paper"]>.legal-page{--bg:#f3f4f6;--panel:#fff;--text:#202938;--muted:#455165;--line:#aeb5c0;--accent:#aa3d08}
+[data-palette="aurora"]>.legal-page{--accent:#b6a0ff}
+[data-palette="ocean"]>.legal-page{--accent:#6dd8e6}
+[data-theme="light-paper"][data-palette="aurora"]>.legal-page{--accent:#6433b3}
+[data-theme="light-paper"][data-palette="ocean"]>.legal-page{--accent:#08677b}
+.legal-shell{box-sizing:border-box;width:min(100%,960px);padding:24px 20px 40px;margin:auto}
+.legal-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px;margin-bottom:24px}
+.legal-head img{display:block;width:215px;max-width:100%;height:auto}
+.legal-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.legal-controls select,.legal-controls button{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--accent);border-radius:9px;padding:9px 12px;min-height:44px;max-width:100%}
+.legal-controls button{cursor:pointer}
+.legal-page a{color:var(--accent)}
+.legal-page a:focus-visible,.legal-controls :focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.legal-panel{padding:28px;border:1px solid var(--line);border-radius:18px;background:var(--panel)}
+.legal-panel h1{font-size:clamp(26px,5vw,36px);line-height:1.25;margin:14px 0 20px;overflow-wrap:anywhere}
+.legal-panel h2{font-size:21px;line-height:1.4;margin:28px 0 12px}
+.legal-panel p{margin:12px 0;overflow-wrap:anywhere}
+.legal-notice,.legal-pending{border:1px solid var(--accent);border-radius:10px;padding:12px 16px}
+.legal-pending span{font-weight:700}
+.legal-table-wrap{overflow-x:auto;margin:24px 0}
+.legal-panel table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:15px}
+.legal-panel caption{text-align:left;font-size:21px;font-weight:700;margin-bottom:12px}
+.legal-panel th,.legal-panel td{text-align:left;vertical-align:top;border:1px solid var(--line);padding:12px;overflow-wrap:anywhere}
+.legal-panel th{font-weight:650}.legal-panel th:first-child{width:34%}
+.legal-panel dt{font-weight:700;margin-top:16px}.legal-panel dd{margin:4px 0 16px;overflow-wrap:anywhere}
+.legal-page .wire-foot{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;text-align:center;margin-top:24px}
+.legal-page .wire-powered{display:inline-flex;gap:5px;flex-wrap:wrap;justify-content:center;align-items:center;border:1px solid #ff8a18;border-radius:999px;padding:8px 14px;min-height:24px;background:#171b22;color:#e9ebef;text-decoration:none;font-size:14px}
+.legal-page .wire-powered strong{color:#e9ebef}.legal-page .wire-powered strong span{color:#ff8a18}
+.wire-foot .wire-powered{display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:8px 14px;border:1px solid #ff8a18;border-radius:999px;background:#171b22;color:#e9ebef;font:500 14px/1.4 system-ui,sans-serif;text-decoration:none}
+.wire-foot .wire-powered strong{color:#f5f5f5;font-size:15px;font-weight:750}.wire-foot .wire-powered strong span{color:#ff8a18}
+@media(max-width:520px){.legal-shell{padding:16px 12px 28px}.legal-panel{padding:18px 14px}.legal-head{align-items:flex-start}.legal-controls{width:100%}.legal-panel th,.legal-panel td{padding:8px;font-size:13px}.legal-panel th:first-child{width:32%}}

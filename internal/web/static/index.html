@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="/pm/nimiq-payments.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/theme-light.css?v=0.4.0">
   <link rel="stylesheet" href="/wire-pay.css?v=0.4.31">
+<link rel="stylesheet" href="/legal.css?v=0.4.32"><script type="module" src="/legal.js?v=0.4.32"></script>
 </head>
 <!-- The external stylesheet reveals the page without waiting for scripts. -->
 <body class="wire-body" hidden>
@@ -56,7 +57,7 @@
       <p id="wire-cards-empty"></p>
       <div id="wire-cards-list"></div>
     </section>
-    <footer class="wire-foot"><a class="wire-powered" href="https://phoenixmail.ca" target="_blank" rel="noopener noreferrer">Powered by <strong>Phoenix<span>Mail</span></strong></a></footer>
+    <footer class="wire-foot"><a class="wire-powered" href="https://phoenixmail.ca" target="_blank" rel="noopener noreferrer"><span data-legal-powered>Powered by </span><strong>Phoenix<span>Mail</span></strong></a><nav class="wire-legal-links" aria-label="Legal"><a href="/terms.html" data-legal-link="terms">Terms of use</a><a href="/privacy.html" data-legal-link="privacy">Privacy</a></nav></footer>
   </main>
   <template id="wire-close-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"></path></svg></template>
   <template id="wire-nim-template">
@@ -96,7 +97,7 @@
                 <div class="nimiq-card-head"><img class="wire-nim-brand" src="/brand/phoenix-wire.webp?v=0.3.0" alt="Phoenix Wire"><span class="sample" data-nim-text="nimProtected"></span></div>
                 <p class="card-heading"></p><p id="card-network">Nimiq</p>
                 <p class="nimiq-payment-amount"><span id="card-amount"></span> <span id="card-unit">NIM</span></p>
-                <div class="nimiq-card-content"><div id="coin"></div><p class="lock"></p><p id="card-message"></p><p id="card-recipient"></p></div>
+                <div class="nimiq-card-content"><div id="coin"></div><p class="lock"></p><nav class="wire-legal-links" aria-label="Legal"><a href="/terms.html" data-legal-link="terms">Terms of use</a><a href="/privacy.html" data-legal-link="privacy">Privacy</a></nav><p id="card-message"></p><p id="card-recipient"></p></div>
               </article><p id="preview-note" hidden></p>
             </section>
           </div>

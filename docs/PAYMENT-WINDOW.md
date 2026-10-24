@@ -1,5 +1,65 @@
 # The payment window is PhoenixMail's
 
+## Public terms and privacy (cache 0.4.32)
+
+The only factual source is `docs/LEGAL-FACTS.md`. The public pages retain its
+current gaps rather than inventing retention periods, guarantees or operator
+decisions. Finished cards are not automatically deleted today; removal of email
+addresses and messages from Wire's state is available on request. The request
+contact remains visibly unresolved. No response deadline is promised. Chain
+records and provider logs are outside that removal. The pages disclose NIM card
+private-key storage, the temporary visibility of a complete stablecoin claim link
+when mailing it, provider visibility, the margin ledger and the exact fee rule.
+
+**Four new static files must be declared by the server before deployment:**
+
+- `internal/web/static/terms.html` → `/terms.html`
+- `internal/web/static/privacy.html` → `/privacy.html`
+- `internal/web/static/legal.css` → `/legal.css`
+- `internal/web/static/legal.js` → `/legal.js`
+
+No Go, mirrored file, third-party script, inline script/style or deployment is
+included. The pages use self-hosted assets only. English content is also present
+as static HTML if scripts are unavailable. Their self-hosted module renders the
+full FR/EN/ES/DE/ZH content with text nodes, including the data table. It uses the
+same `wire-language` and `wire-theme` preferences as Wire; automatic language
+selection and blocked storage are supported. Reading a page calls no API.
+
+The main window, classic page, NIM recipient entry pages and stablecoin recipient
+page link both documents in their footers. The local card templates also link
+them beside the code-required explanation. Links carry only an allowlisted
+language, never card parameters or the fragment. Shared links follow the current
+page language. The logo and fixed PhoenixMail footer identity are retained.
+
+### Complete register of unresolved public fields
+
+Every field below displays `[À CONFIRMER PAR LE PROPRIÉTAIRE]` in all five
+languages. Field labels and explanations are translated; the literal marker
+remains the same so it can be searched reliably. These are unresolved decisions,
+not finished legal terms. No contact address, operator, jurisdiction or age is
+invented.
+
+| Field id | Owner decision | Terms | Privacy |
+|---|---|---|---|
+| `operator` | Operator name | yes | yes |
+| `contact` | Contact address for requests | yes | yes |
+| `law` | Governing law | yes | no |
+| `minimum-age` | Minimum age | yes | no |
+| `prohibited-uses` | Prohibited uses | yes | no |
+
+`pendingFields` in `legal.js` is the executable register. Tests compare it to
+every rendered marker and this list, check the English fallback, all five
+languages, shared links, storage denial, theme preferences and absence of
+forbidden visible wording. No legal review or physical device validation is
+claimed. The owner must resolve the highlighted fields before treating these
+pages as final public policies.
+
+Validation executed: `npm ci --ignore-scripts`, then
+`node --test --test-timeout=90000 tests/*.test.mjs engine/secureclaim/web/tests/*.cjs`.
+261 tests executed, 261 passed, none failed or skipped (including 15 legal-page
+tests). The existing footer colour check now targets the brand word directly
+because the attribution prefix is also localized.
+
 ## Initial navigation appearance (cache 0.4.31)
 
 The main entry page declares a dark browser colour scheme before its external
