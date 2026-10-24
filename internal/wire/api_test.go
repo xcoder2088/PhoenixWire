@@ -1105,4 +1105,10 @@ func TestAskingForCodesTooOftenSaysToWaitAndIsNotAFailure(t *testing.T) {
 	if second.Code != 429 || !strings.Contains(second.Body.String(), "wait_before_resend") {
 		t.Fatal("a second code asked at once must say to wait", second.Code, second.Body)
 	}
+	var answer struct {
+		RetryAfter int `json:"retry_after"`
+	}
+	if err := json.Unmarshal(second.Body.Bytes(), &answer); err != nil || answer.RetryAfter < 1 || answer.RetryAfter > 20 || second.Header().Get("Retry-After") == "" {
+		t.Fatal("the wait must be said in seconds, for the countdown", answer.RetryAfter, second.Body)
+	}
 }

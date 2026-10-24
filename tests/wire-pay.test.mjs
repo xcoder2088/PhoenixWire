@@ -207,7 +207,7 @@ async function start({inviteOnly=false,adminAccess=null,cancelCode="",cancelConf
     if (path === '/api/sender/verify') {currentSession={verified:true,email:'sender@example.test'};return answer(200,currentSession);}
     if(path==='/api/sender/request'){
      if(heldCode){const held=heldCode;heldCode=null;await new Promise((resolve,reject)=>{held.release=resolve;options.signal?.addEventListener('abort',()=>reject(Error('aborted')),{once:true});});}
-     return codeFails==='invite_only'?answer(403,{code:'invite_only'}):codeFails?answer(503,{code:'mail_unavailable'}):answer(200,{email:'sender@example.test',ok:true});
+     return codeFails==='wait'?answer(429,{code:'wait_before_resend',retry_after:90}):codeFails==='invite_only'?answer(403,{code:'invite_only'}):codeFails?answer(503,{code:'mail_unavailable'}):answer(200,{email:'sender@example.test',ok:true});
     }
     if (path === '/api/logout') {if(logoutFails)return answer(503,{code:'unavailable'});currentSession={verified:false};return answer(200, {ok: true});}
     throw Error('unexpected API ' + path);
@@ -911,6 +911,16 @@ test('the page scrolls: PhoenixMail’s stylesheet locks html, Wire’s frame fr
   assert.match(css, /html\{[^}]*height:auto!important[^}]*overflow-y:auto!important/, 'Wire’s page is a normal page: it must scroll on a phone');
 });
 
+test('after too many codes the page counts the wait down, and the button comes back by itself',async()=>{
+ const t=await start({session:{verified:false},clocked:true});
+ t.failCode('wait');t.$('wire-email').value='sender@example.test';
+ const button=t.$('wire-send-code');button.click();await settle();
+ assert.equal(button.disabled,true);assert.match(button.textContent,/1:30/);assert.match(t.$('wire-status').textContent,/1:30/);
+ await t.clock.advance(31000);assert.match(button.textContent,/0:59/);assert.match(t.$('wire-status').textContent,/0:59/);
+ button.click();await settle();assert.equal(t.calls.filter(([p])=>p==='/api/sender/request').length,1);
+ await t.clock.advance(60000);assert.equal(button.disabled,false);assert.equal(button.textContent,'Send me a code');assert.equal(t.$('wire-status').textContent,'');
+ t.failCode('');button.click();await settle();assert.equal(t.calls.filter(([p])=>p==='/api/sender/request').length,2);
+});
 test('code request visibly changes from sending to sent in five languages and blocks duplicate sends',async()=>{
  const labels={fr:['Envoi du code…','Code envoyé','Renvoyer un code'],en:['Sending code…','Code sent','Send another code'],es:['Enviando código…','Código enviado','Enviar otro código'],de:['Code wird gesendet…','Code gesendet','Weiteren Code senden'],zh:['正在发送验证码…','验证码已发送','重新发送验证码']};
  for(const[language,text]of Object.entries(labels)){

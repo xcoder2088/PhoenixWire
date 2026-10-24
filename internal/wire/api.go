@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/mail"
@@ -15,6 +16,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -151,6 +153,16 @@ func respond(w http.ResponseWriter, status int, data any) {
 }
 func failure(w http.ResponseWriter, status int, code string) {
 	respond(w, status, map[string]string{"code": code})
+}
+
+// waitFailure is a 429 that says how many seconds to wait, so the page can count down.
+func waitFailure(w http.ResponseWriter, wait time.Duration) {
+	seconds := int(math.Ceil(wait.Seconds()))
+	if seconds < 1 {
+		seconds = 1
+	}
+	w.Header().Set("Retry-After", strconv.Itoa(seconds))
+	respond(w, http.StatusTooManyRequests, map[string]any{"code": "wait_before_resend", "retry_after": seconds})
 }
 func decode(w http.ResponseWriter, r *http.Request, v any) error {
 	if strings.Split(r.Header.Get("Content-Type"), ";")[0] != "application/json" {
@@ -492,7 +504,7 @@ func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
 		limit = rate{Until: now.Add(time.Hour)}
 	}
 	if limit.Count >= 20 {
-		failure(w, 429, "wait_before_resend")
+		waitFailure(w, limit.Until.Sub(now))
 		return
 	}
 	for k, v := range a.db.state.Rates {
@@ -513,13 +525,18 @@ func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
 	// Per-email persistent counters cannot be bypassed by changing cookies.
 	challenge := hex.EncodeToString(digest(a.master, "sender:"+to))
 	if err = a.otp.IssueClaim(service.WithEmailLanguage(r.Context(), cards.Language(input.Language)), challenge, to); err != nil {
-		status, code := 502, "wait_or_delivery_unavailable"
 		if errors.Is(err, service.ErrOTPRateLimited) {
-			status, code = 429, "wait_before_resend" // too many codes asked for this address: the page says to wait, it is not a failure
-		} else {
-			log.Printf("sender code not sent: %v", err) // the reason of a delivery failure (no address, no code)
+			// too many codes asked for this address: the page counts down, it is not a failure
+			var limited interface{ WaitFor() time.Duration }
+			wait := 20 * time.Second
+			if errors.As(err, &limited) {
+				wait = limited.WaitFor()
+			}
+			waitFailure(w, wait)
+			return
 		}
-		failure(w, status, code)
+		log.Printf("sender code not sent: %v", err) // the reason of a delivery failure (no address, no code)
+		failure(w, 502, "wait_or_delivery_unavailable")
 		return
 	}
 	raw := token()

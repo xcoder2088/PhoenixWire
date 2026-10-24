@@ -3,8 +3,8 @@ import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,send
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage,renderCardPreview,assetMark } from './model.js?v=0.4.30';
-import { mountNimFlow } from './flow.js?v=0.4.35';
-import { flowText } from './flow-text.js?v=0.4.29';
+import { mountNimFlow } from './flow.js?v=0.4.37';
+import { flowText } from './flow-text.js?v=0.4.37';
 
 // CSS can reveal the page without scripts; clear the startup attribute so
 // visibility checks and keyboard focus traps see the rendered controls.
@@ -171,7 +171,7 @@ async function api(path, data, signal) {
  if (data !== undefined) { options.method = 'POST'; options.headers = { 'Content-Type': 'application/json' }; options.body = JSON.stringify(data); }
  const response = await fetch(path, options);
  let body = {}; try { body = await response.json(); } catch { /* an answer without a body */ }
- if (!response.ok) throw Object.assign(Error(body.code || body.error || 'unavailable'), { code: body.code || body.error, status: response.status });
+ if (!response.ok) throw Object.assign(Error(body.code || body.error || 'unavailable'), { code: body.code || body.error, status: response.status, retryAfter: Number.isFinite(body.retry_after) ? body.retry_after : 0 });
  return body;
 }
 const say = text => { $('wire-status').textContent = text; };
@@ -740,10 +740,20 @@ $('wire-handoff-logout').addEventListener('click',async()=>{
 $('wire-language').addEventListener('change', e => setLanguage(e.target.value));
 $('wire-theme').addEventListener('click', () => { const v = document.documentElement.dataset.theme === 'light-paper' ? 'dark' : 'light'; applyTheme(v); save('wire-theme', v); });
 $('wire-palette').addEventListener('change',event=>{applyPalette(event.target.value);save('wire-palette',paletteMode);});
+// The server says how long to wait after "too many codes": the page counts it down (m:ss) and re-enables the button by itself.
+let waitUntil=0,waitTimer=0;
+const clock=seconds=>Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');
+function paintWait(){
+ clearTimeout(waitTimer);
+ const remaining=Math.max(0,Math.ceil((waitUntil-Date.now())/1000));
+ if(remaining>0){say(flowText(lang,'waitCodeIn').replace('{time}',clock(remaining)));waitTimer=setTimeout(paintWait,1000);}
+ else if(waitUntil){waitUntil=0;say('');}
+ paintCodeRequest();
+}
 function paintCodeRequest(){
- const button=$('wire-send-code'),remaining=Math.max(0,Math.ceil((codeUntil-Date.now())/1000));
- button.disabled=codeSending||remaining>0;
- button.textContent=codeSending?t('sendingCode'):codeSentTo?(remaining?t('codeSentButton')+' ('+remaining+' s)':t('resendCode')):t('send');
+ const button=$('wire-send-code'),remaining=Math.max(0,Math.ceil((codeUntil-Date.now())/1000)),waiting=Math.max(0,Math.ceil((waitUntil-Date.now())/1000));
+ button.disabled=codeSending||remaining>0||waiting>0;
+ button.textContent=codeSending?t('sendingCode'):waiting?t('send')+' ('+clock(waiting)+')':codeSentTo?(remaining?t('codeSentButton')+' ('+remaining+' s)':t('resendCode')):t('send');
  button.dataset.state=codeSending?'sending':codeSentTo?'sent':'idle';
  $('wire-code-delivery').textContent=codeSending?t('sendingCode'):codeSentTo?t('codeSent'):'';
  $('wire-code-delivery').hidden=!codeSending&&!codeSentTo;
@@ -753,12 +763,12 @@ $('wire-email').addEventListener('input',()=>{
  if(codeSentTo&&$('wire-email').value.trim()!==codeSentTo){codeSentTo='';codeUntil=0;$('wire-code-box').hidden=true;$('wire-code').value='';paintCodeRequest();}
 });
 $('wire-send-code').addEventListener('click', async () => {
- if(codeSending||Date.now()<codeUntil)return;
+ if(codeSending||Date.now()<codeUntil||Date.now()<waitUntil)return;
  if (!$('wire-email').reportValidity() || !$('wire-email').value) return;
  senderInviteOnly=false;codeSending=true;$('wire-email').disabled=true;$('wire-verify').disabled=true;paintCodeRequest();
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
  try {const to=$('wire-email').value.trim();await api('/api/sender/request', { email: to, language: lang },controller.signal);codeSentTo=to;codeUntil=Date.now()+30000;$('wire-code-box').hidden = false;say(t('codeSent'));$('wire-code').focus();}
- catch(error){senderInviteOnly=error.code==='invite_only';codeSentTo='';codeUntil=0;$('wire-code-box').hidden=true;$('wire-code').value='';say(senderInviteOnly?flowText(lang,'inviteOnly'):error.code==='wait_before_resend'?flowText(lang,'waitCode'):t('fail'));}
+ catch(error){senderInviteOnly=error.code==='invite_only';codeSentTo='';codeUntil=0;$('wire-code-box').hidden=true;$('wire-code').value='';if(error.code==='wait_before_resend'&&error.retryAfter>0){waitUntil=Date.now()+error.retryAfter*1000;paintWait();}else say(senderInviteOnly?flowText(lang,'inviteOnly'):error.code==='wait_before_resend'?flowText(lang,'waitCode'):t('fail'));}
  finally{clearTimeout(timeout);codeSending=false;$('wire-email').disabled=false;$('wire-verify').disabled=false;paintCodeRequest();}
 });
 $('wire-verify').addEventListener('click', async () => {

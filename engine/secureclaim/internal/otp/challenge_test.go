@@ -83,3 +83,28 @@ func TestOTPRateLimitsExpiryAndFailedDelivery(t *testing.T) {
 		t.Fatal("failed delivery verified")
 	}
 }
+
+func TestRateLimitSaysHowLongToWait(t *testing.T) {
+	m, _ := New(&fakeSender{})
+	now := time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC)
+	m.now = func() time.Time { return now }
+	for i := 0; i < maxRequests; i++ {
+		if err := m.Issue(context.Background(), "a", "a@example.com"); err != nil {
+			t.Fatal(i, err)
+		}
+		now = now.Add(resendDelay)
+	}
+	err := m.Issue(context.Background(), "a", "a@example.com")
+	var limited *RateLimit
+	if !errors.Is(err, ErrRateLimited) || !errors.As(err, &limited) {
+		t.Fatalf("the ninth request must be limited: %v", err)
+	}
+	// the window opened at the first request and lasts requestWindow
+	if want := requestWindow - maxRequests*resendDelay; limited.RetryAfter != want {
+		t.Fatalf("wait %v, want %v", limited.RetryAfter, want)
+	}
+	now = now.Add(limited.RetryAfter)
+	if err := m.Issue(context.Background(), "a", "a@example.com"); err != nil {
+		t.Fatalf("a request after the announced wait must pass: %v", err)
+	}
+}

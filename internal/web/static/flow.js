@@ -1,6 +1,6 @@
 import { mountAdmin,adminText } from './admin.js?v=0.4.35';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.30';
-import { flowText } from './flow-text.js?v=0.4.29';
+import { flowText } from './flow-text.js?v=0.4.37';
 import { addressValid,cardPresentation,paintCard,renderCardPreview } from './model.js?v=0.4.30';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.

@@ -22,11 +22,19 @@ var (
 	ErrUnavailable     = errors.New("otp_not_configured")
 )
 
-// A new code may be requested after 20 seconds; 8 code requests and 5 wrong guesses are allowed per 15 minutes.
+// A new code may be requested after 20 seconds; 8 code requests and 5 wrong guesses are allowed per 10 minutes.
 const (
-	resendDelay = 20 * time.Second
-	maxRequests = 8
+	resendDelay   = 20 * time.Second
+	maxRequests   = 8
+	requestWindow = 10 * time.Minute
 )
+
+// RateLimit is ErrRateLimited that also says how long to wait: the page shows a countdown.
+type RateLimit struct{ RetryAfter time.Duration }
+
+func (e *RateLimit) Error() string          { return ErrRateLimited.Error() }
+func (e *RateLimit) Is(target error) bool   { return target == ErrRateLimited }
+func (e *RateLimit) WaitFor() time.Duration { return e.RetryAfter }
 
 type Sender interface {
 	Send(context.Context, string, string) error
@@ -101,7 +109,7 @@ func (m *Manager) issue(ctx context.Context, id, email string, recoverClaim bool
 	if c == nil {
 		if len(m.challenges) >= 10000 {
 			for k, old := range m.challenges {
-				if now.After(old.window.Add(15*time.Minute)) && now.After(old.expires) {
+				if now.After(old.window.Add(requestWindow)) && now.After(old.expires) {
 					delete(m.challenges, k)
 				}
 			}
@@ -118,12 +126,18 @@ func (m *Manager) issue(ctx context.Context, id, email string, recoverClaim bool
 	if c.verified && !recoverClaim {
 		return ErrAlreadyVerified
 	}
-	if !c.window.IsZero() && now.Sub(c.window) >= 15*time.Minute {
+	if !c.window.IsZero() && now.Sub(c.window) >= requestWindow {
 		c.window = time.Time{}
 		c.requests, c.attempts = 0, 0
 	}
 	if !c.lastSent.IsZero() && now.Sub(c.lastSent) < resendDelay || c.requests >= maxRequests || c.attempts >= 5 {
-		return ErrRateLimited
+		var wait time.Duration
+		if c.requests >= maxRequests || c.attempts >= 5 {
+			wait = c.window.Add(requestWindow).Sub(now)
+		} else {
+			wait = c.lastSent.Add(resendDelay).Sub(now)
+		}
+		return &RateLimit{RetryAfter: wait}
 	}
 	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
 	if err != nil {
