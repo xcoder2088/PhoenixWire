@@ -12,13 +12,14 @@ const id='a'.repeat(48);
 const address='NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function settle(){for(let i=0;i<12;i++)await tick();}
-async function start({claim=false,verified=true,pending=false,mobile=false,returning=false,expired=false}={}){
+async function start({claim=false,verified=true,pending=false,mobile=false,returning=false,expired=false,claimState=''}={}){
  const dom=new JSDOM(fs.readFileSync(new URL('../internal/web/static/classic.html',import.meta.url),'utf8'),{url:'https://wire.example.test/'+(claim?'?claim='+id:''),runScripts:'outside-only'});
  const {window}=dom;window.document.documentElement.lang='en';
  if(returning){window.sessionStorage.setItem('wire-pending-payment',id);window.sessionStorage.setItem('wire-form',JSON.stringify({payment:id,message:'Hi',amount:'2.5',recipient:'recipient@example.test'}));}
  if(mobile)Object.defineProperty(window.navigator,'userAgent',{value:'iPhone'});
  const calls=[],checkouts=[],behaviors=[],opened=[],referrers=[];
- let validOTP=false,deliveryVerified=verified;
+ let validOTP=false,deliveryVerified=verified,chainState=claimState;const timers=[];
+ const realTimeout=window.setTimeout.bind(window);window.setTimeout=(fn,ms,...rest)=>{if(ms===5000){timers.push(fn);return timers.length;}return realTimeout(fn,ms,...rest);};
  const p={id,sender:'sender@example.test',recipient:'recipient@example.test',amount:'2.5',luna:250000,message:'Hi',address,stage:pending?'funding_started':'ready'};
  let payments=pending?[p]:[];
  const response=(status,body)=>({ok:status>=200&&status<300,status,json:async()=>body});
@@ -33,7 +34,7 @@ async function start({claim=false,verified=true,pending=false,mobile=false,retur
   if(path.endsWith('/art'))return response(200,{saved:true});
   if(path==='/api/sender/request')return response(200,{sent:true});
   if(path==='/api/sender/verify'){deliveryVerified=true;return response(200,{email:p.sender,verified:true});}
-  if(path==='/api/claims/'+id)return response(200,{...p,expires_at:new Date(Date.now()+(expired?-3600000:3600000)).toISOString()});
+  if(path==='/api/claims/'+id)return response(200,{...p,claim_state:chainState,expires_at:new Date(Date.now()+(expired?-3600000:3600000)).toISOString()});
   if(path.endsWith('/payout_status'))return response(404,{code:'payout_not_started'});
   if(path.endsWith('/request'))return response(200,{sent:true});
   if(path.endsWith('/release'))return validOTP?response(200,{cashlink:'https://hub.nimiq.com/cashlink/#'+Buffer.alloc(40,5).toString('base64url')}):response(403,{error:'invalid_or_expired_code'});
@@ -57,7 +58,7 @@ async function start({claim=false,verified=true,pending=false,mobile=false,retur
  vm.runInContext(source,dom.getInternalVMContext());await settle();
  const $=id=>window.document.getElementById(id);
  const submit=async()=>{$('card-form').dispatchEvent(new window.Event('submit',{cancelable:true}));await settle();};
- return{dom,window,$,calls,checkouts,behaviors,opened,referrers,submit,allowOTP(){validOTP=true;}};
+ return{dom,window,$,calls,checkouts,behaviors,opened,referrers,submit,timers,setChain(value){chainState=value;},allowOTP(){validOTP=true;}};
 }
 
 test('real DOM sender verification and checkout use the same immutable public address',async()=>{
@@ -141,3 +142,23 @@ test('expired claim keeps its explanation visible while disabling code actions',
 
 
 
+
+test('the recipient card says the payment was received once the chain shows the card emptied, whichever wallet was used',async()=>{
+ const s=await start({claim:true});s.allowOTP();Object.defineProperty(s.window.document,'hidden',{value:false,configurable:true});
+ s.$('claim-code').value='123456';s.$('claim-code').dispatchEvent(new s.window.Event('input'));s.$('claim-wallet').click();await settle();
+ assert.equal(s.$('claim-status').textContent.includes('Payment received'),false);assert.equal(s.$('claim-choices').hidden,false);
+ assert.ok(s.timers.length>=1,'the page keeps asking while the wallet is open');
+ const runTimers=async()=>{const due=s.timers.splice(0);for(const fn of due)await fn();await settle();};
+ const claimReads=()=>s.calls.filter(([path])=>path==='/api/claims/'+id).length;
+ const before=claimReads();s.setChain('unclaimed');await runTimers();
+ assert.equal(claimReads(),before+1);assert.equal(s.$('claim-status').textContent.includes('Payment received'),false);
+ s.setChain('claimed');await runTimers();
+ assert.equal(s.$('claim-status').textContent,'Payment received');assert.equal(s.$('claim-status').className,'ok');assert.equal(s.$('claim-choices').hidden,true);
+ await runTimers();assert.equal(s.timers.length,0,'it stops asking once received');s.dom.window.close();
+});
+test('opening a card that is already emptied shows the payment as received, in five languages',async()=>{
+ for(const [lang,text] of [['fr','Paiement reçu'],['en','Payment received'],['es','Pago recibido'],['de','Zahlung erhalten'],['zh','已收到付款']]){
+  const s=await start({claim:true,claimState:'claimed'});s.window.document.documentElement.lang=lang;s.window.dispatchEvent(new s.window.Event('wire-language'));await settle();
+  assert.equal(s.$('claim-status').textContent,text);assert.equal(s.$('claim-choices').hidden,true);s.dom.window.close();
+ }
+});

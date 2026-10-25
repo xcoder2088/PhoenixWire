@@ -596,6 +596,12 @@ func TestListSaysWhereACardsCoinsAre(t *testing.T) {
 	if got := state(); got != "claimed" {
 		t.Fatal("coins cannot come back to a card, but it reads", got)
 	}
+	// the recipient's page reads the same thing from the public claim route, so it can say "payment received" by itself
+	public := f.call("GET", "/api/claims/"+p.ID, nil)
+	good(public, t)
+	if !strings.Contains(public.Body.String(), `"claim_state":"claimed"`) || strings.Contains(public.Body.String(), "recipient@example.test") {
+		t.Fatal("the public claim route must carry the chain state, and still no private detail", public.Body)
+	}
 }
 
 func TestSenderCanGiveUpACardThatWasNeverPaid(t *testing.T) {

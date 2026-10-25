@@ -763,7 +763,11 @@ func (a *API) claim(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "GET" && len(parts) == 1 {
-		respond(w, 200, map[string]any{"id": p.ID, "amount": p.Amount, "sender": p.Sender, "message": p.Message, "address": p.Address, "expires_at": p.Created.Add(24 * time.Hour)})
+		// Where the coins are, from the chain (read in the background and kept a few seconds): the recipient's page changes by itself once the card was
+		// emptied into his wallet, whichever wallet he used. Empty until the first read has finished.
+		one := []payment{p}
+		a.withCardStates(one)
+		respond(w, 200, map[string]any{"id": p.ID, "amount": p.Amount, "sender": p.Sender, "message": p.Message, "address": p.Address, "expires_at": p.Created.Add(24 * time.Hour), "claim_state": one[0].ClaimState})
 		return
 	}
 	if r.Method == "POST" && len(parts) >= 2 && parts[1] == "handoff" {

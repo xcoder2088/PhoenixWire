@@ -1,6 +1,6 @@
 import { mountAdmin,adminText } from './admin.js?v=0.4.41';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.30';
-import { flowText } from './flow-text.js?v=0.4.38';
+import { flowText } from './flow-text.js?v=0.4.43';
 import { addressValid,cardPresentation,paintCard,renderCardPreview } from './model.js?v=0.4.30';
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
@@ -743,7 +743,7 @@ $('card-form').addEventListener('submit',event=>{
 $('nim-handoff-pay')?.addEventListener('click',()=>fundNim());
 function updateClaimControls(){
  if(!claimMode)return;
- const locked=reception.locked||Boolean(reception.payout),available=reception.known&&!reception.expired&&!locked;
+ const received=reception.received===true,locked=reception.locked||Boolean(reception.payout)||received,available=reception.known&&!reception.expired&&!locked;
  root.querySelectorAll('[data-claim]').forEach(el=>el.textContent=ct(el.dataset.claim));
  const validCode=/^[0-9]{6}$/.test(receptionCode());
  $('claim-choices').hidden=locked||reception.expired;
@@ -762,8 +762,8 @@ function updateClaimControls(){
  if(reception.payout){const p=reception.payout;
   $('claim-payout-details').textContent=ct('details').replace('{value}',new Intl.NumberFormat(document.documentElement.lang,{maximumFractionDigits:5}).format(p.value/100000)).replace('{to}',p.to).replace('{hash}',p.hash||'').replace('{confirmations}',p.confirmations||0);
  }
- $('claim-status').textContent=reception.message?t(reception.message):reception.payout?ct(reception.payout.status):'';
- $('claim-status').className=reception.payout?.status==='payout_confirmed'?'ok':reception.retry||reception.payout?.status==='payout_failed'?'error':'';
+ $('claim-status').textContent=received?ct('received'):reception.message?t(reception.message):reception.payout?ct(reception.payout.status):'';
+ $('claim-status').className=received||reception.payout?.status==='payout_confirmed'?'ok':reception.retry||reception.payout?.status==='payout_failed'?'error':'';
 }
 function cooldown(){clearInterval(coolTimer);cooling=20;updateClaimControls();coolTimer=setInterval(()=>{cooling--;updateClaimControls();if(cooling<=0)clearInterval(coolTimer);},1000);}
 function schedulePayout(){
@@ -810,7 +810,18 @@ async function requestClaimCode(){
  try{await api('/api/claims/'+claimID()+'/request',{},{timeout:true});reception.code='';$('claim-code').value='';reception.message='codeSent';cooldown();}
  catch(error){if(error.status===429){cooldown();reception.message='waitCode';return;}throw error;}
 }
+// The wallet opens in another window or app and the card cannot know what happens there: it asks the chain (through Wire) until the card is emptied.
+let receivedTimer=0;
+function watchReceived(){
+ clearTimeout(receivedTimer);
+ if(destroyed||reception.received||reception.expired)return;
+ receivedTimer=setTimeout(async()=>{
+  if(!document.hidden){try{const p=await api('/api/claims/'+claimID());if(p.claim_state==='claimed'&&!reception.payout){reception.received=true;reception.message='';updateClaimControls();return;}}catch{/* the next look decides */}}
+  watchReceived();
+ },5000);
+}
 function openReleasedWallet(){
+ watchReceived();
  if(mobile())window.open(receiveURL,'_self','noopener,noreferrer');
  else window.open(receiveURL,'_blank','noopener,noreferrer');
 }
@@ -865,7 +876,7 @@ async function submitClaim(){
   showPayout(await api('/api/claims/'+claimID()+'/payout',{code:receptionCode(),to:reception.to},{timeout:true}));return;
  }
  const result=await api('/api/claims/'+claimID()+'/release',{code:receptionCode()},{timeout:true});
- receiveURL=validatedCashlink(result.cashlink);reception.code='';$('claim-code').value='';
+ receiveURL=validatedCashlink(result.cashlink);watchReceived();reception.code='';$('claim-code').value='';
  clearInterval(coolTimer);cooling=0;reception.message='accepted';
 }
 function claimID(){const id=new URLSearchParams(location.search).get('claim');if(!/^[a-f0-9]{48}$/.test(id||''))throw Error('claim_unavailable');return id;}
@@ -890,6 +901,7 @@ async function boot(){
   }
   try{const p=await api('/api/claims/'+claimID());paintCard($('claim-card'),document.documentElement.lang,p.id);$('claim-info').textContent=t('from')+' '+p.sender;$('claim-amount').textContent=p.amount+' NIM';$('claim-message').textContent=p.message;const expires=expiryDate(p.expires_at);claimExpiry.textContent=expires?t('expires').replace('{date}',expires):'';claimExpiry.hidden=!expires;
    window.PhoenixNimiqIdenticons?.paint($('claim-iqon'),p.address);
+   if(p.claim_state==='claimed'&&!reception.payout)reception.received=true;
    if(new Date(p.expires_at).getTime()<=Date.now()&&!reception.payout){reception.expired=true;reception.message='ended';}
    if(reception.known&&!reception.payout&&!reception.expired){
     // Redeeming is a one-shot continuation of the explicit browser choice.

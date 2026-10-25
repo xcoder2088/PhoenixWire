@@ -3,8 +3,8 @@ import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,send
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage,renderCardPreview,assetMark } from './model.js?v=0.4.30';
-import { mountNimFlow } from './flow.js?v=0.4.41';
-import { flowText } from './flow-text.js?v=0.4.38';
+import { mountNimFlow } from './flow.js?v=0.4.43';
+import { flowText } from './flow-text.js?v=0.4.43';
 
 // CSS can reveal the page without scripts; clear the startup attribute so
 // visibility checks and keyboard focus traps see the rendered controls.
