@@ -233,3 +233,30 @@ footer .wire-powered:focus-visible{outline:2px solid #ff8a18;outline-offset:3px}
 #wire-maintenance{margin:.8rem 0;padding:.8rem 1rem;border:1px solid currentColor;border-radius:12px;font-weight:650;line-height:1.5}
 .wire-admin-relays summary{cursor:pointer;font-weight:650;margin:.9rem 0 .5rem}.wire-admin-relays-body{display:grid;gap:.6rem}.wire-admin-relays select{display:block;width:100%;max-width:32rem;font-size:16px}
 .wire-admin-relay h4,.wire-admin-earned h4{margin:.6rem 0 .3rem}.wire-admin-relays p{margin:.25rem 0;overflow-wrap:anywhere;line-height:1.5}
+/* Responsive balances keep labels next to their values without compressed prose. */
+.wire-admin-relays{min-width:0;margin-top:20px;border:1px solid var(--line);border-radius:12px;background:var(--panel2)}
+.wire-admin-relays>summary{box-sizing:border-box;min-height:48px;margin:0;padding:12px 14px;line-height:1.5;overflow-wrap:anywhere;color:var(--text)}
+.wire-admin-relays>summary:focus-visible,.wire-admin-relays button:focus-visible,.wire-admin-relays select:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.wire-admin-relays-body{min-width:0;padding:0 14px 14px}
+.wire-admin-relays:not([open])>.wire-admin-relays-body{display:none}
+.wire-admin-relay,.wire-admin-earned{min-width:0;border-top:1px solid var(--line);padding-top:10px}
+.wire-admin-relay h4{display:flex;flex-wrap:wrap;gap:6px;line-height:1.5;overflow-wrap:anywhere}
+.wire-admin-relay h4 code{font-size:.85em;font-weight:500;overflow-wrap:anywhere}
+.wire-relay-metrics{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin:12px 0}
+.wire-relay-metrics>div{min-width:0;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.wire-relay-metrics dt{font-size:.85rem;line-height:1.5;overflow-wrap:anywhere;color:var(--muted)}
+.wire-relay-metrics dd{margin:4px 0 0;font-size:1rem;font-weight:650;line-height:1.5;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;color:var(--text)}
+.wire-admin-relays button{min-height:44px;max-width:100%;white-space:normal;overflow-wrap:anywhere;font:inherit}
+.wire-admin-relays .wire-admin-row-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+.wire-admin-relays .wire-admin-row-actions button{width:100%;text-align:center}
+.wire-admin-relays label,.wire-admin-relays select{box-sizing:border-box;min-width:0;max-width:100%;width:100%}
+.wire-admin-relays select{min-height:44px;overflow:hidden;text-overflow:ellipsis}
+.wire-admin-relay-result{padding:10px;border:1px solid var(--accent);border-radius:8px}
+.wire-admin-relay-result a{color:var(--accent);overflow-wrap:anywhere}
+.wire-admin-earned h5{font-size:1rem;margin:14px 0 8px;overflow-wrap:anywhere}
+.wire-admin-maintenance-control{display:flex!important;align-items:center;gap:12px;min-height:48px;padding:10px 12px;margin-top:16px!important;border:1px solid var(--accent);border-radius:10px;background:var(--panel2);overflow-wrap:anywhere}
+.wire-admin-maintenance-control input[role=switch]{flex:0 0 40px;width:40px!important;min-height:40px;accent-color:var(--accent);margin:0}
+#wire-admin-maintenance-state{line-height:1.6;overflow-wrap:anywhere}
+.wire-admin-maintenance-control:focus-within{outline:2px solid var(--accent);outline-offset:3px}
+#wire-maintenance{position:static;box-sizing:border-box;width:100%;color:var(--text);background:var(--panel2);border:2px solid var(--accent);border-left-width:6px;overflow-wrap:anywhere}
+@media(min-width:600px){.wire-relay-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}

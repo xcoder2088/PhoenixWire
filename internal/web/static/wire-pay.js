@@ -1,9 +1,9 @@
-import { mountAdmin,adminText } from './admin.js?v=0.4.38';
+import { mountAdmin,adminText } from './admin.js?v=0.4.39';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.30';
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage,renderCardPreview,assetMark } from './model.js?v=0.4.30';
-import { mountNimFlow } from './flow.js?v=0.4.38';
+import { mountNimFlow } from './flow.js?v=0.4.39';
 import { flowText } from './flow-text.js?v=0.4.38';
 
 // CSS can reveal the page without scripts; clear the startup attribute so
@@ -145,7 +145,7 @@ let nimCache=null;
 // The sound PhoenixMail plays when a card is sent (the same recording, the same volume), once, when a card that was just made is seen sent.
 let sentSound=null;
 function playSentSound(created){
- if(!(Date.now()-Date.parse(created||'')<30*60*1000))return; // an old card seen on a new device is not news
+ const age=Date.now()-Date.parse(created||'');if(!Number.isFinite(age)||age<0||age>=30*60*1000)return; // an old card seen on a new device is not news
  try{sentSound??=new Audio('/sounds/phoenix-notification.wav?v=0.4.38');sentSound.volume=.35;sentSound.currentTime=0;void sentSound.play().catch(()=>{});}catch{}
 }
 let adminPanel=null,inviteOnly=false,accessExpanded=false,maintenance=false,adminActive=false;
@@ -154,10 +154,11 @@ inviteGate.id='wire-invite-gate';inviteGate.hidden=true;inviteNotice.setAttribut
 inviteGate.append(inviteNotice,accessLink);$('wire-sender').before(inviteGate);
 // Maintenance: the administrator closed the site for a while. Visitors are told so; only an administrator signs in (the server refuses anybody else).
 const maintenanceBanner=document.createElement('p');maintenanceBanner.id='wire-maintenance';maintenanceBanner.hidden=true;maintenanceBanner.setAttribute('role','status');$('wire-sender').before(maintenanceBanner);
-let onMaintenance=()=>{maintenance=true;paintMaintenance();};
+let onMaintenance=()=>{maintenance=true;paintSenderAccess();};
+window.addEventListener('wire-maintenance',()=>onMaintenance());
 function paintMaintenance(){maintenanceBanner.textContent=flowText(lang,'maintenance');maintenanceBanner.hidden=!maintenance||adminActive;}
 accessLink.addEventListener('click',()=>{accessExpanded=true;paintSenderAccess();$('wire-email').focus();});
-function paintSenderAccess(){paintMaintenance();inviteGate.hidden=Boolean(email)||!enabled||!inviteOnly;inviteNotice.textContent=flowText(lang,'inviteOnly');accessLink.textContent=adminText(lang,'already');accessLink.hidden=accessExpanded;accessLink.setAttribute('aria-expanded',String(accessExpanded));$('wire-sender').hidden=Boolean(email)||!enabled||inviteOnly&&!accessExpanded;}
+function paintSenderAccess(){paintMaintenance();inviteGate.hidden=Boolean(email)||!enabled||!inviteOnly||maintenance;inviteNotice.textContent=flowText(lang,'inviteOnly');accessLink.textContent=adminText(lang,'already');accessLink.hidden=accessExpanded;accessLink.setAttribute('aria-expanded',String(accessExpanded));$('wire-sender').hidden=Boolean(email)||!enabled||inviteOnly&&!accessExpanded&&!maintenance;}
 function configureAdmin(allowed){adminPanel?.destroy();adminPanel=mountAdmin({root:document.querySelector('.wire-shell'),language:()=>lang,request:api,authorized:allowed===true&&Boolean(email),onAccess:(open,view)=>{inviteOnly=!open;if(view)maintenance=view.maintenance===true;paintSenderAccess();}});adminActive=allowed===true&&Boolean(email);paintMaintenance();}
 
 let choosingCoin=false,codeSending=false,codeSentTo='',codeUntil=0,codeTimer=null,senderInviteOnly=false;
@@ -784,7 +785,7 @@ $('wire-send-code').addEventListener('click', async () => {
 });
 $('wire-verify').addEventListener('click', async () => {
  try { const r = await api('/api/sender/verify', { code: $('wire-code').value.trim() }); $('wire-code').value = ''; $('wire-code-box').hidden = true; say(''); showSender(true, r.email);void api('/api/session').then(session=>{if(email===session.email)configureAdmin(session.admin===true);}).catch(()=>{}); }
- catch { say(t('wrong')); }
+ catch(error) { say(error.code==='maintenance'?flowText(lang,'maintenance'):t('wrong')); }
 });
 $('wire-logout').addEventListener('click', async () => {
  const button=$('wire-logout');if(button.disabled)return;button.disabled=true;

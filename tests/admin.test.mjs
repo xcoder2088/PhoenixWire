@@ -162,9 +162,9 @@ test('the gas wallets load only when opened, show what stays, what can go and wh
  box.open=true;box.dispatchEvent(new app.dom.window.Event('toggle'));await settle();
  assert.equal(app.calls.filter(([p])=>p==='/api/admin/relayers').length,1);
  const text=box.textContent;
- assert.match(text,/Polygon · 0x6a24…e8EE/);assert.match(text,/POL: 10\.0000/);assert.match(text,/0\.5000 kept in reserve/);assert.match(text,/9\.4990 can be withdrawn/);
- assert.match(text,/Fees held USDC · Polygon: 3\.2500/);assert.match(text,/USDC · Polygon · 12 payouts · fees 3\.000000 · gas paid 1\.200000 · margin 1\.800000/);
- assert.match(text,/To: 0x4444444444444444444444444444444444444444/);
+ assert.match(text,/Polygon · 0x6a24…e8EE/);assert.ok(text.includes('10.0000 POL'));assert.ok(text.includes('0.5000 POL'));assert.ok(text.includes('9.4990 POL'));
+ assert.ok(text.includes('Fees held USDC · Polygon'));assert.ok(text.includes('3.2500 USDC'));assert.equal(d.querySelector('.wire-admin-earned dd').textContent,'12');assert.ok(text.includes('3.000000'));assert.ok(text.includes('1.200000'));assert.ok(text.includes('1.800000'));
+ assert.equal(d.getElementById('wire-admin-relay-to').value,'0x4444444444444444444444444444444444444444');assert.equal(d.querySelector('label[for=wire-admin-relay-to]').control.id,'wire-admin-relay-to');
  const buttons=[...box.querySelectorAll('button[data-what]')];
  assert.deepEqual(buttons.map(b=>[b.dataset.what,b.disabled]),[['native',false],['usdc_polygon',false],['usdt_polygon',true]]);app.dom.window.close();
 });
@@ -194,4 +194,35 @@ test('withdrawal errors are plain words, an empty list of addresses switches wit
 });
 test('amounts are cut, never rounded, and never go through a float',()=>{
  assert.equal(amountText('9499999999999999999',18,4),'9.4999');assert.equal(amountText('3250000',6,4),'3.2500');assert.equal(amountText('0',18,4),'0.0000');assert.equal(amountText('oops',18,4),'—');
+});
+
+test('tiny positive amounts never look like zero; invalid and negative balances are not shown as valid amounts',()=>{
+ assert.equal(amountText('1',18,4),'<0.0001');assert.equal(amountText('1',6,4),'<0.0001');
+ for(const value of ['-1','1.5','',null])assert.equal(amountText(value,18,4),'—');
+ assert.equal(amountText('1',-1,4),'—');assert.equal(amountText('1',18,19),'—');
+});
+test('relay controls stay labeled and bounded in five languages and all Wire appearances',async()=>{
+ const {readFileSync}=await import('node:fs');
+ for(const language of ['fr','en','es','de','zh']){
+  const app=await setup({language,relays:{...relayView,withdraw_to:[...relayView.withdraw_to,'0x'+'55'.repeat(20)]}}),d=app.d;
+  Object.defineProperty(app.dom.window,'innerWidth',{value:375});
+  const style=d.createElement('style');style.textContent=readFileSync(new URL('../internal/web/static/wire-pay.css',import.meta.url),'utf8');d.head.append(style);
+  const box=d.getElementById('wire-admin-relays');box.open=true;box.dispatchEvent(new app.dom.window.Event('toggle'));await settle();
+  assert.equal(box.firstElementChild.tagName,'SUMMARY');assert.equal(box.firstElementChild.textContent,relayText(language,'relays'));
+  assert.equal(box.querySelector('.wire-admin-relay-status').getAttribute('aria-live'),'polite');
+  assert.equal(d.querySelectorAll('.wire-relay-metrics dt').length,d.querySelectorAll('.wire-relay-metrics dd').length);
+  const select=d.getElementById('wire-admin-relay-to');select.value='0x'+'55'.repeat(20);select.dispatchEvent(new app.dom.window.Event('change'));
+  box.querySelector('button[data-what=native]').click();await settle();
+  assert.equal(app.calls.find(([path])=>path.endsWith('/withdraw'))[1].to,'0x'+'55'.repeat(20));
+  for(const theme of ['dark','light-paper'])for(const palette of ['phoenixfire','aurora','ocean']){
+   d.documentElement.dataset.theme=theme;d.documentElement.dataset.palette=palette;
+   for(const button of box.querySelectorAll('button'))assert.ok(parseFloat(app.dom.window.getComputedStyle(button).minHeight)>=40);
+   assert.ok(parseFloat(app.dom.window.getComputedStyle(d.getElementById('wire-admin-maintenance')).minHeight)>=40);
+  }
+  assert.doesNotMatch(box.textContent,/Mainnet|OTP|Hub|undefined/);app.dom.window.close();
+ }
+});
+test('maintenance keeps keyboard focus after its response replaces the checkbox',async()=>{
+ const app=await setup(),toggle=app.d.getElementById('wire-admin-maintenance');toggle.focus();toggle.click();await settle();
+ assert.equal(app.d.activeElement,app.d.getElementById('wire-admin-maintenance'));assert.equal(app.d.activeElement.checked,true);app.dom.window.close();
 });

@@ -64,12 +64,13 @@ function fakeClock(window){
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
 const handoffToken='Q'.repeat(43);
 const handoffDraft={recipient:'friend@example.test',amount:'2.5',message:'Bonjour 🐦',language:'fr'};
-async function start({maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
+async function start({audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
   const dom = new JSDOM(read(classic?'../internal/web/static/classic.html':'../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
   Object.defineProperty(window,'innerWidth',{value:width,configurable:true});
   const clock=clocked?fakeClock(window):null;
+  const soundInstances=[],soundPlays=[];window.Audio=class{constructor(src){this.src=src;soundInstances.push(this);}play(){soundPlays.push({src:this.src,volume:this.volume,time:this.currentTime});return audioReject?Promise.reject(Error('not allowed')):Promise.resolve();}};
   for(const[key,value]of Object.entries(saved))window.sessionStorage.setItem(key,value);
   for(const[key,value]of Object.entries(local))window.localStorage.setItem(key,value);
   Object.defineProperty(window, 'crypto', { value: webcrypto, configurable: true });
@@ -217,7 +218,7 @@ async function start({maintenance=false,inviteOnly=false,adminAccess=null,cancel
   vm.runInContext(read('../internal/web/static/flow.js').replace(/^import[^\n]+\n/gm, '').replace(/^export /gm, ''), ctx);
   if(!classic)vm.runInContext('{' + source + '\n}', ctx);
   await settle();
-  return { window, $: id => window.document.getElementById(id), calls, doc: window.document, checkouts, behaviors, nativeCalls, confirmations,clock,
+  return { window, soundInstances,soundPlays, $: id => window.document.getElementById(id), calls, doc: window.document, checkouts, behaviors, nativeCalls, confirmations,clock,
     fundOnChain(){fundingVisible=true;},setClaimState(value){if(value===undefined)delete nim.claim_state;else nim.claim_state=value;},setStage(stage){nim.stage=stage;if(['funded','delivery_pending','delivery_failed','sent'].includes(stage))nim.claim_state='unclaimed';},failMail(value){mailFails=value;},failReads(value){readsFail=value;},holdNextConfirm(){const held={};holdConfirm=held;return held;},maxConfirms:()=>maxConfirms,
     failCode(value){codeFails=value;},holdCode(){const held={};heldCode=held;return held;},
     failLogout(value){logoutFails=value;},
@@ -2145,3 +2146,38 @@ test('cancelled recent cards keep checking for late funds without showing paymen
 
 
 
+
+test('sent-card audio plays once for a recent NIM card, but not for old or future cards, and rejection is harmless',async()=>{
+ for(const [createdAgo,expected] of [[0,1],[29*60000,1],[30*60000,0],[31*60000,0],[-60000,0]]){
+  const app=await tracked({createdAgo,audioReject:true});
+  assert.equal(app.soundPlays.length,0);app.setStage('sent');await app.clock.advance(4000);await settle();
+  assert.equal(app.soundPlays.length,expected);
+  app.window.dispatchEvent(new app.window.Event('pageshow'));await app.clock.advance(10000);await settle();
+  assert.equal(app.soundPlays.length,expected);
+  if(expected){assert.equal(app.soundPlays[0].src,'/sounds/phoenix-notification.wav?v=0.4.38');assert.equal(app.soundPlays[0].volume,.35);assert.equal(app.soundPlays[0].time,0);}
+ }
+});
+test('maintenance always leaves administrator sign-in reachable, including invitation-only classic pages',async()=>{
+ for(const classic of [false,true])for(const language of ['fr','en','es','de','zh']){
+  const app=await start({classic,maintenance:true,inviteOnly:true,session:{verified:false},clocked:true,local:{'wire-language':language}});
+  if(classic){app.doc.documentElement.lang=language;app.window.dispatchEvent(new app.window.Event('wire-language'));}
+  const banner=app.$('wire-maintenance');assert.equal(banner.hidden,false);assert.equal(banner.textContent,flowText(language,'maintenance'));
+  const input=app.$(classic?'sender':'wire-email');assert.equal(classic?input.closest('label').hidden:app.$('wire-sender').hidden,false);
+  assert.equal(app.$(classic?'sender-invite-gate':'wire-invite-gate').hidden,true);
+  app.failCode('maintenance');input.value='sender@example.test';app.$(classic?'send-sender-code':'wire-send-code').click();await settle();
+  assert.equal(app.$(classic?'sender-status':'wire-status').textContent,flowText(language,'maintenance'));assert.equal(input.disabled,false);assert.equal(input.readOnly,false);
+  assert.equal(app.$(classic?'sender-code-box':'wire-code-box').hidden,true);
+ }
+});
+test('stablecoin sent audio is limited to a newly sent recent card already known on this browser',async()=>{
+ for(const asset of ['usdc_polygon','usdt_polygon','usdt_ethereum'])for(const age of [0,31*60000]){
+  const id='e'.repeat(32),created=new Date(Date.parse('2026-10-23T14:00:00Z')-age).toISOString();
+  const card={id,asset,amount:'2',sender:'sender@example.test',created,invited:true};
+  const local={'wire-usdt-cards':JSON.stringify([{...card,created:Date.parse(created),invited:false}])};
+  const app=await start({clocked:true,serverCards:[card],local});
+  assert.equal(app.soundPlays.length,age?0:1,asset);
+  app.window.dispatchEvent(new app.window.Event('pageshow'));await app.clock.advance(10000);await settle();assert.equal(app.soundPlays.length,age?0:1);
+ }
+ const app=await start({clocked:true,serverCards:[{id:'e'.repeat(32),asset:'usdc_polygon',amount:'2',created:'2026-10-23T14:00:00Z',invited:true}]});
+ assert.equal(app.soundPlays.length,0,'a card discovered on another browser is not a new send');
+});

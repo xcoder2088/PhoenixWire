@@ -1,4 +1,4 @@
-import { mountRelays } from './admin-relay.js?v=0.4.38';
+import { mountRelays } from './admin-relay.js?v=0.4.39';
 // Wire access management. The server authorizes every action. Registered addresses are never listed.
 const words = {
   "fr": {
@@ -281,7 +281,7 @@ export function mountAdmin({root=document.body,language=()=>document.documentEle
    if(locked){const explanation=node('p',t('lockedOpen'));explanation.id='wire-admin-locked-open';explanation.setAttribute('role','status');panel.append(explanation);toggle.setAttribute('aria-describedby',accessState.id+' '+explanation.id);}
    const maintenanceLabel=node('label',t('maintenance')),maintenanceToggle=node('input');maintenanceToggle.type='checkbox';maintenanceToggle.id='wire-admin-maintenance';maintenanceToggle.setAttribute('role','switch');maintenanceToggle.checked=view.maintenance===true;maintenanceToggle.setAttribute('aria-checked',String(maintenanceToggle.checked));maintenanceToggle.disabled=busy;
    maintenanceToggle.addEventListener('change',()=>{if(busy)return;const on=maintenanceToggle.checked;if(on&&!window.confirm(t('confirmMaintenance'))){render();return;}void action('/api/admin/maintenance',{on});});
-   maintenanceLabel.prepend(maintenanceToggle);const maintenanceState=node('p',t(view.maintenance?'maintenanceOn':'maintenanceOff'));maintenanceState.id='wire-admin-maintenance-state';maintenanceState.setAttribute('role','status');maintenanceToggle.setAttribute('aria-describedby',maintenanceState.id);panel.append(maintenanceLabel,maintenanceState);
+   maintenanceLabel.className='wire-admin-maintenance-control';maintenanceLabel.htmlFor=maintenanceToggle.id;maintenanceLabel.prepend(maintenanceToggle);const maintenanceState=node('p',t(view.maintenance?'maintenanceOn':'maintenanceOff'));maintenanceState.id='wire-admin-maintenance-state';maintenanceState.setAttribute('role','status');maintenanceToggle.setAttribute('aria-describedby',maintenanceState.id);panel.append(maintenanceLabel,maintenanceState);
    const summary=node('p',[count('invitedCount',view.allowed.length),count('blockedCount',view.blocked.length),count('registeredCount',view.registered_count)].join(' · '));
    summary.id='wire-admin-counts';summary.setAttribute('role','status');panel.append(summary);
    summary.setAttribute('aria-label',[count('invitedCount',view.allowed.length),count('blockedCount',view.blocked.length),count('registeredTotal',view.registered_count)].join(' · '));
@@ -309,10 +309,10 @@ export function mountAdmin({root=document.body,language=()=>document.documentEle
   onAccess(view.open,view);
  }
  async function action(path,data,formKind){
-  if(busy||closed)return;busy=true;notice='';const current=++epoch;render();
+  if(busy||closed)return;const focusID=panel.contains(document.activeElement)?document.activeElement.id:'';busy=true;notice='';const current=++epoch;render();
   try{const result=await request(path,data);if(!closed&&current===epoch){accept(result);if(formKind)drafts[formKind]='';}}
   catch(error){if(!closed&&current===epoch){const code=error?.code||error?.message;notice=['admin_required','cannot_block_admin','list_full','invalid_email'].includes(code)?code:'failed';if(notice==='admin_required')view=null;}}
-  finally{if(!closed&&current===epoch){busy=false;render();}}
+  finally{if(!closed&&current===epoch){const restore=focusID&&document.activeElement===document.body;busy=false;render();const target=restore?document.getElementById(focusID):null;if(target&&!target.disabled)target.focus({preventScroll:true});}}
  }
  void action('/api/admin/access');
  return {render,destroy(){closed=true;epoch++;relays.destroy();panel.remove();}};

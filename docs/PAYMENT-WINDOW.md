@@ -1,5 +1,48 @@
 # The payment window is PhoenixMail's
 
+## Relay and maintenance presentation review (cache 0.4.39)
+
+The server implementation from 8555bb2 is retained. The relay section still
+loads only when its native details control opens, and uses the server-provided
+destinations and withdrawal decisions. No new static file or Go change is needed.
+
+Gas balance, reserve, withdrawable balance, pending cards and token fees now use
+label/value groups. Earnings have separate payout, fee, cost and margin values
+for each asset. The mobile layout uses one column; wider layouts use two. Long
+labels and transaction identifiers wrap, figures use tabular numerals, controls
+are at least 40px high, and focus outlines follow the active theme accent.
+Each destination selector has an explicit label, even with one allowed address.
+Positive amounts below display precision show a less-than value, not zero.
+Formatting still uses integer arithmetic and never changes the withdrawal body.
+Statuses are announced politely; rerendering a focused control preserves a
+keyboard focus target. Explorer links use only the supported explorer prefixes.
+
+The maintenance switch has a larger labeled hit area. The maintenance banner
+stays in document flow and uses the theme's panel and accent colours. While
+maintenance is active it exposes the administrator sign-in form even when
+invitation-only mode is also active. Administrator authorization is still decided
+by the server. Already authenticated administrators retain the existing panel
+state rather than a redundant visitor banner.
+
+Classic maintenance support is worthwhile because classic.html remains a sender
+and recipient entry point. Its actual authentication handlers are in flow.js;
+app.js handles presentation. The classic sender page now reads config.maintenance
+and translates maintenance errors, leaving its email editable and its code box
+closed after a rejected request. Recipient access remains unchanged. Embedded
+NIM windows notify their parent page of maintenance without changing pm/.
+
+Mock Audio tests cover a newly sent NIM card and each stablecoin, one play only,
+autoplay rejection, cards at least 30 minutes old, future dates and cards first
+discovered on another browser. The existing recording, volume and server wait
+countdown are retained. Changed module/style references use 0.4.39; the unchanged
+audio and translation assets keep their own versions. These are automated DOM
+and CSS contract checks, not a physical iPhone/Safari or real-payment validation.
+The pending legal-copy edits remain separate and are not included in this change.
+
+Validation executed: `npm ci --ignore-scripts`, then
+`node --test --test-timeout=90000 tests/*.test.mjs engine/secureclaim/web/tests/*.cjs`.
+281 tests executed and passed, none failed or skipped. No deployment or push.
+
 ## Administration: invitations and blocks (cache 0.4.35)
 
 The access view displays only the total `registered_count`. It never lists,

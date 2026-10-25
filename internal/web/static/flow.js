@@ -1,4 +1,4 @@
-import { mountAdmin,adminText } from './admin.js?v=0.4.38';
+import { mountAdmin,adminText } from './admin.js?v=0.4.39';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.30';
 import { flowText } from './flow-text.js?v=0.4.38';
 import { addressValid,cardPresentation,paintCard,renderCardPreview } from './model.js?v=0.4.30';
@@ -13,11 +13,12 @@ const t=key=>flowText(document.documentElement.lang,key);
 const expiryDate=value=>{const ms=typeof value==='number'?value:Date.parse(value||'');return Number.isFinite(ms)?new Intl.DateTimeFormat(document.documentElement.lang,{dateStyle:'medium',timeStyle:'short'}).format(ms):'';};
 const lifeNote=document.createElement('p');lifeNote.className='wire-lifetime-note';lifeNote.dataset.wire='life';$('amount').closest('label').after(lifeNote);
 const claimExpiry=document.createElement('p');claimExpiry.className='wire-card-expiry';claimExpiry.hidden=true;$('claim-amount').after(claimExpiry);
-let senderInviteOnly=false,adminPanel=null,inviteOnly=false,accessExpanded=false,accessKnown=false;
+let senderInviteOnly=false,adminPanel=null,inviteOnly=false,accessExpanded=false,accessKnown=false,maintenance=false,adminActive=false,senderMaintenance=false;
 const senderGate=document.createElement('div'),senderNotice=document.createElement('p'),senderAccess=document.createElement('button');senderGate.id='sender-invite-gate';senderGate.hidden=true;senderAccess.id='sender-existing-access';senderAccess.type='button';senderAccess.className='secondary-btn wire-access-link';senderAccess.setAttribute('aria-controls','sender-auth');senderGate.append(senderNotice,senderAccess);$('sender').closest('label').before(senderGate);
-function paintSenderAccess(){if(embedded||claimMode)return;senderGate.hidden=!accessKnown||verified||!inviteOnly;senderNotice.textContent=t('inviteOnly');senderAccess.textContent=adminText(document.documentElement.lang,'already');senderAccess.hidden=accessExpanded;senderAccess.setAttribute('aria-expanded',String(accessExpanded));$('sender').closest('label').hidden=!accessKnown||!verified&&inviteOnly&&!accessExpanded;$('sender-auth').hidden=!accessKnown||verified||inviteOnly&&!accessExpanded;}
+const maintenanceBanner=document.createElement('p');maintenanceBanner.id='wire-maintenance';maintenanceBanner.hidden=true;maintenanceBanner.setAttribute('role','status');if(!embedded)$('sender').closest('label').before(maintenanceBanner);
+function paintSenderAccess(){if(embedded||claimMode)return;maintenanceBanner.textContent=t('maintenance');maintenanceBanner.hidden=!maintenance||adminActive;senderGate.hidden=!accessKnown||verified||!inviteOnly||maintenance;senderNotice.textContent=t('inviteOnly');senderAccess.textContent=adminText(document.documentElement.lang,'already');senderAccess.hidden=accessExpanded;senderAccess.setAttribute('aria-expanded',String(accessExpanded));$('sender').closest('label').hidden=!accessKnown||!verified&&inviteOnly&&!accessExpanded&&!maintenance;$('sender-auth').hidden=!accessKnown||verified||inviteOnly&&!accessExpanded&&!maintenance;}
 senderAccess.addEventListener('click',()=>{accessExpanded=true;paintSenderAccess();$('sender').focus();});
-function configureAdmin(allowed){if(embedded)return;adminPanel?.destroy();adminPanel=mountAdmin({root:root.querySelector('.app-window')||root.body||root,language:()=>document.documentElement.lang,request:api,authorized:allowed===true&&verified,onAccess:open=>{inviteOnly=!open;paintSenderAccess();}});}
+function configureAdmin(allowed){if(embedded)return;adminActive=allowed===true&&verified;adminPanel?.destroy();adminPanel=mountAdmin({root:root.querySelector('.app-window')||root.body||root,language:()=>document.documentElement.lang,request:api,authorized:allowed===true&&verified,onAccess:(open,view)=>{inviteOnly=!open;if(view)maintenance=view.maintenance===true;paintSenderAccess();}});}
 
 const walletWords={
  en:{cancelled:'Payment cancelled in Nimiq Pay.',failed:'Nimiq Pay could not complete the request. Check your wallet before using Nimiq Wallet: a payment may already have been sent.',hub:'Nimiq Wallet',confirm:'Only continue if your wallet shows that this card has NOT been paid. Pay the same card with Nimiq Wallet?',network:'Switch Nimiq Pay to the network used by this service before paying.'},
@@ -344,14 +345,14 @@ async function api(path,data,{timeout=false}={}){
  const timer=controller?setTimeout(()=>controller.abort(),30000):null;
  if(controller)options.signal=controller.signal;
  try{const response=await fetch(path,options);const body=await response.json();if(destroyed)throw Error('flow_closed');
- if(!response.ok){const error=Error(body.code||body.error||'unavailable');error.status=response.status;throw error;}return body;
+ if(!response.ok){if(body.code==='maintenance'){maintenance=true;if(embedded)window.dispatchEvent(new Event('wire-maintenance'));else paintSenderAccess();}const error=Error(body.code||body.error||'unavailable');error.status=response.status;throw error;}return body;
  }finally{if(timer!==null)clearTimeout(timer);if(controller)controllers.delete(controller);}
 }
 function status(id,key){$(id).textContent=t(key);}
-function explain(error){if(error.message==='invite_only')return t('inviteOnly');if(error.message==='funding_pending'||error.message==='funding_already_started')return t('pending');if(['claim_unavailable','claim_expired','card_expired'].includes(error.message))return t('ended');if(error.status===403)return t('invalid');if(error.status===410)return t('expired');if(error.status===401)return t('verifyFirst');return t('failed');}
+function explain(error){if(error.message==='maintenance')return t('maintenance');if(error.message==='invite_only')return t('inviteOnly');if(error.message==='funding_pending'||error.message==='funding_already_started')return t('pending');if(['claim_unavailable','claim_expired','card_expired'].includes(error.message))return t('ended');if(error.status===403)return t('invalid');if(error.status===410)return t('expired');if(error.status===401)return t('verifyFirst');return t('failed');}
 function refreshText(){
  paintSenderAccess();adminPanel?.render();
- if(senderInviteOnly)status('sender-status','inviteOnly');
+ if(senderInviteOnly)status('sender-status','inviteOnly');if(senderMaintenance)status('sender-status','maintenance');
  fallback.textContent=wt('hub');
  root.querySelectorAll('[data-wire]').forEach(el=>el.textContent=t(el.dataset.wire));
  if(configured&&!claimMode){$('preview-submit').textContent=t(active&&active.stage!=='ready'?'retry':'pay');$('notice').textContent=t(ready?'note':'unavailable');root.querySelector('.security').textContent=t('security');root.querySelector('.lock').textContent=cardPresentation(document.documentElement.lang).locked;}
@@ -551,9 +552,9 @@ async function withReferrer(run){const meta=document.createElement('meta');meta.
 function mobile(){return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
 $('send-sender-code').addEventListener('click',()=>task(async()=>{
  if(!$('sender').reportValidity())return;
- senderInviteOnly=false;
+ senderInviteOnly=false;senderMaintenance=false;
  try{await api('/api/sender/request',{email:$('sender').value,language:document.documentElement.lang});}
- catch(error){if(error.message==='invite_only'){senderInviteOnly=true;$('sender-code-box').hidden=true;$('sender-code').value='';$('sender').readOnly=false;}throw error;}
+ catch(error){if(error.message==='maintenance'){senderMaintenance=true;$('sender-code-box').hidden=true;$('sender-code').value='';$('sender').readOnly=false;}if(error.message==='invite_only'){senderInviteOnly=true;$('sender-code-box').hidden=true;$('sender-code').value='';$('sender').readOnly=false;}throw error;}
  $('sender-code-box').hidden=false;status('sender-status','codeSent');
 },'sender-status'));
 $('verify-sender-code').addEventListener('click',()=>task(async()=>{
@@ -899,7 +900,7 @@ async function boot(){
    updateClaimControls();
   }catch(error){if(!reception.payout){reception.expired=true;reception.message=['claim_unavailable','claim_expired','card_expired'].includes(error.message)?'ended':'failed';updateClaimControls();}}return;
  }
- try{const config=await api('/api/config');accessKnown=true;inviteOnly=config.invite_only===true;configured=config.mode==='integrated';ready=config.payments_enabled===true;usdtAssets=Array.isArray(config.assets)?config.assets:[];if(!configured)return;
+ try{const config=await api('/api/config');accessKnown=true;inviteOnly=config.invite_only===true;maintenance=config.maintenance===true;configured=config.mode==='integrated';ready=config.payments_enabled===true;usdtAssets=Array.isArray(config.assets)?config.assets:[];if(!configured)return;
   $('sender-auth').hidden=embedded;refreshText();const session=await api('/api/session');const limited=scopedPaymentID&&session.handoff?.payment_id===scopedPaymentID;
   senderUI(session.verified?session.email:limited?(initialPayment?.sender||'handoff'):'',session.admin);
   if(preparedContext){

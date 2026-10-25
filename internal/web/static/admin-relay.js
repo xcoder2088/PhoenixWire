@@ -63,7 +63,9 @@ const chainNames = { polygon: 'Polygon', ethereum: 'Ethereum' };
 // A whole number of the smallest unit as text with `shown` decimals, cut and not rounded (no float: wei do not fit in one).
 export function amountText(value, decimals, shown) {
   try {
+    if (!/^\d+$/.test(String(value)) || !Number.isInteger(decimals) || decimals < 0 || decimals > 36 || !Number.isInteger(shown) || shown < 0 || shown > decimals) return '—';
     const n = BigInt(value), base = 10n ** BigInt(decimals);
+    if (n > 0n && n < 10n ** BigInt(decimals - shown)) return shown ? '<0.' + '0'.repeat(shown - 1) + '1' : '<1';
     const fraction = (n % base).toString().padStart(decimals, '0').slice(0, shown);
     return String(n / base) + (shown ? '.' + fraction : '');
   } catch { return '—'; }
@@ -93,7 +95,7 @@ export function mountRelays({ document, language, request, confirm }) {
   const errorKey = error => { const code = error?.code || error?.message; return known.includes(code) ? code : 'failed'; };
 
   async function withdraw(relayer, what, symbol, amount) {
-    if (busy || closed || !destination) return;
+    if (busy || closed || !destination || !data?.to.includes(destination)) return;
     if (!confirm(t('confirmWithdraw').replace('{amount}', amount).replace('{symbol}', symbol).replace('{chain}', chainNames[relayer.chain] || relayer.chain).replace('{to}', destination))) return;
     busy = true; notice = ''; const current = ++epoch; render();
     let sent = null;
@@ -107,41 +109,58 @@ export function mountRelays({ document, language, request, confirm }) {
   }
   let result = null;
 
-  function relayerNode(relayer) {
-    const section = node('section'); section.className = 'wire-admin-relay'; section.dataset.chain = relayer.chain;
-    const address = typeof relayer.address === 'string' ? relayer.address.slice(0, 6) + '…' + relayer.address.slice(-4) : '';
-    section.append(node('h4', (chainNames[relayer.chain] || relayer.chain) + ' · ' + address));
-    const symbol = relayer.native_symbol || '';
-    section.append(node('p', t('gasCoin') + ' ' + symbol + ': ' + amountText(relayer.native_wei, 18, 4) + ' · ' + amountText(relayer.reserve_wei, 18, 4) + ' ' + t('kept') + ' · ' + amountText(relayer.withdrawable_wei, 18, 4) + ' ' + t('withdrawable')));
-    section.append(node('p', t('waiting') + ': ' + (Number.isSafeInteger(relayer.pending_cards) ? relayer.pending_cards : 0)));
-    const actions = node('div'); actions.className = 'wire-admin-row-actions';
-    const native = amountText(relayer.withdrawable_wei, 18, 4);
-    const nativeButton = node('button', t('withdraw') + ' ' + native + ' ' + symbol); nativeButton.type = 'button'; nativeButton.className = 'secondary-btn'; nativeButton.dataset.what = 'native';
-    nativeButton.disabled = busy || !destination || !/^[1-9]\d*$/.test(String(relayer.withdrawable_wei));
-    nativeButton.addEventListener('click', () => { void withdraw(relayer, 'native', symbol, native); });
-    actions.append(nativeButton);
-    for (const token of Array.isArray(relayer.tokens) ? relayer.tokens : []) {
-      const label = assetNames[token.asset] || token.symbol || token.asset, shown = amountText(token.units, 6, 4);
-      section.append(node('p', t('fees') + ' ' + label + ': ' + shown));
-      const button = node('button', t('withdraw') + ' ' + shown + ' ' + (token.symbol || '')); button.type = 'button'; button.className = 'secondary-btn'; button.dataset.what = token.asset;
-      button.disabled = busy || !destination || !/^[1-9]\d*$/.test(String(token.units));
-      button.addEventListener('click', () => { void withdraw(relayer, token.asset, token.symbol || '', shown); });
-      actions.append(button);
+  function metrics(entries) {
+    const list = node('dl'); list.className = 'wire-relay-metrics';
+    for (const [label, value] of entries) {
+      const item = node('div');item.append(node('dt', label), node('dd', value));list.append(item);
     }
-    section.append(actions);
-    return section;
+    return list;
+  }
+  function relayerNode(relayer) {
+    const section = node('section');section.className = 'wire-admin-relay';section.dataset.chain = relayer.chain;
+    const address = typeof relayer.address === 'string' ? relayer.address : '';
+    const heading = node('h4', (chainNames[relayer.chain] || relayer.chain) + ' · ');
+    const short = node('code', address ? address.slice(0, 6) + '…' + address.slice(-4) : '');short.title = address;heading.append(short);section.append(heading);
+    const symbol = String(relayer.native_symbol || ''), native = amountText(relayer.withdrawable_wei, 18, 4);
+    section.append(metrics([
+      [t('gasCoin') + ' ' + symbol, amountText(relayer.native_wei, 18, 4) + ' ' + symbol],
+      [t('kept'), amountText(relayer.reserve_wei, 18, 4) + ' ' + symbol],
+      [t('withdrawable'), native + ' ' + symbol],
+      [t('waiting'), String(Number.isSafeInteger(relayer.pending_cards) ? relayer.pending_cards : 0)]
+    ]));
+    const actions = node('div');actions.className = 'wire-admin-row-actions';
+    function button(what, unit, amount, units) {
+      const control = node('button', t('withdraw') + ' ' + amount + ' ' + unit);
+      control.type = 'button';control.className = 'secondary-btn';control.dataset.what = what;control.id = 'wire-relay-' + relayer.chain + '-' + what;
+      control.setAttribute('aria-label', (chainNames[relayer.chain] || relayer.chain) + ': ' + control.textContent);
+      control.setAttribute('aria-describedby', 'wire-admin-relay-help');
+      control.disabled = busy || !destination || !/^[1-9]\d*$/.test(String(units));
+      control.addEventListener('click', () => {void withdraw(relayer, what, unit, amount);});actions.append(control);
+    }
+    button('native', symbol, native, relayer.withdrawable_wei);
+    for (const token of Array.isArray(relayer.tokens) ? relayer.tokens : []) {
+      if (!token || typeof token.asset !== 'string') continue;
+      const label = Object.hasOwn(assetNames, token.asset) ? assetNames[token.asset] : String(token.symbol || token.asset);
+      const shown = amountText(token.units, 6, 4), unit = String(token.symbol || '');
+      section.append(metrics([[t('fees') + ' ' + label, shown + ' ' + unit]]));
+      button(token.asset, unit, shown, token.units);
+    }
+    section.append(actions);return section;
   }
 
   function render() {
     if (closed) return;
-    summary.textContent = t('relays'); body.replaceChildren();
+    const focused = body.contains(document.activeElement) ? document.activeElement.id : '';
+    try {
+    summary.textContent = t('relays'); body.replaceChildren();body.setAttribute('aria-busy', String(busy));
     if (!box.open && !loaded) return;
-    const refresh = node('button', t('refresh')); refresh.type = 'button'; refresh.className = 'secondary-btn'; refresh.disabled = busy; refresh.addEventListener('click', () => { void load(); });
-    const status = node('p', busy ? t('busy') : notice ? t(notice) : ''); status.setAttribute('role', 'status'); status.className = 'wire-admin-relay-status';
+    const refresh = node('button', t('refresh')); refresh.id = 'wire-admin-relay-refresh';refresh.type = 'button'; refresh.className = 'secondary-btn'; refresh.disabled = busy; refresh.addEventListener('click', () => { void load(); });
+    const status = node('p', busy ? t('busy') : notice ? t(notice) : ''); status.id = 'wire-admin-relay-status';status.tabIndex = -1;status.setAttribute('role', 'status');status.setAttribute('aria-live', 'polite');status.setAttribute('aria-atomic', 'true'); status.className = 'wire-admin-relay-status';
     body.append(refresh, status);
     if (result) {
       const done = node('p', t(result.status === 'sent' ? 'sent' : 'unconfirmed') + ': ' + (typeof result.tx === 'string' ? result.tx : '')); done.className = 'wire-admin-relay-result';
-      if (typeof result.explorer === 'string' && result.explorer.startsWith('https://') && /^0x[0-9a-fA-F]{64}$/.test(result.tx || '')) {
+      done.setAttribute('role', 'status');done.setAttribute('aria-live', 'polite');
+      if (typeof result.explorer === 'string' && ['https://polygonscan.com/tx/', 'https://etherscan.io/tx/'].includes(result.explorer) && /^0x[0-9a-fA-F]{64}$/.test(result.tx || '')) {
         const link = node('a', result.tx); link.href = result.explorer + result.tx; link.target = '_blank'; link.rel = 'noopener noreferrer';
         done.textContent = t(result.status === 'sent' ? 'sent' : 'unconfirmed') + ': '; done.append(link);
       }
@@ -150,22 +169,31 @@ export function mountRelays({ document, language, request, confirm }) {
     if (!data) return;
     if (!data.relayers.length) { body.append(node('p', t('none'))); return; }
     if (!data.to.length) body.append(node('p', t('noAddress')));
-    else if (data.to.length === 1) body.append(node('p', t('to') + ': ' + data.to[0]));
     else {
-      const label = node('label', t('to')), select = node('select'); select.id = 'wire-admin-relay-to'; select.disabled = busy;
-      for (const address of data.to) { const option = node('option', address); option.value = address; option.selected = address === destination; select.append(option); }
-      select.addEventListener('change', () => { destination = select.value; });
-      label.append(select); body.append(label);
+      const label = node('label', t('to')), select = node('select');select.id = 'wire-admin-relay-to';label.htmlFor = select.id;select.disabled = busy;
+      for (const address of data.to) {const option = node('option', address);option.value = address;option.selected = address === destination;select.append(option);}
+      select.addEventListener('change', () => {if (data.to.includes(select.value)) destination = select.value;else select.value = destination;});
+      label.append(select);body.append(label);
     }
     for (const relayer of data.relayers) body.append(relayerNode(relayer));
-    body.append(node('p', t('help')));
+    const help = node('p', t('help'));help.id = 'wire-admin-relay-help';body.append(help);
     if (data.totals.length) {
       const earned = node('section'); earned.className = 'wire-admin-earned'; earned.append(node('h4', t('earnedTitle')));
       for (const row of data.totals) {
-        const net = typeof row.net === 'string' ? row.net : '—';
-        earned.append(node('p', (assetNames[row.asset] || row.asset) + ' · ' + (Number.isSafeInteger(row.payouts) ? row.payouts : 0) + ' ' + t('payouts') + ' · ' + t('earned') + ' ' + (row.earned ?? '—') + ' · ' + t('gas') + ' ' + (row.cost ?? '—') + ' · ' + t('margin') + ' ' + net));
+        if (!row || typeof row.asset !== 'string') continue;
+        const label = Object.hasOwn(assetNames, row.asset) ? assetNames[row.asset] : row.asset;
+        const group = node('section');group.append(node('h5', label));
+        group.append(metrics([[t('payouts'), String(Number.isSafeInteger(row.payouts) ? row.payouts : 0)],
+          [t('earned'), String(row.earned ?? '—')], [t('gas'), String(row.cost ?? '—')], [t('margin'), typeof row.net === 'string' ? row.net : '—']]));
+        earned.append(group);
       }
       body.append(earned);
+    }
+    } finally {
+      if (focused && box.open) {
+        const target = document.getElementById(focused);
+        (target && !target.disabled ? target : body.querySelector('.wire-admin-relay-status'))?.focus({preventScroll: true});
+      }
     }
   }
   box.addEventListener('toggle', () => { if (box.open && !loaded) void load(); else render(); });
