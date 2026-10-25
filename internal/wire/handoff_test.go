@@ -3,8 +3,10 @@ package wire
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -466,7 +468,13 @@ func TestHandoffSessionCanGiveUpItsOwnUnpaidCardButNeverAFundedOne(t *testing.T)
 	b.inSafari(func() { p = b.f.create() })
 	b.redeem(b.handoff(t, p.ID).Token)
 	good(b.appCall("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t)
+	var logs bytes.Buffer
+	log.SetOutput(&logs)
+	defer log.SetOutput(os.Stderr)
 	w := b.appCall("POST", "/api/payments/"+p.ID+"/cancel", map[string]string{})
+	if got := logs.String(); !strings.Contains(got, "app: POST /api/payments/<id>/cancel -> 200") || strings.Contains(got, p.ID) {
+		t.Fatalf("the app's action must be logged without the payment id: %q", got)
+	}
 	if w.Code != 200 || !strings.Contains(w.Body.String(), `"stage":"cancelled"`) {
 		t.Fatalf("the app gives its unpaid card up: %d %s", w.Code, w.Body)
 	}

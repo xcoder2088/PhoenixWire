@@ -288,7 +288,7 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if ok && s.Scope != "" { // the other browser of a hand-over: one payment, nothing else
-		a.scoped(w, r, s)
+		a.logged(w, r, "app", func(w http.ResponseWriter) { a.scoped(w, r, s) })
 		return
 	}
 	if !ok || !s.Verified {
@@ -329,7 +329,7 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	a.paymentAction(w, r, s, path)
+	a.logged(w, r, "sender", func(w http.ResponseWriter) { a.paymentAction(w, r, s, path) })
 }
 
 // paymentAction is what a sender does with one payment: POST /api/payments/<id>/<action>. The hand-over session reaches it only for its own
@@ -837,4 +837,45 @@ func clientIP(r *http.Request) string {
 		}
 	}
 	return host
+}
+
+// logged runs a payment action and writes one line saying what was asked and what the answer was, so a payment that failed on somebody's phone can
+// be followed: "handoff: POST /api/payments/<id>/cancel -> 503 chain_unavailable". The hand-over (the wallet's app) is logged whatever the answer;
+// the sender's own browser only when it failed. No address, no payment id, no code.
+type recorder struct {
+	http.ResponseWriter
+	status int
+	body   []byte
+}
+
+func (r *recorder) WriteHeader(code int) { r.status = code; r.ResponseWriter.WriteHeader(code) }
+func (r *recorder) Write(b []byte) (int, error) {
+	if r.status == 0 {
+		r.status = http.StatusOK
+	}
+	if len(r.body) < 200 {
+		r.body = append(r.body, b...)
+	}
+	return r.ResponseWriter.Write(b)
+}
+
+var idInPath = regexp.MustCompile(`/[a-f0-9]{48}`)
+
+func (a *API) logged(w http.ResponseWriter, r *http.Request, who string, run func(http.ResponseWriter)) {
+	rec := &recorder{ResponseWriter: w}
+	run(rec)
+	if who == "sender" && rec.status < 400 {
+		return
+	}
+	if !strings.HasPrefix(r.URL.Path, "/api/payments") || r.Method == "GET" && rec.status < 400 {
+		return
+	}
+	code := ""
+	var answer struct {
+		Code string `json:"code"`
+	}
+	if rec.status >= 400 && json.Unmarshal(rec.body, &answer) == nil {
+		code = regexp.MustCompile(`[^a-z0-9_]`).ReplaceAllString(answer.Code, "")
+	}
+	log.Printf("%s: %s %s -> %d %s", who, r.Method, idInPath.ReplaceAllString(r.URL.Path, "/<id>"), rec.status, code)
 }
