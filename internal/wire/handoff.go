@@ -35,8 +35,9 @@ const (
 var handoffToken = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
 
 // scopedActions are the only things a scoped session may do with its payment: its picture for the e-mail, starting its funding, asking the
-// wallet again when the first request never showed, checking the funding and, if the e-mail failed, sending it again. Not the recovery key.
-var scopedActions = map[string]bool{"art": true, "start": true, "checkout": true, "confirm": true, "resend": true}
+// wallet again when the first request never showed, checking the funding, giving the card up while it is still unpaid (the payment's own checks
+// refuse a card whose money is on it, "already_funded") and, if the e-mail failed, sending it again. Not the recovery key.
+var scopedActions = map[string]bool{"art": true, "start": true, "checkout": true, "confirm": true, "resend": true, "cancel": true}
 
 type handoff struct {
 	Email     string

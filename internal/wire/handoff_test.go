@@ -175,6 +175,7 @@ func TestHandoffSessionReachesNothingBeyondItsPayment(t *testing.T) {
 		"create a payment":         {"POST", "/api/payments"},
 		"another payment's start":  {"POST", "/api/payments/" + other.ID + "/start"},
 		"another payment's resend": {"POST", "/api/payments/" + other.ID + "/resend"},
+		"another payment's cancel": {"POST", "/api/payments/" + other.ID + "/cancel"},
 		"the recovery key":         {"POST", "/api/payments/" + p.ID + "/recovery"},
 		"prepare":                  {"POST", "/api/payments/" + p.ID + "/prepare"},
 		"USDC / USDT cards":        {"GET", "/api/usdt/cards"},
@@ -454,5 +455,41 @@ func TestHandoffCheckoutRetryIsSafe(t *testing.T) {
 	// the sender in Safari has it too, and nobody else's payment can be asked for
 	if w := checkout(b.safariCall); w.Code != 409 {
 		t.Fatalf("Safari: %d", w.Code)
+	}
+}
+
+// The wallet's browser has no way back to the sender's own: a card that was started there and could not be paid (not enough money) must be
+// given up from there, and only while it is unpaid.
+func TestHandoffSessionCanGiveUpItsOwnUnpaidCardButNeverAFundedOne(t *testing.T) {
+	b := newBrowsers(t)
+	var p payment
+	b.inSafari(func() { p = b.f.create() })
+	b.redeem(b.handoff(t, p.ID).Token)
+	good(b.appCall("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t)
+	w := b.appCall("POST", "/api/payments/"+p.ID+"/cancel", map[string]string{})
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"stage":"cancelled"`) {
+		t.Fatalf("the app gives its unpaid card up: %d %s", w.Code, w.Body)
+	}
+	var list struct{ Payments []payment }
+	if l := b.safariCall("GET", "/api/payments", nil); json.Unmarshal(l.Body.Bytes(), &list) != nil || len(list.Payments) == 0 || list.Payments[0].Stage != "cancelled" {
+		t.Fatalf("Safari sees the same card cancelled: %s", l.Body)
+	}
+	// a card whose money arrived is not given up, whoever asks
+	var q payment
+	b.inSafari(func() {
+		in := paymentInput()
+		in["request_id"] = strings.Repeat("c", 32)
+		w := b.f.call("POST", "/api/payments", in)
+		var o struct{ Payment payment }
+		json.Unmarshal(w.Body.Bytes(), &o)
+		q = o.Payment
+	})
+	b.redeem(b.handoff(t, q.ID).Token)
+	good(b.appCall("POST", "/api/payments/"+q.ID+"/start", map[string]string{}), t)
+	b.f.rpcMu.Lock()
+	b.f.funded = true
+	b.f.rpcMu.Unlock()
+	if w := b.appCall("POST", "/api/payments/"+q.ID+"/cancel", map[string]string{}); w.Code != 409 || !strings.Contains(w.Body.String(), "already_funded") {
+		t.Fatalf("a funded card must not be cancelled: %d %s", w.Code, w.Body)
 	}
 }
