@@ -2215,10 +2215,8 @@ test('known low balance is simple, localized and cancellable in the limited paym
   app.$('nim-progress-close').click();await settle();
   assert.equal(app.doc.querySelector('.wire-nim-window'),null);
   assert.equal(app.$('wire-entry').hidden,true,'no reauthentication after cancellation');
-  app.$('wire-handoff-open').click();await settle();
-  assert.equal(app.$('nim-progress').hidden,false,'reopening preserves the cancelled outcome');
-  assert.equal(app.$('nim-handoff-pay').hidden,true);
-  assert.equal(app.$('nim-wallet-failure').hidden,true);
+  assert.equal(app.$('wire-handoff-open').textContent,({fr:'Terminé',en:'Done',es:'Listo',de:'Fertig',zh:'完成'})[language]);
+  assert.equal(app.$('wire-handoff-exit-help').hidden,false);
  }
 });
 
@@ -2268,4 +2266,52 @@ test('declining cancellation keeps the limited card without POST or navigation',
  assert.equal(app.$('nim-wallet-cancel').hidden,false);
  assert.equal(app.$('wire-entry').hidden,true);
  assert.equal(app.nativeCalls.length,1);
+});
+
+
+test('cancelled limited cards replace View with Done and keep translated exit help when close is refused',async()=>{
+ const labels={fr:'Terminé',en:'Done',es:'Listo',de:'Fertig',zh:'完成'};
+ const hints={fr:'Tu peux revenir à ton navigateur',en:'You can return to your browser',es:'Puedes volver a tu navegador',de:'zu deinem Browser zurückkehren',zh:'返回浏览器'};
+ for(const [language,label]of Object.entries(labels)){
+  const app=await failedNative({redeemDraft:{...handoffDraft,language}});
+  app.$('nim-wallet-cancel').click();await settle();app.$('nim-progress-close').click();await settle();
+  const button=app.$('wire-handoff-open'),help=app.$('wire-handoff-exit-help');
+  assert.equal(button.hidden,false);assert.equal(button.textContent,label);
+  assert.equal(app.$('wire-handoff-help').hidden,true);
+  assert.equal(help.hidden,false);assert.ok(help.textContent.includes(hints[language]));
+  assert.match(help.textContent,/‹/);assert.match(help.textContent,/✕/);assert.ok(!/Safari|Nimiq Pay/.test(help.textContent));
+  assert.equal(help.previousElementSibling.id,'wire-handoff-state');
+  const originalClose=app.window.close;let closes=0;app.window.close=()=>{closes++;};const before=app.calls.length;
+  const location=app.window.location.href,opened=app.opened.length;
+  await app.clock.advance(300);assert.equal(closes,0,'no close without a click');
+  button.click();assert.equal(closes,1);button.click();assert.equal(closes,1,'ignore repeated click while closing');
+  await app.clock.advance(300);await settle();
+  assert.equal(help.hidden,false);assert.equal(button.disabled,false);
+  assert.equal(app.calls.length,before);assert.equal(app.window.location.href,location);assert.equal(app.opened.length,opened);
+  assert.equal(app.doc.querySelector('.wire-nim-window'),null,'Done never reopens the cancelled card');
+  app.window.close=originalClose;
+ }
+});
+
+test('limited cards that are not cancelled keep View the card and do not attempt to close the host',async()=>{
+ for(const nimStage of ['ready','funding_started','sent']){
+  const app=await start({session:{verified:false,email:'',handoff:{payment_id:'a'.repeat(48)}},nimStage,clocked:true,nativeMode:'error'});
+  app.doc.querySelector('.wire-window-back').click();await settle();
+  const originalClose=app.window.close;let closes=0;app.window.close=()=>{closes++;};
+  assert.equal(app.$('wire-handoff-open').textContent,'View the card');
+  assert.equal(app.$('wire-handoff-exit-help').hidden,true);assert.equal(app.$('wire-handoff-help').hidden,false);
+  app.$('wire-handoff-open').click();await settle();assert.equal(closes,0);
+  assert.ok(app.doc.querySelector('.wire-nim-window'));
+  app.window.close=originalClose;
+ }
+});
+
+test('a reloaded cancelled limited card also offers Done without reopening it or making requests',async()=>{
+ const app=await start({session:{verified:false,email:'',handoff:{payment_id:'a'.repeat(48)}},nimStage:'cancelled',clocked:true,nativeMode:'error'});
+ app.$('nim-progress-close').click();await settle();
+ assert.equal(app.$('wire-handoff-open').textContent,'Done');
+ const originalClose=app.window.close;let closes=0;app.window.close=()=>{closes++;throw Error('not permitted');};
+ const before=app.calls.length;app.$('wire-handoff-open').click();await app.clock.advance(300);await settle();
+ assert.equal(closes,1);assert.equal(app.$('wire-handoff-exit-help').hidden,false);assert.equal(app.calls.length,before);
+ app.window.close=originalClose;
 });

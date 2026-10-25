@@ -29,6 +29,9 @@ const walletChoiceWords={
 
 const handoffWords={
   "fr": {
+    "handoffDone": "Terminé",
+    "handoffCancelled": "Carte annulée.",
+    "handoffExitHelp": "Tu peux revenir à ton navigateur avec la flèche ‹ en haut à gauche de l’iPhone, ou fermer cette fenêtre avec ✕.",
     "choiceHelp": "Nimiq Pay ouvre uniquement cette carte dans l’application, sans nouveau code courriel. Vérifiez-la avant de payer.",
     "handoffOpening": "Ouverture de Nimiq Pay…",
     "handoffReady": "Touchez à nouveau « Payer avec Nimiq Pay » pour ouvrir l’application.",
@@ -44,6 +47,9 @@ const handoffWords={
     "handoffUnavailable": "Impossible de reprendre cette carte. Rouvrez le lien depuis Safari."
   },
   "en": {
+    "handoffDone": "Done",
+    "handoffCancelled": "Card cancelled.",
+    "handoffExitHelp": "You can return to your browser using the ‹ arrow at the top left of the iPhone, or close this window with ✕.",
     "choiceHelp": "Nimiq Pay opens only this card in the app, without another email code. Review it before paying.",
     "handoffOpening": "Opening Nimiq Pay…",
     "handoffReady": "Tap “Pay with Nimiq Pay” again to open the app.",
@@ -59,6 +65,9 @@ const handoffWords={
     "handoffUnavailable": "Unable to resume this card. Reopen the link from Safari."
   },
   "es": {
+    "handoffDone": "Listo",
+    "handoffCancelled": "Tarjeta cancelada.",
+    "handoffExitHelp": "Puedes volver a tu navegador con la flecha ‹ de la esquina superior izquierda del iPhone, o cerrar esta ventana con ✕.",
     "choiceHelp": "Nimiq Pay abre solo esta tarjeta en la aplicación, sin otro código por correo. Revísala antes de pagar.",
     "handoffOpening": "Abriendo Nimiq Pay…",
     "handoffReady": "Toca de nuevo «Pagar con Nimiq Pay» para abrir la aplicación.",
@@ -74,6 +83,9 @@ const handoffWords={
     "handoffUnavailable": "No se pudo retomar esta tarjeta. Vuelve a abrir el enlace desde Safari."
   },
   "de": {
+    "handoffDone": "Fertig",
+    "handoffCancelled": "Karte storniert.",
+    "handoffExitHelp": "Du kannst mit dem Pfeil ‹ oben links auf dem iPhone zu deinem Browser zurückkehren oder dieses Fenster mit ✕ schließen.",
     "choiceHelp": "Nimiq Pay öffnet nur diese Karte in der App, ohne weiteren E-Mail-Code. Prüfe sie vor dem Bezahlen.",
     "handoffOpening": "Nimiq Pay wird geöffnet…",
     "handoffReady": "Tippe erneut auf „Mit Nimiq Pay bezahlen“, um die App zu öffnen.",
@@ -89,6 +101,9 @@ const handoffWords={
     "handoffUnavailable": "Diese Karte konnte nicht fortgesetzt werden. Öffne den Link erneut in Safari."
   },
   "zh": {
+    "handoffDone": "完成",
+    "handoffCancelled": "卡片已取消。",
+    "handoffExitHelp": "你可以点击 iPhone 左上角的 ‹ 箭头返回浏览器，或点击 ✕ 关闭此窗口。",
     "choiceHelp": "Nimiq Pay 只会在应用内打开此卡片，无需再次获取邮箱验证码。付款前请核对卡片。",
     "handoffOpening": "正在打开 Nimiq Pay…",
     "handoffReady": "请再次点击“使用 Nimiq Pay 付款”以打开应用。",
@@ -198,10 +213,20 @@ window.PhoenixViewport={center(win){
  win.style.maxHeight=Math.max(100,h-16)+'px';
 }};
 
+const cancelledHandoff=()=>Boolean(scopedID&&handoffPayment?.id===scopedID&&handoffPayment.stage==='cancelled');
+function paintHandoff(){
+ const cancelled=cancelledHandoff(),button=$('wire-handoff-open');
+ button.textContent=t(cancelled?'handoffDone':'handoffResume');
+ button.hidden=!cancelled&&(fundingBlocked||Boolean(handoffError));
+ button.setAttribute('aria-describedby',cancelled?'wire-handoff-exit-help':'wire-handoff-help');
+ $('wire-handoff-help').hidden=cancelled;
+ const help=$('wire-handoff-exit-help');help.textContent=t('handoffExitHelp');help.hidden=!cancelled;
+ if(cancelled)$('wire-handoff-state').textContent=t('handoffCancelled');
+}
 function paint() {
  document.documentElement.lang = lang;
  $('wire-handoff-title').textContent=t('nimCard');$('wire-handoff-help').textContent=t('handoffLimited');
- $('wire-handoff-open').textContent=t('handoffResume');$('wire-handoff-open').hidden=fundingBlocked||Boolean(handoffError);
+ paintHandoff();
  $('wire-handoff-logout').setAttribute('aria-label',t('out'));$('wire-handoff-logout').title=t('out');
  $('wire-title').textContent = t('title'); $('wire-sub').textContent = t('sub'); $('wire-gas-text').textContent = t('gasLed');
  $('wire-email-label').textContent = t('email');paintCodeRequest(); $('wire-code-label').textContent = t('code'); $('wire-verify').textContent = t('verify');
@@ -359,7 +384,7 @@ function openNimWindow(payment=null) {
  document.body.append(modal); nimView = { root: modal, dismiss };
  const prepared=handoffPayment;
  paintNim(modal);flow=mountNimFlow(root,{embedded:true,chooseWallet,initialPayment:prepared,scopedPaymentID:scopedID,onStatus:(p,message)=>{
-  if(scopedID){handoffPayment=p;$('wire-handoff-state').textContent=message;return;}
+  if(scopedID){handoffPayment=p;$('wire-handoff-state').textContent=message;paintHandoff();return;}
   nimCards.set(p.id,p);
   if(p.stage==='sent'){
    const notices=nimNotices();
@@ -744,7 +769,15 @@ function showSender(verified, who,admin=false) {
  renderCards();
 }
 
-$('wire-handoff-open').addEventListener('click',()=>{if(!fundingBlocked&&!handoffError)openNimWindow();});
+$('wire-handoff-open').addEventListener('click',()=>{
+ if(cancelledHandoff()){
+  const button=$('wire-handoff-open');if(button.disabled)return;button.disabled=true;
+  try{window.close();}catch{ /* Some hosts refuse script-initiated closing. The help remains visible. */ }
+  setTimeout(()=>{if(!window.closed&&cancelledHandoff()){$('wire-handoff-exit-help').hidden=false;button.disabled=false;}},300);
+  return;
+ }
+ if(!fundingBlocked&&!handoffError)openNimWindow();
+});
 $('wire-handoff-logout').addEventListener('click',async()=>{
  try{await api('/api/logout',{});const cached=nimCache;nimView?.dismiss();cached?.flow.destroy();nimCache=null;scopedID='';handoffPayment=null;$('wire-handoff-home').hidden=true;$('wire-entry').hidden=false;showSender(false);say(t('handoffExpired'));}
  catch{$('wire-handoff-state').textContent=t('handoffFailed');}
@@ -847,7 +880,7 @@ setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
    if (usdtOn) await loadCashlink();
    showSender(Boolean(session.verified), session.email,session.admin);refreshGas();
   }
-  $('pay').disabled=fundingBlocked;$('wire-handoff-open').hidden=fundingBlocked||Boolean(handoffError);
+  $('pay').disabled=fundingBlocked;paintHandoff();
   if(handoffError){say(t(handoffError));if(scopedID)$('wire-handoff-state').textContent=t(handoffError);}
  } catch { say(t('off'));if(scopedID){$('wire-entry').hidden=false;$('wire-sender').hidden=false;} }
 })();
