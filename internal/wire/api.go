@@ -765,9 +765,7 @@ func (a *API) claim(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" && len(parts) == 1 {
 		// Where the coins are, from the chain (read in the background and kept a few seconds): the recipient's page changes by itself once the card was
 		// emptied into his wallet, whichever wallet he used. Empty until the first read has finished.
-		one := []payment{p}
-		a.withCardStates(one)
-		respond(w, 200, map[string]any{"id": p.ID, "amount": p.Amount, "sender": p.Sender, "message": p.Message, "address": p.Address, "expires_at": p.Created.Add(24 * time.Hour), "claim_state": one[0].ClaimState})
+		respond(w, 200, map[string]any{"id": p.ID, "amount": p.Amount, "sender": p.Sender, "message": p.Message, "address": p.Address, "expires_at": p.Created.Add(24 * time.Hour), "claim_state": a.cardStateNow(p.ID)})
 		return
 	}
 	if r.Method == "POST" && len(parts) >= 2 && parts[1] == "handoff" {
@@ -780,6 +778,11 @@ func (a *API) claim(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method != "POST" || len(parts) != 2 || (parts[1] != "request" && parts[1] != "release" && parts[1] != "payout" && parts[1] != "payout_status") {
 		failure(w, 404, "not_found")
+		return
+	}
+	if parts[1] == "request" && a.cardStateAsk(p.ID, true) == "claimed" {
+		// the card was emptied (into the recipient's wallet, whichever one): no new code is sent for a card with nothing left to claim
+		failure(w, 409, "already_claimed")
 		return
 	}
 	if parts[1] == "release" {

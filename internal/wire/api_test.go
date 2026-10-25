@@ -596,6 +596,11 @@ func TestListSaysWhereACardsCoinsAre(t *testing.T) {
 	if got := state(); got != "claimed" {
 		t.Fatal("coins cannot come back to a card, but it reads", got)
 	}
+	// an emptied card gets no new verification code: nothing is left to claim, and an e-mail for it would only confuse
+	codesBefore := len(f.mail.codes)
+	if w := f.call("POST", "/api/claims/"+p.ID+"/request", map[string]string{}); w.Code != 409 || !strings.Contains(w.Body.String(), "already_claimed") || len(f.mail.codes) != codesBefore {
+		t.Fatal("no code may be asked for an emptied card", w.Code, w.Body)
+	}
 	// the recipient's page reads the same thing from the public claim route, so it can say "payment received" by itself
 	public := f.call("GET", "/api/claims/"+p.ID, nil)
 	good(public, t)

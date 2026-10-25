@@ -792,6 +792,7 @@ async function claimTask(run,button){
  catch(error){
   const code=error.message;
   if(['claim_unavailable','claim_expired','card_expired'].includes(code)){reception.expired=true;reception.message='ended';}
+  else if(code==='already_claimed'){reception.received=true;reception.message='';clearInterval(coolTimer);cooling=0;}
   else if(code==='payout_already_started'){
    reception.locked=true;reception.message='claim_payout_already_started';reception.retry=true;await refreshPayout();
   }else if(code==='invalid_destination'||code==='cashlink_not_confirmed_or_invalid'){

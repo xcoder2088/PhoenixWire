@@ -98,3 +98,22 @@ func (a *API) lookCardState(id string, now time.Time) {
 	}
 	a.cardStates[id] = entry
 }
+
+// cardStateNow answers where a funded card's coins are, asking the chain now when nothing fresh is remembered ("claimed" is final, so it is
+// never asked twice). Called under a.mu by the recipient's routes, which can afford one look: the list of the sender cannot (withCardStates).
+func (a *API) cardStateNow(id string) string { return a.cardStateAsk(id, false) }
+
+// cardStateAsk is cardStateNow; fresh asks the chain even when a recent answer is remembered (before a code is sent, a card emptied a few
+// seconds ago must not read "unclaimed" from the cache).
+func (a *API) cardStateAsk(id string, fresh bool) string {
+	a.stateMu.Lock()
+	entry := a.cardStates[id]
+	a.stateMu.Unlock()
+	if entry.State == "claimed" && !entry.Cancelled || !fresh && entry.State != "" && a.now().Sub(entry.At) < cardStateTTL {
+		return entry.State
+	}
+	a.lookCardState(id, a.now())
+	a.stateMu.Lock()
+	defer a.stateMu.Unlock()
+	return a.cardStates[id].State
+}

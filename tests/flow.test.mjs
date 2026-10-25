@@ -12,7 +12,7 @@ const id='a'.repeat(48);
 const address='NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function settle(){for(let i=0;i<12;i++)await tick();}
-async function start({claim=false,verified=true,pending=false,mobile=false,returning=false,expired=false,claimState=''}={}){
+async function start({claim=false,verified=true,pending=false,mobile=false,returning=false,expired=false,claimState='',alreadyClaimed=false}={}){
  const dom=new JSDOM(fs.readFileSync(new URL('../internal/web/static/classic.html',import.meta.url),'utf8'),{url:'https://wire.example.test/'+(claim?'?claim='+id:''),runScripts:'outside-only'});
  const {window}=dom;window.document.documentElement.lang='en';
  if(returning){window.sessionStorage.setItem('wire-pending-payment',id);window.sessionStorage.setItem('wire-form',JSON.stringify({payment:id,message:'Hi',amount:'2.5',recipient:'recipient@example.test'}));}
@@ -36,7 +36,7 @@ async function start({claim=false,verified=true,pending=false,mobile=false,retur
   if(path==='/api/sender/verify'){deliveryVerified=true;return response(200,{email:p.sender,verified:true});}
   if(path==='/api/claims/'+id)return response(200,{...p,claim_state:chainState,expires_at:new Date(Date.now()+(expired?-3600000:3600000)).toISOString()});
   if(path.endsWith('/payout_status'))return response(404,{code:'payout_not_started'});
-  if(path.endsWith('/request'))return response(200,{sent:true});
+  if(path.endsWith('/request'))return alreadyClaimed?response(409,{code:'already_claimed'}):response(200,{sent:true});
   if(path.endsWith('/release'))return validOTP?response(200,{cashlink:'https://hub.nimiq.com/cashlink/#'+Buffer.alloc(40,5).toString('base64url')}):response(403,{error:'invalid_or_expired_code'});
   throw Error('unexpected API '+path);
  };
@@ -161,4 +161,11 @@ test('opening a card that is already emptied shows the payment as received, in f
   const s=await start({claim:true,claimState:'claimed'});s.window.document.documentElement.lang=lang;s.window.dispatchEvent(new s.window.Event('wire-language'));await settle();
   assert.equal(s.$('claim-status').textContent,text);assert.equal(s.$('claim-choices').hidden,true);s.dom.window.close();
  }
+});
+
+test('opening a card that was already emptied asks for no code and says the payment was received',async()=>{
+ const s=await start({claim:true,alreadyClaimed:true});await settle();
+ assert.equal(s.calls.filter(([p])=>p.endsWith('/request')).length,1,'the page asked once, as it always does');
+ assert.equal(s.$('claim-status').textContent,'Payment received');assert.equal(s.$('claim-status').className,'ok');assert.equal(s.$('claim-choices').hidden,true);
+ s.dom.window.close();
 });
