@@ -111,7 +111,7 @@ export const legalCopy = {
           "The coin identifier only, to price the network cost in the fee."
         ],
         [
-          "Nimiq services, Nimiq Pay and receiving wallets",
+          "Nimiq services, Nimpay and receiving wallets",
           "What you do with them to receive NIM. Their own terms apply."
         ]
       ]
@@ -240,7 +240,7 @@ export const legalCopy = {
           "Seulement l’identifiant de la monnaie, pour estimer le coût réseau dans les frais."
         ],
         [
-          "Services Nimiq, Nimiq Pay et portefeuilles de réception",
+          "Services Nimiq, Nimpay et portefeuilles de réception",
           "Ce que tu fais avec eux pour recevoir du NIM. Leurs propres conditions s’appliquent."
         ]
       ]
@@ -369,7 +369,7 @@ export const legalCopy = {
           "Solo el identificador de la moneda, para valorar el coste de red en la comisión."
         ],
         [
-          "Servicios Nimiq, Nimiq Pay y monederos de recepción",
+          "Servicios Nimiq, Nimpay y monederos de recepción",
           "Lo que haces con ellos para recibir NIM. Se aplican sus propias condiciones."
         ]
       ]
@@ -498,7 +498,7 @@ export const legalCopy = {
           "Nur die Währungskennung zur Berechnung der Netzwerkkosten in der Gebühr."
         ],
         [
-          "Nimiq-Dienste, Nimiq Pay und Empfangs-Wallets",
+          "Nimiq-Dienste, Nimpay und Empfangs-Wallets",
           "Deine dortigen Aktionen zum Empfang von NIM. Deren eigene Bedingungen gelten."
         ]
       ]
@@ -627,7 +627,7 @@ export const legalCopy = {
           "仅币种标识，用于计算费用中的网络成本。"
         ],
         [
-          "Nimiq 服务、Nimiq Pay 和收款钱包",
+          "Nimiq 服务、Nimpay 和收款钱包",
           "你使用它们接收 NIM 时的操作。适用它们自己的条款。"
         ]
       ]

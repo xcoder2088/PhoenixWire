@@ -15,8 +15,8 @@
   <link rel="stylesheet" href="/pm/app.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/nimiq-payments.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/theme-light.css?v=0.4.0">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.49">
-<link rel="stylesheet" href="/legal.css?v=0.4.34"><script type="module" src="/legal.js?v=0.4.40"></script>
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.50">
+<link rel="stylesheet" href="/legal.css?v=0.4.34"><script type="module" src="/legal.js?v=0.4.50"></script>
 </head>
 <!-- The external stylesheet reveals the page without waiting for scripts. -->
 <body class="wire-body" hidden>
@@ -31,8 +31,7 @@
       <p id="wire-sub" class="wire-sub"></p>
       <p id="wire-gas" class="wire-gas" hidden><span class="wire-led" aria-hidden="true"></span><span id="wire-gas-text"></span></p>
       <div id="wire-miniapp-suggestion" hidden>
-        <a id="wire-miniapp-open" class="wire-miniapp-link" aria-describedby="wire-miniapp-help"></a>
-        <p id="wire-miniapp-help"></p>
+        <a id="wire-miniapp-open" class="wire-miniapp-link"></a>
       </div>
       <div id="wire-sender" hidden>
         <label><span id="wire-email-label"></span><input id="wire-email" type="email" autocomplete="email" maxlength="254" aria-describedby="wire-session-help"></label>
@@ -112,18 +111,6 @@
       </section>
     </div>
   </template>
-  <section id="wire-nim-choice" class="wire-wallet-overlay" role="dialog" aria-modal="true" aria-labelledby="wire-choice-title" aria-describedby="wire-choice-help" hidden>
-    <div class="wire-wallet-choice">
-      <h2 id="wire-choice-title" data-wallet-text="choiceTitle"></h2>
-      <p id="wire-choice-help" data-wallet-text="choiceHelp"></p>
-      <a id="wire-choice-open" href="#" target="_blank" rel="noopener noreferrer" data-wallet-text="openPay"></a>
-      <button id="wire-choice-hub" type="button" data-wallet-text="useHub"></button>
-      <a id="wire-choice-get" href="#" target="_blank" rel="noopener noreferrer" data-wallet-text="getPay"></a>
-      <button id="wire-choice-cancel" type="button" data-wallet-text="cancelPay"></button>
-      <p id="wire-choice-status" role="status" data-wallet-text="openPayHelp" hidden></p>
-      <div id="wire-choice-stores" hidden><p data-wallet-text="storeHelp"></p><a href="https://apps.apple.com/app/nimiq-pay/id6471844738" target="_blank" rel="noopener noreferrer">App Store</a><a href="https://play.google.com/store/apps/details?id=com.nimiq.pay" target="_blank" rel="noopener noreferrer">Google Play</a></div>
-    </div>
-  </section>
   <script src="/pm/nimiq-hub.js?v=0.4.0"></script>
   <script src="/pm/phoenix-nimiq.js?v=0.4.0"></script>
   <script src="/pm/nimiq-iqons.js?v=0.4.0"></script>
@@ -131,7 +118,7 @@
   <script src="/usdt-refund-text.js?v=0.4.21"></script>
   <script src="/pm/usdt-payments.js?v=0.4.6"></script>
   <script src="/pm/nimiq-payments.js?v=0.4.0"></script>
-  <script type="module" src="/wire-pay.js?v=0.4.49"></script>
+  <script type="module" src="/wire-pay.js?v=0.4.50"></script>
 </body>
 </html>
 

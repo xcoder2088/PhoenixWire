@@ -3,8 +3,8 @@ import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,send
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage,renderCardPreview,assetMark } from './model.js?v=0.4.30';
-import { mountNimFlow } from './flow.js?v=0.4.48';
-import { flowText } from './flow-text.js?v=0.4.43';
+import { mountNimFlow } from './flow.js?v=0.4.50';
+import { flowText } from './flow-text.js?v=0.4.50';
 
 // CSS can reveal the page without scripts; clear the startup attribute so
 // visibility checks and keyboard focus traps see the rendered controls.
@@ -19,28 +19,15 @@ const STORE = 'wire-usdt-cards', words = {
  zh: { nimRecipient: "收款人邮箱", nimAmount: "金额（NIM）", nimMessage: "留言（可选）", nimCard: "你的 Nimiq 卡片", nimPreview: "卡片预览", nimEmpty: "创建卡片以查看预览。", nimProtected: "受保护", lightTheme: "切换为浅色主题", darkTheme: "切换为深色主题", sessionHelp: "你只需确认一次邮箱：在此设备上 24 小时内保持已确认。", sessionConfirmed: "已确认 24 小时。", back: "返回 PhoenixWire", title: '一笔付款。一封邮件。', sub: "把 NIM、USDC 或 USDT 发给任何有邮箱的人。只有对方在输入发送到该邮箱的验证码后才能收款。", email: '你的邮箱', send: '给我发验证码', code: '六位验证码', verify: '确认', as: '登录身份', out: '更换发送者', pay: '付款', codeSent: '验证码已发送，请查收邮件。', wrong: '验证码无效。', off: '此处未启用付款。', funded: '卡片已充值。正在发送邀请…', sent: '卡片已发送到 {email}。在被领取之前它仍属于你。', retry: '邮件暂时无法发送。正在重试…', classic: '发送 NIM', fail: '出错了，请重试。' },
 };
 
-const walletChoiceWords={
- en:{choiceTitle:'How would you like to pay?',openPay:'Pay with Nimiq Pay',getPay:'Get Nimiq Pay',useHub:'Nimiq Wallet',cancelPay:'Cancel',openPayHelp:'If the app did not open, try again, install Nimiq Pay, or use Nimiq Wallet. No payment has started.',storeHelp:'Choose the store for your phone.'},
- fr:{choiceTitle:'Comment voulez-vous payer ?',openPay:'Payer avec Nimiq Pay',getPay:'Obtenir Nimiq Pay',useHub:'Portefeuille Nimiq',cancelPay:'Annuler',openPayHelp:'Si l’application ne s’est pas ouverte, réessayez, installez Nimiq Pay ou utilisez Nimiq Wallet. Aucun paiement n’a commencé.',storeHelp:'Choisissez la boutique de votre téléphone.'},
- es:{choiceTitle:'¿Cómo quieres pagar?',openPay:'Pagar con Nimiq Pay',getPay:'Obtener Nimiq Pay',useHub:'Cartera Nimiq',cancelPay:'Cancelar',openPayHelp:'Si la aplicación no se abrió, inténtalo de nuevo, instala Nimiq Pay o usa Nimiq Wallet. No se ha iniciado ningún pago.',storeHelp:'Elige la tienda de tu teléfono.'},
- de:{choiceTitle:'Wie möchtest du bezahlen?',openPay:'Mit Nimiq Pay bezahlen',getPay:'Nimiq Pay herunterladen',useHub:'Nimiq Wallet',cancelPay:'Abbrechen',openPayHelp:'Falls die App nicht geöffnet wurde, versuche es erneut, installiere Nimiq Pay oder nutze Nimiq Wallet. Es wurde keine Zahlung gestartet.',storeHelp:'Wähle den Store für dein Smartphone.'},
- zh:{choiceTitle:'你想如何付款？',openPay:'使用 Nimiq Pay 付款',getPay:'获取 Nimiq Pay',useHub:'Nimiq 钱包',cancelPay:'取消',openPayHelp:'如果应用未打开，请重试、安装 Nimiq Pay，或使用 Nimiq Wallet。尚未开始付款。',storeHelp:'请选择你手机的应用商店。'}
-};
 
 const handoffWords={
   "fr": {
-    "miniAppOpen": "Ouvrir dans Nimiq Pay (recommandé)",
-    "miniAppHelp": "Plus simple sur téléphone : tout se passe dans l’application.",
+    "miniAppOpen": "Ouvrir dans Nimpay",
     "handoffDone": "Terminé",
     "handoffCancelled": "Carte annulée.",
     "handoffExitHelp": "Tu peux revenir à ton navigateur avec la flèche ‹ en haut à gauche de l’iPhone, ou fermer cette fenêtre avec ✕.",
-    "choiceHelp": "Nimiq Pay ouvre uniquement cette carte dans l’application, sans nouveau code courriel. Vérifiez-la avant de payer.",
-    "handoffOpening": "Ouverture de Nimiq Pay…",
-    "handoffReady": "Touchez à nouveau « Payer avec Nimiq Pay » pour ouvrir l’application.",
     "handoffExpired": "Le lien est invalide ou a expiré. Rouvrez le lien depuis Safari.",
-    "handoffSession": "Votre connexion a expiré. Confirmez votre courriel ou utilisez Nimiq Wallet.",
-    "handoffLimit": "Trop de demandes. Patientez avant de réessayer, ou utilisez Nimiq Wallet.",
-    "handoffFailed": "Impossible d’ouvrir Nimiq Pay. Réessayez ou utilisez Nimiq Wallet.",
+    "handoffFailed": "Impossible d’ouvrir Nimpay. Réessayez ou utilisez Nimiq Wallet.",
     "handoffConflict": "Un autre expéditeur est connecté ici. Déconnectez-vous, puis rouvrez le lien depuis Safari.",
     "handoffNotFundable": "Cette carte ne peut plus être alimentée par ce lien. Consultez son état dans Safari. Ne payez pas une deuxième fois.",
     "handoffCardExpired": "Cette carte a expiré. Consultez son état dans Safari. Ne payez pas une deuxième fois.",
@@ -49,18 +36,12 @@ const handoffWords={
     "handoffUnavailable": "Impossible de reprendre cette carte. Rouvrez le lien depuis Safari."
   },
   "en": {
-    "miniAppOpen": "Open in Nimiq Pay (recommended)",
-    "miniAppHelp": "Easier on your phone: everything happens in the app.",
+    "miniAppOpen": "Open in Nimpay",
     "handoffDone": "Done",
     "handoffCancelled": "Card cancelled.",
     "handoffExitHelp": "You can return to your browser using the ‹ arrow at the top left of the iPhone, or close this window with ✕.",
-    "choiceHelp": "Nimiq Pay opens only this card in the app, without another email code. Review it before paying.",
-    "handoffOpening": "Opening Nimiq Pay…",
-    "handoffReady": "Tap “Pay with Nimiq Pay” again to open the app.",
     "handoffExpired": "The link is invalid or has expired. Reopen the link from Safari.",
-    "handoffSession": "Your session has expired. Confirm your email or use Nimiq Wallet.",
-    "handoffLimit": "Too many requests. Wait before retrying, or use Nimiq Wallet.",
-    "handoffFailed": "Could not open Nimiq Pay. Try again or use Nimiq Wallet.",
+    "handoffFailed": "Could not open Nimpay. Try again or use Nimiq Wallet.",
     "handoffConflict": "Another sender is signed in here. Sign out, then reopen the link from Safari.",
     "handoffNotFundable": "This card can no longer be funded through this link. Check its status in Safari. Do not pay again.",
     "handoffCardExpired": "This card has expired. Check its status in Safari. Do not pay again.",
@@ -69,18 +50,12 @@ const handoffWords={
     "handoffUnavailable": "Unable to resume this card. Reopen the link from Safari."
   },
   "es": {
-    "miniAppOpen": "Abrir en Nimiq Pay (recomendado)",
-    "miniAppHelp": "Más fácil en el teléfono: todo se hace en la aplicación.",
+    "miniAppOpen": "Abrir en Nimpay",
     "handoffDone": "Listo",
     "handoffCancelled": "Tarjeta cancelada.",
     "handoffExitHelp": "Puedes volver a tu navegador con la flecha ‹ de la esquina superior izquierda del iPhone, o cerrar esta ventana con ✕.",
-    "choiceHelp": "Nimiq Pay abre solo esta tarjeta en la aplicación, sin otro código por correo. Revísala antes de pagar.",
-    "handoffOpening": "Abriendo Nimiq Pay…",
-    "handoffReady": "Toca de nuevo «Pagar con Nimiq Pay» para abrir la aplicación.",
     "handoffExpired": "El enlace no es válido o ha caducado. Vuelve a abrirlo desde Safari.",
-    "handoffSession": "Tu sesión ha caducado. Confirma tu correo o usa Nimiq Wallet.",
-    "handoffLimit": "Demasiadas solicitudes. Espera antes de reintentar o usa Nimiq Wallet.",
-    "handoffFailed": "No se pudo abrir Nimiq Pay. Reintenta o usa Nimiq Wallet.",
+    "handoffFailed": "No se pudo abrir Nimpay. Reintenta o usa Nimiq Wallet.",
     "handoffConflict": "Hay otro remitente conectado aquí. Cierra su sesión y vuelve a abrir el enlace desde Safari.",
     "handoffNotFundable": "Esta tarjeta ya no se puede financiar mediante este enlace. Consulta su estado en Safari. No vuelvas a pagar.",
     "handoffCardExpired": "Esta tarjeta ha caducado. Consulta su estado en Safari. No vuelvas a pagar.",
@@ -89,18 +64,12 @@ const handoffWords={
     "handoffUnavailable": "No se pudo retomar esta tarjeta. Vuelve a abrir el enlace desde Safari."
   },
   "de": {
-    "miniAppOpen": "In Nimiq Pay öffnen (empfohlen)",
-    "miniAppHelp": "Einfacher auf dem Smartphone: Alles findet in der App statt.",
+    "miniAppOpen": "In Nimpay öffnen",
     "handoffDone": "Fertig",
     "handoffCancelled": "Karte storniert.",
     "handoffExitHelp": "Du kannst mit dem Pfeil ‹ oben links auf dem iPhone zu deinem Browser zurückkehren oder dieses Fenster mit ✕ schließen.",
-    "choiceHelp": "Nimiq Pay öffnet nur diese Karte in der App, ohne weiteren E-Mail-Code. Prüfe sie vor dem Bezahlen.",
-    "handoffOpening": "Nimiq Pay wird geöffnet…",
-    "handoffReady": "Tippe erneut auf „Mit Nimiq Pay bezahlen“, um die App zu öffnen.",
     "handoffExpired": "Der Link ist ungültig oder abgelaufen. Öffne ihn erneut in Safari.",
-    "handoffSession": "Deine Sitzung ist abgelaufen. Bestätige deine E-Mail oder nutze Nimiq Wallet.",
-    "handoffLimit": "Zu viele Anfragen. Warte vor einem neuen Versuch oder nutze Nimiq Wallet.",
-    "handoffFailed": "Nimiq Pay konnte nicht geöffnet werden. Versuche es erneut oder nutze Nimiq Wallet.",
+    "handoffFailed": "Nimpay konnte nicht geöffnet werden. Versuche es erneut oder nutze Nimiq Wallet.",
     "handoffConflict": "Hier ist ein anderer Absender angemeldet. Melde ihn ab und öffne den Link erneut in Safari.",
     "handoffNotFundable": "Diese Karte kann über diesen Link nicht mehr aufgeladen werden. Prüfe ihren Status in Safari. Bezahle nicht erneut.",
     "handoffCardExpired": "Diese Karte ist abgelaufen. Prüfe ihren Status in Safari. Bezahle nicht erneut.",
@@ -109,18 +78,12 @@ const handoffWords={
     "handoffUnavailable": "Diese Karte konnte nicht fortgesetzt werden. Öffne den Link erneut in Safari."
   },
   "zh": {
-    "miniAppOpen": "在 Nimiq Pay 中打开（推荐）",
-    "miniAppHelp": "在手机上更简单：一切都在应用内完成。",
+    "miniAppOpen": "在 Nimpay 中打开",
     "handoffDone": "完成",
     "handoffCancelled": "卡片已取消。",
     "handoffExitHelp": "你可以点击 iPhone 左上角的 ‹ 箭头返回浏览器，或点击 ✕ 关闭此窗口。",
-    "choiceHelp": "Nimiq Pay 只会在应用内打开此卡片，无需再次获取邮箱验证码。付款前请核对卡片。",
-    "handoffOpening": "正在打开 Nimiq Pay…",
-    "handoffReady": "请再次点击“使用 Nimiq Pay 付款”以打开应用。",
     "handoffExpired": "链接无效或已过期。请从 Safari 重新打开链接。",
-    "handoffSession": "会话已过期。请确认邮箱或使用 Nimiq Wallet。",
-    "handoffLimit": "请求过多。请稍后重试或使用 Nimiq Wallet。",
-    "handoffFailed": "无法打开 Nimiq Pay。请重试或使用 Nimiq Wallet。",
+    "handoffFailed": "无法打开 Nimpay。请重试或使用 Nimiq Wallet。",
     "handoffConflict": "这里已登录另一位发件人。请先退出，再从 Safari 重新打开链接。",
     "handoffNotFundable": "此链接已无法为该卡片充值。请在 Safari 查看状态，勿再次付款。",
     "handoffCardExpired": "此卡片已过期。请在 Safari 查看状态，勿再次付款。",
@@ -139,7 +102,6 @@ const gasLightWords={
  zh:'USDC 和 USDT 的网络费用由 Phoenix Wire 承担'
 };
 for(const language of Object.keys(gasLightWords))words[language].gasLed=gasLightWords[language];
-for(const language of Object.keys(walletChoiceWords))Object.assign(words[language],walletChoiceWords[language]);
 const cardWords={
  fr:{myCards:'Mes cartes',emptyCards:'Aucune carte pour le moment.',waitingCard:'En attente de votre paiement',confirmingCard:'Paiement reçu, confirmation en cours',fundedCard:'Carte alimentée. Wire envoie la carte à {email}.',sentCard:'Carte envoyée à {email}',claimedCard:'Réclamée',refundedCard:'Remboursée',expiredCard:'Expirée',cancelledCard:'Annulée',otherCard:'Dépensée ailleurs',checkingCard:'Vérification de la carte en cours…',mailFailedCard:'Carte alimentée. Le courriel n’a pas pu être envoyé. Wire réessaiera.',missingLinkCard:'Carte alimentée. Le lien d’invitation est nécessaire : utilisez le navigateur où la carte a été créée.',staleCard:'Vue périmée : le service ne répond pas. Vérification automatique en cours.',bannerClaimed:'Paiement reçu par {email}.',bannerCard:'Carte alimentée. Courriel envoyé à {email}.',dismissCard:'Fermer cette notification',doneCard:'Terminé',createdCard:'Carte créée. Payez-la pour que Wire l’envoie au destinataire.'},
  en:{myCards:'My cards',emptyCards:'No cards yet.',waitingCard:'Waiting for your payment',confirmingCard:'Payment received, awaiting confirmation',fundedCard:'Card funded. Wire is sending the card to {email}.',sentCard:'Card sent to {email}',claimedCard:'Claimed',refundedCard:'Refunded',expiredCard:'Expired',cancelledCard:'Cancelled',otherCard:'Spent elsewhere',checkingCard:'Checking the card…',mailFailedCard:'Card funded. The email could not be sent. Wire will retry.',missingLinkCard:'Card funded. The invitation link is needed: use the browser where this card was created.',staleCard:'Stale view: the service is not responding. Checking again automatically.',bannerClaimed:'Payment received by {email}.',bannerCard:'Card funded. Email sent to {email}.',dismissCard:'Dismiss this notification',doneCard:'Done',createdCard:'Card created. Pay it so Wire can send it to the recipient.'},
@@ -183,8 +145,8 @@ let onMaintenance=()=>{maintenance=true;paintSenderAccess();};
 window.addEventListener('wire-maintenance',()=>onMaintenance());
 function paintMaintenance(){maintenanceBanner.textContent=flowText(lang,'maintenance');maintenanceBanner.hidden=!maintenance||adminActive;}
 accessLink.addEventListener('click',()=>{accessExpanded=true;paintSenderAccess();$('wire-email').focus();});
-function paintSenderAccess(){paintMiniAppSuggestion();paintMaintenance();inviteGate.hidden=Boolean(email)||!enabled||!inviteOnly||maintenance;inviteNotice.textContent=flowText(lang,'inviteOnly');accessLink.textContent=adminText(lang,'already');accessLink.hidden=accessExpanded;accessLink.setAttribute('aria-expanded',String(accessExpanded));$('wire-sender').hidden=Boolean(email)||!enabled||inviteOnly&&!accessExpanded&&!maintenance;}
-function configureAdmin(allowed){adminPanel?.destroy();adminPanel=mountAdmin({root:document.querySelector('.wire-shell'),language:()=>lang,request:api,authorized:allowed===true&&Boolean(email),onAccess:(open,view)=>{inviteOnly=!open;if(view)maintenance=view.maintenance===true;paintSenderAccess();}});adminActive=allowed===true&&Boolean(email);paintMaintenance();}
+function paintSenderAccess(){paintMiniAppSuggestion();paintMaintenance();inviteGate.hidden=mobileEntryOnly()||Boolean(email)||!enabled||!inviteOnly||maintenance;inviteNotice.textContent=flowText(lang,'inviteOnly');accessLink.textContent=adminText(lang,'already');accessLink.hidden=mobileEntryOnly()||accessExpanded;accessLink.setAttribute('aria-expanded',String(accessExpanded));$('wire-sender').hidden=mobileEntryOnly()||Boolean(email)||!enabled||inviteOnly&&!accessExpanded&&!maintenance;}
+function configureAdmin(allowed){adminPanel?.destroy();adminPanel=mountAdmin({root:document.querySelector('.wire-shell'),language:()=>lang,request:api,authorized:allowed===true&&Boolean(email)&&!mobileEntryOnly(),onAccess:(open,view)=>{inviteOnly=!open;if(view)maintenance=view.maintenance===true;paintSenderAccess();}});adminActive=allowed===true&&Boolean(email)&&!mobileEntryOnly();paintMaintenance();}
 
 let choosingCoin=false,codeSending=false,codeSentTo='',codeUntil=0,codeTimer=null,senderInviteOnly=false;
 const t = key => (words[lang] || words.en)[key];
@@ -225,11 +187,12 @@ window.PhoenixViewport={center(win){
 
 // The flow's phone detector is private to its mounted view; use the same device rule here.
 function mobile(){return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
+function mobileEntryOnly(){return mobile()&&typeof window.nimiqPay==='undefined'&&!new URLSearchParams(location.search).has('claim')&&!scopedID;}
 function paintMiniAppSuggestion(){
  const box=$('wire-miniapp-suggestion');
- box.hidden=!(mobile()&&typeof window.nimiqPay==='undefined'&&!new URLSearchParams(location.search).has('claim')&&!scopedID&&!email&&nimOn);
+ box.hidden=!(mobileEntryOnly()&&nimOn);
  const link=$('wire-miniapp-open');link.href='https://nimpay.app/miniapps/open/'+location.host;
- link.textContent=t('miniAppOpen');$('wire-miniapp-help').textContent=t('miniAppHelp');
+ link.textContent=t('miniAppOpen');
 }
 const cancelledHandoff=()=>Boolean(scopedID&&handoffPayment?.id===scopedID&&handoffPayment.stage==='cancelled');
 function paintHandoff(){
@@ -260,75 +223,8 @@ function paint() {
  $('wire-session-help').textContent = t('sessionHelp'); $('wire-session-confirmed').textContent = t('sessionConfirmed');
  document.querySelectorAll('.wire-window-back').forEach(button => { button.textContent = t('back'); });
  document.querySelectorAll('.wire-coin-picker .nimiq-payment-head h3').forEach(title=>{title.textContent=t('chooseCoin');});
- document.querySelectorAll('[data-wallet-text]').forEach(el=>{el.textContent=t(el.dataset.walletText);});
  renderCards();paintSenderAccess();adminPanel?.render();document.querySelectorAll('.nimiq-payment-window:not(.wire-nim-window)').forEach(enhanceStableWindow);
 }
-// iOS cannot reliably disclose whether another app is installed. Ask, without timers or blur heuristics.
-const iosStore='https://apps.apple.com/app/nimiq-pay/id6471844738';
-const androidStore='https://play.google.com/store/apps/details?id=com.nimiq.pay';
-let choiceCallback=null,choiceFocus=null,choiceParent=null,choicePrepare=null,choiceVersion=0,creatingHandoff=false;
-function closeWalletChoice(){
- choiceVersion++;choicePrepare=null;$('wire-choice-open').onclick=null;$('wire-choice-open').setAttribute('href','#');
- $('wire-nim-choice').hidden=true;choiceCallback=null;choiceParent?.removeAttribute('inert');choiceParent=null;choiceFocus?.focus();
-}
-function chooseWallet(useHub,prepare){
- choiceCallback=useHub;choiceFocus=document.activeElement;choiceParent=document.querySelector('.wire-nim-window');choiceParent?.setAttribute('inert','');
- $('wire-choice-status').hidden=true;$('wire-choice-stores').hidden=true;$('wire-nim-choice').hidden=false;
- choiceVersion++;choicePrepare=prepare;
- $('wire-choice-open').setAttribute('href','#');
- const ua=navigator.userAgent||'';
- $('wire-choice-get').href=/Android/i.test(ua)?androidStore:/iPhone|iPad|iPod/i.test(ua)||navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1?iosStore:'#';
- $('wire-choice-open').focus();
-}
-$('wire-choice-open').addEventListener('click',async event=>{
- if($('wire-choice-open').getAttribute('href')!=='#')return; // direct retry after a blocked popup
- event.preventDefault();
- if(creatingHandoff||!choicePrepare)return;
- const version=choiceVersion,button=$('wire-choice-open');
- creatingHandoff=true;button.setAttribute('aria-disabled','true');
- const feedback=$('wire-choice-status');feedback.hidden=false;feedback.textContent=t('handoffOpening');
- // Open the blank target synchronously: iOS otherwise blocks popups after fetch.
- // It receives only the opaque URL, never draft fields or a session cookie.
- const target=window.open('about:blank','_blank');
- if(target)target.opener=null;
- const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
- try{
-  const payment=await choicePrepare();
-  if(version!==choiceVersion){target?.close();return;}
-  const result=await api('/api/handoff',{payment_id:payment.id},controller.signal);
-  if(version!==choiceVersion){target?.close();return;}
-  if(!/^[A-Za-z0-9_-]{43}$/.test(result.token)||result.expires_in!==300)throw Error('invalid_response');
-  const uri='nimiqpay://miniapp?url='+encodeURIComponent('https://wire.phoenixmail.ca/#h='+result.token);
-  feedback.textContent=t('openPayHelp');
-  if(target)target.location.href=uri;
-  else{
-   // Popup blocked: expose a real link for a second, direct user gesture.
-   button.href=uri;
-   button.onclick=()=>{button.onclick=null;setTimeout(()=>button.setAttribute('href','#'),0);};
-   feedback.textContent=t('handoffReady');
-  }
- }catch(error){
-  target?.close();
-  if(version===choiceVersion)feedback.textContent=t(error.status===401?'handoffSession':error.status===429?'handoffLimit':'handoffFailed');
- }finally{
-  clearTimeout(timeout);creatingHandoff=false;button.removeAttribute('aria-disabled');
- }
-});
-$('wire-choice-get').addEventListener('click',event=>{
- if($('wire-choice-get').getAttribute('href')==='#'){event.preventDefault();$('wire-choice-stores').hidden=false;}
-});
-$('wire-choice-hub').addEventListener('click',()=>{const useHub=choiceCallback;closeWalletChoice();useHub?.();});
-$('wire-choice-cancel').addEventListener('click',closeWalletChoice);
-document.addEventListener('keydown',event=>{
- if($('wire-nim-choice').hidden)return;
- if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();closeWalletChoice();}
- if(event.key==='Tab'){
-  const controls=[...$('wire-nim-choice').querySelectorAll('a,button')].filter(el=>!el.closest('[hidden]'));
-  const first=controls[0],last=controls.at(-1);
-  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
-  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
- }
-},true);
 function paintTheme() {
  const light = document.documentElement.dataset.theme === 'light-paper';
  const button = $('wire-theme'); button.textContent = light ? '☾' : '☀';
@@ -376,7 +272,7 @@ function closePaymentWindow() {
 function openNimWindow(payment=null) {
  if(payment instanceof Event)payment=null;
  if(payment){nimView?.dismiss();nimCache?.flow.destroy();nimCache=null;handoffPayment=payment;}
- if ((!email&&!scopedID) || !nimOn) return;
+ if (mobileEntryOnly() || (!email&&!scopedID) || !nimOn) return;
  choosingCoin=false;
  if(cancelledHandoff()){paintHandoff();return;}
  if(nimView)return;
@@ -397,13 +293,13 @@ function openNimWindow(payment=null) {
  const back = modal.querySelector('.wire-window-back'); back.textContent = t('back');
  let flow;
  // Keep the authenticated NIM tracker alive when the window is closed or another coin is selected.
- const dismiss = () => { closeWalletChoice();modal.remove(); document.removeEventListener('keydown', escape); nimView = null;if(root.classList.contains('wire-nim-complete')){flow?.destroy();nimCache=null;if(!scopedID)handoffPayment=null;} $(scopedID?'wire-handoff-open':'pay').focus(); };
+ const dismiss = () => { modal.remove(); document.removeEventListener('keydown', escape); nimView = null;if(root.classList.contains('wire-nim-complete')){flow?.destroy();nimCache=null;if(!scopedID)handoffPayment=null;} $(scopedID?'wire-handoff-open':'pay').focus(); };
  const escape = e => { if (e.key === 'Escape') { e.preventDefault(); dismiss(); } };
  back.onclick = dismiss; modal.querySelector('.wire-nim-close').onclick = dismiss;
  document.addEventListener('keydown', escape);
  document.body.append(modal); nimView = { root: modal, dismiss };
  const prepared=handoffPayment;
- paintNim(modal);flow=mountNimFlow(root,{embedded:true,chooseWallet,initialPayment:prepared,scopedPaymentID:scopedID,onStatus:(p,message)=>{
+ paintNim(modal);flow=mountNimFlow(root,{embedded:true,initialPayment:prepared,scopedPaymentID:scopedID,onStatus:(p,message)=>{
   if(scopedID){handoffPayment=p;$('wire-handoff-state').textContent=message;paintHandoff();if(p.stage==='cancelled'){dismiss();flow?.destroy();nimCache=null;}return;}
   nimCards.set(p.id,p);
   if(p.stage==='sent'){
@@ -411,7 +307,7 @@ function openNimWindow(payment=null) {
    if(!notices.some(n=>n.id===p.id&&n.sender===email)){notices.push({id:p.id,sender:email,noticePending:true});save('wire-nim-notices',JSON.stringify(notices));playSentSound(p.created);}
   }
   renderCards();scheduleNimCards();
- },onUnpayable:()=>{closeWalletChoice();dismiss();handoffPayment=null;},onClose:()=>{dismiss();if(!scopedID)renderCards();}});
+ },onUnpayable:()=>{dismiss();handoffPayment=null;},onClose:()=>{dismiss();if(!scopedID)renderCards();}});
  nimCache={modal,flow,escape,view:nimView};
  back.focus();
 }
@@ -500,6 +396,7 @@ function appendDates(row,card){
  if(list.childElementCount)row.append(list);
 }
 function renderCards(){
+ if(mobileEntryOnly()){$('wire-cards').hidden=true;$('wire-card-notices').hidden=true;return;}
  const panel=$('wire-cards');if(!panel)return;
  panel.hidden=!email; $('wire-cards-title').textContent=t('myCards');
  let all=cards().filter(c=>c.sender===email).map(c=>({...c,nim:false}));
@@ -780,9 +677,9 @@ function showSender(verified, who,admin=false) {
  if(!verified||email&&email!==who)stopCards();
  if(!verified&&nimCache){const cached=nimCache;nimView?.dismiss();cached.flow.destroy();cached.modal.remove();nimCache=null;resumed=false;}
  email = verified ? who : '';
- $('wire-sender').hidden = verified || !enabled; $('wire-ready').hidden = !verified || !enabled;
+ $('wire-sender').hidden = verified || !enabled; $('wire-ready').hidden = mobileEntryOnly() || !verified || !enabled;
  $('wire-who').textContent = email;configureAdmin(verified&&admin===true);paintSenderAccess();
- if (verified && enabled) {
+ if (verified && enabled && !mobileEntryOnly()) {
   mountPayments();void startCards();
   try { if (nimOn && !resumed && !fundingBlocked && !handoffError && (handoffPayment?.sender.toLowerCase()===email.toLowerCase()||/^[a-f0-9]{48}$/.test(sessionStorage.getItem('wire-pending-payment') || ''))) { resumed = true; openNimWindow(); } } catch { /* tab storage may be unavailable */ }
  }
@@ -844,7 +741,7 @@ $('wire-logout').addEventListener('click', async () => {
  const button=$('wire-logout');if(button.disabled)return;button.disabled=true;
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
  try{
-  await api('/api/logout', {},controller.signal);closeWalletChoice();closePaymentWindow();showSender(false);
+  await api('/api/logout', {},controller.signal);closePaymentWindow();showSender(false);
   handoffPayment=null;scopedID='';fundingBlocked=false;$('wire-entry').hidden=false;$('wire-handoff-home').hidden=true;
   codeSentTo='';codeUntil=0;$('wire-email').value='';$('wire-code').value='';$('wire-code-box').hidden=true;paintCodeRequest();say('');$('wire-email').focus();
  }catch{say(t('fail'));}finally{clearTimeout(timeout);button.disabled=false;}

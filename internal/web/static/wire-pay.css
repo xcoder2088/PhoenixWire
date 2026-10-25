@@ -26,11 +26,6 @@ html.wire-app{color-scheme:dark;background:var(--bg,#10151d)}
 .claim-panel #claim-payout-details{font-size:14px;overflow-wrap:anywhere;line-height:1.5}
 .claim-panel #claim-choices[hidden]{display:none!important}
 @media(max-width:420px){.wire-nim-host.wire-nim-complete{padding:16px}.wire-nim-complete .wire-nim-progress{padding:20px 16px}}
-.wire-wallet-overlay{position:fixed;inset:0;z-index:6000;display:grid;place-items:center;background:#0009;padding:20px;overflow:auto}
-.wire-wallet-choice{width:min(100%,420px);max-height:calc(100dvh - 40px);overflow:auto;box-sizing:border-box;padding:24px;background:var(--panel);border:1px solid var(--line);border-radius:18px;color:var(--text)}
-.wire-wallet-choice h2{margin:0 0 14px;font-size:22px}.wire-wallet-choice p{font-size:14px;line-height:1.5}
-.wire-wallet-choice a,.wire-wallet-choice button{display:block;width:100%;box-sizing:border-box;min-height:46px;padding:12px;margin:12px 0;border:1px solid var(--accent);border-radius:10px;color:var(--text);background:var(--panel);text-align:center;text-decoration:none;font:inherit;cursor:pointer}
-.wire-wallet-choice a:hover{background:var(--panel2)}.wire-wallet-choice a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .wire-nim-hub-fallback{min-height:44px;padding:10px 14px;border-radius:10px}
 /* PhoenixMail's stylesheet locks the page (html{overflow:hidden;height:100dvh}: its mail app scrolls inside itself). Wire's page is a normal page: it scrolls. */
 html{height:auto!important;min-height:100%;overflow-x:hidden!important;overflow-y:auto!important;scrollbar-gutter:auto!important}
@@ -96,12 +91,12 @@ body.wire-body{background:var(--bg);color:var(--text)}
 .wire-body .nimiq-payment-head>button:last-child{flex:0 0 44px;display:grid;place-items:center;width:44px;height:44px;min-width:44px;min-height:44px;box-sizing:border-box;padding:10px;border:1px solid var(--accent);border-radius:9px;background:var(--panel);color:var(--accent)}
 .nimiq-payment-head>button:last-child svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .wire-body .nimiq-payment-head>button:last-child:hover:not(:disabled){color:var(--accent)}
-.wire-body .nimiq-payment-window,.wire-body .wire-wallet-choice{box-sizing:border-box;min-width:0}
+.wire-body .nimiq-payment-window{box-sizing:border-box;min-width:0;}
+.wire-body .nimiq-payment-how{overflow-wrap:anywhere;}
 .wire-body .nimiq-payment-window{width:min(860px,calc(100vw - 24px));max-width:calc(100vw - 24px)}
 .wire-body .nimiq-payment-body,.wire-body .nimiq-payment-panel,.wire-body .nimiq-payment-preview,.wire-body .wire-nim-host{min-width:0;max-width:100%;box-sizing:border-box}
 .wire-body .nimiq-payment-assets{display:flex;flex-wrap:wrap;min-width:0}
 .wire-body .nimiq-payment-assets button{flex:1 1 110px;min-width:0;white-space:normal;overflow-wrap:anywhere}
-.wire-body .wire-wallet-choice h2,.wire-body .wire-wallet-choice p,.wire-body .nimiq-payment-how{overflow-wrap:anywhere}
 @media(max-width:640px){
  .wire-body .nimiq-payment-body{display:block}
  .wire-body .nimiq-payment-head{display:grid;grid-template-columns:minmax(0,1fr) 44px}
@@ -109,9 +104,6 @@ body.wire-body{background:var(--bg);color:var(--text)}
  .wire-body .nimiq-payment-head .wire-window-back{max-width:100%;font-size:14px}
  .wire-body .nimiq-payment-head>button:last-child{grid-row:1;grid-column:2}
  .wire-body .wire-nim-host .workspace{grid-template-columns:minmax(0,1fr)}
- .wire-body .wire-wallet-overlay{padding:12px}
- .wire-body .wire-wallet-choice{padding:20px;max-height:calc(100dvh - 24px);width:100%}
- .wire-body .wire-wallet-choice h2{font-size:22px}
 }
 .wire-body .nimiq-payment-controls button[aria-pressed="true"]{border-width:2px;font-weight:750;text-decoration:underline;text-underline-offset:4px}
 .wire-body .nimiq-payment-panel .nimiq-otp-option:has(input:checked){background:var(--panel2);border-color:var(--accent);box-shadow:none}
@@ -128,6 +120,8 @@ body.wire-body{background:var(--bg);color:var(--text)}
 .wire-nim-host .payment-card p{color:#243047}
 .wire-nim-host #coin img{width:80px;height:80px;object-fit:contain}
 .wire-nim-host .sample{font-size:11px;color:#243047}
+html[data-palette="phoenixfire"] .wire-body button{background:var(--wire-button-bg);background-image:none;}
+html[data-palette="phoenixfire"] .wire-body button:hover:not(:disabled){background:var(--wire-button-hover);}
 .wire-nim-host .history-row{border-top:1px solid var(--line);padding:12px 0;overflow-wrap:anywhere}
 .wire-nim-host .history-row button{padding:8px 12px;border-radius:9px;margin:0 8px 8px 0}
 .wire-nim-host .history-row a{color:var(--text);text-decoration:underline}
@@ -173,8 +167,6 @@ body.wire-body{background:var(--bg);color:var(--text)}
 @keyframes wire-heartbeat{0%,56%,100%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}8%{transform:scale(1.35);box-shadow:0 0 0 5px #3ccf8e40}18%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}28%{transform:scale(1.25);box-shadow:0 0 0 4px #3ccf8e33}40%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}}
 @media (prefers-reduced-motion:reduce){.wire-led{animation:none}}
 
-/* Disable only the pending handoff action; Hub, stores and Cancel remain available. */
-#wire-choice-open[aria-disabled="true"]{opacity:.65;cursor:wait;}
 
 .wire-nim-summary{display:flex;flex-direction:column;align-items:center;gap:18px;width:100%;min-width:0;box-sizing:border-box;}
 #nim-handoff-card{width:100%;max-width:520px;min-width:0;}
@@ -192,9 +184,8 @@ body.wire-body{background:var(--bg);color:var(--text)}
 /* Phoenix keeps its orange outline; neutral button surfaces avoid a brown cast. */
 html.wire-app[data-palette="phoenixfire"][data-theme="dark"]{--wire-button-bg:#1b1e22;--wire-button-hover:#272b30;}
 html.wire-app[data-palette="phoenixfire"][data-theme="light-paper"]{--wire-button-bg:#ffffff;--wire-button-hover:#eef1f5;}
-html[data-palette="phoenixfire"] .wire-body button,html[data-palette="phoenixfire"] .wire-wallet-choice a{background:var(--wire-button-bg);background-image:none;}
-html[data-palette="phoenixfire"] .wire-body button:hover:not(:disabled),html[data-palette="phoenixfire"] .wire-wallet-choice a:hover{background:var(--wire-button-hover);}
-#wire-choice-get{margin-top:24px;font-size:16px;}
+html[data-palette="phoenixfire"] .wire-body button{background:var(--wire-button-bg);background-image:none;}
+html[data-palette="phoenixfire"] .wire-body button:hover:not(:disabled){background:var(--wire-button-hover);}
 .wire-nim-host .history-row{min-width:0;padding:16px 0;overflow-wrap:anywhere;}
 .nim-row-actions{display:flex;flex-wrap:wrap;gap:8px;}
 .nim-row-actions button,.nim-row-actions a{min-height:44px;max-width:100%;white-space:normal;}
@@ -270,4 +261,3 @@ footer .wire-powered:focus-visible{outline:2px solid #ff8a18;outline-offset:3px}
 .wire-miniapp-link{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;min-height:44px;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--panel);color:var(--text);font:inherit;line-height:1.5;text-align:center;text-decoration:none;overflow-wrap:anywhere;}
 .wire-miniapp-link:hover{background:var(--panel2);}
 .wire-miniapp-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
-#wire-miniapp-help{font-size:1rem;line-height:1.5;color:var(--text);margin:.6rem 0 1rem;}

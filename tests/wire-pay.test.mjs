@@ -398,7 +398,7 @@ test('NIM uses the common sender session and existing protected checkout in the 
   assert.equal(t.doc.querySelectorAll('.wire-nim-assets button').length, 4);
   t.$('recipient').value = 'friend@example.test';
   t.$('card-form').dispatchEvent(new t.window.Event('submit', { cancelable: true })); await settle();
-  t.$('wire-choice-hub').click(); await settle();
+  await settle();
   assert.equal(t.checkouts.length, 1);
   assert.equal(t.checkouts[0].recipient, 'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');
   assert.deepEqual(Array.from(t.checkouts[0].extraData), [0,130,128,146,135]);
@@ -424,20 +424,6 @@ test('restored NIM payments are checked without a new checkout and a NIM-only se
   assert.ok(t.calls.some(([path]) => path.endsWith('/confirm')));
 });
 
-test('mobile NIM checkout and return use the same saved payment behind the shared session', async () => {
-  const t = await start({ mobile: true, nimOnly: true });
-  t.$('pay').click(); await settle(); t.$('recipient').value = 'friend@example.test';
-  t.$('card-form').dispatchEvent(new t.window.Event('submit', { cancelable: true })); await settle();
-  t.$('wire-choice-hub').click(); await settle();
-  assert.equal(t.checkouts.length, 1);
-  assert.equal(t.window.sessionStorage.getItem('wire-pending-payment'), 'a'.repeat(48));
-  assert.equal(t.behaviors.at(-1).state.wirePayment, 'a'.repeat(48));
-  const back = await start({ mobile: true, returning: true });
-  assert.ok(back.doc.querySelector('.wire-nim-window'), 'the root reopens NIM on return from Hub');
-  assert.equal(back.checkouts.length, 0);
-  assert.ok(back.calls.some(([path]) => path.endsWith('/confirm')));
-  assert.equal(back.window.sessionStorage.getItem('wire-pending-payment'), '');
-});
 
 test('the theme button selects a supported light palette, keeps its preference and translates its action', async () => {
   const t = await start();
@@ -491,63 +477,9 @@ async function submitNim(t){
   t.$('card-form').dispatchEvent(new t.window.Event('submit',{cancelable:true}));await settle();
 }
 
-test('wallet choice precedes card creation, stays retryable after opening Pay and can be cancelled', async()=>{
-  const t=await start({nimOnly:true,mobile:true});await submitNim(t);
-  assert.equal(t.$('wire-nim-choice').hidden,false);
-  assert.ok(!t.calls.some(([p,b])=>p==='/api/payments'&&b));
-  assert.equal(t.checkouts.length,0);
-  const link=t.$('wire-choice-open');
-  assert.equal(link.getAttribute('href'),'#');
-  assert.equal(t.calls.filter(([p])=>p==='/api/handoff').length,0);
-  assert.equal(link.target,'_blank');assert.match(link.rel,/noopener/);assert.match(link.rel,/noreferrer/);
-  link.click();link.click();await settle();
-  assert.equal(t.calls.filter(([p])=>p==='/api/handoff').length,1);
-  const destination=new URL(new URL(t.opened.at(-1).location.href).searchParams.get('url'));
-  assert.equal(destination.origin,'https://wire.phoenixmail.ca');assert.equal(destination.hash,'#h='+handoffToken);
-  assert.equal(t.$('wire-choice-status').hidden,false);
-  assert.equal(t.$('wire-nim-choice').hidden,false);
-  t.$('wire-choice-cancel').click();await settle();
-  assert.equal(t.$('wire-nim-choice').hidden,true);
-  assert.ok(!t.doc.querySelector('.wire-nim-window').hasAttribute('inert'));
-  assert.equal(t.nativeCalls.length,0);assert.equal(t.checkouts.length,0);
-});
-
-test('wallet choice has all four actions in the five languages and Escape preserves the NIM form',async()=>{
-  const t=await start({nimOnly:true});await submitNim(t);
-  const expected={
-    fr:['Payer avec Nimiq Pay','Obtenir Nimiq Pay','Portefeuille Nimiq','Annuler'],
-    en:['Pay with Nimiq Pay','Get Nimiq Pay','Nimiq Wallet','Cancel'],
-    es:['Pagar con Nimiq Pay','Obtener Nimiq Pay','Cartera Nimiq','Cancelar'],
-    de:['Mit Nimiq Pay bezahlen','Nimiq Pay herunterladen','Nimiq Wallet','Abbrechen'],
-    zh:['使用 Nimiq Pay 付款','获取 Nimiq Pay','Nimiq 钱包','取消']
-  };
-  for(const [lang,labels]of Object.entries(expected)){
-    t.$('wire-language').value=lang;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
-    assert.deepEqual(['open','get','hub','cancel'].map(id=>t.$('wire-choice-'+id).textContent),labels);
-    assert.ok(t.$('wire-choice-help').textContent);
-    assert.ok(t.$('wire-choice-title').textContent);assert.ok(t.$('wire-choice-status').textContent);
-  }
-  t.$('wire-choice-open').focus();
-  t.doc.dispatchEvent(new t.window.KeyboardEvent('keydown',{key:'Tab',shiftKey:true,bubbles:true,cancelable:true}));
-  assert.equal(t.doc.activeElement,t.$('wire-choice-cancel'));
-  t.doc.dispatchEvent(new t.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
-  assert.equal(t.$('wire-nim-choice').hidden,true);assert.ok(t.doc.querySelector('.wire-nim-window'));
-});
-
-test('Get Nimiq Pay uses the phone store and offers both stores on desktop',async()=>{
-  for(const options of [{mobile:true},{android:true},{}]){
-    const t=await start({nimOnly:true,...options});await submitNim(t);
-    const link=t.$('wire-choice-get');
-    if(options.mobile)assert.equal(link.href,'https://apps.apple.com/app/nimiq-pay/id6471844738');
-    else if(options.android)assert.equal(link.href,'https://play.google.com/store/apps/details?id=com.nimiq.pay');
-    else {link.click();assert.equal(t.$('wire-choice-stores').hidden,false);assert.equal(t.$('wire-choice-stores').querySelectorAll('a').length,2);}
-    assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);
-  }
-});
-
 test('native NIM funding preserves the exact text including NUL and its UTF-8 bytes, recipient and Luna',async()=>{
   const t=await start({nimOnly:true,nativeMode:'success',mobile:true});await submitNim(t);
-  assert.equal(t.$('wire-nim-choice').hidden,true);assert.equal(t.nativeCalls.length,1);
+  assert.equal(t.$('wire-nim-choice'),null);assert.equal(t.nativeCalls.length,1);
   const {request,hex}=t.nativeCalls[0];
   assert.equal(request.recipient,'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');assert.equal(request.value,250000);
   assert.equal(request.data,'\u0000\u0082\u0080\u0092\u0087');
@@ -568,7 +500,7 @@ test('a returned native hash alone is never shown as a successful card payment',
 
 test('an app without an injected NIM provider uses the existing Hub checkout',async()=>{
   const t=await start({nimOnly:true,nativeMode:'missing',mobile:true});await submitNim(t);
-  assert.equal(t.$('wire-nim-choice').hidden,true);assert.equal(t.nativeCalls.length,0);assert.equal(t.checkouts.length,1);
+  assert.equal(t.$('wire-nim-choice'),null);assert.equal(t.nativeCalls.length,0);assert.equal(t.checkouts.length,1);
   assert.deepEqual(Array.from(t.checkouts[0].extraData),[0,130,128,146,135]);
   assert.equal(t.checkouts[0].value,250000);
 });
@@ -576,7 +508,7 @@ test('an app without an injected NIM provider uses the existing Hub checkout',as
 test('native refusal, including the legacy error envelope, is cancellation without Hub or re-payment',async()=>{
   for(const nativeMode of ['denied','legacy-denied']){
     const t=await start({nimOnly:true,nativeMode});await submitNim(t);
-    assert.equal(t.$('feedback').textContent,'Payment cancelled in Nimiq Pay.');
+    assert.equal(t.$('feedback').textContent,'Payment cancelled in Nimpay.');
     assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,1);
     assert.equal(t.doc.querySelector('.wire-nim-hub-fallback').hidden,true);
     t.$('card-form').dispatchEvent(new t.window.Event('submit',{cancelable:true}));await settle();
@@ -617,7 +549,7 @@ test('native checkout rejects another funding marker and a different host networ
   assert.ok(!wrong.calls.some(([p])=>p.endsWith('/start')));
 });
 
-test('a new Nimiq Pay context uses the existing sender email confirmation and does not inherit browser state',async()=>{
+test('a new Nimpay context uses the existing sender email confirmation and does not inherit browser state',async()=>{
   const t=await start({nimOnly:true,nativeMode:'success',session:{verified:false}});
   assert.equal(t.$('wire-sender').hidden,false);assert.equal(t.$('wire-ready').hidden,true);
   assert.equal(t.nativeCalls.length,0);
@@ -751,7 +683,7 @@ test('logout stops the cached NIM tracker',async()=>{
 test('after a live Hub or native approval, twelve minutes of tracking never creates or funds a second card',async()=>{
   for(const nativeMode of ['', 'success']){
     const t=await start({nimOnly:true,manualNim:true,clocked:true,nativeMode});await submitNim(t);
-    if(!nativeMode){t.$('wire-choice-hub').click();await settle();}
+
     assert.equal(t.$('nim-progress-message').textContent,'Payment sent. Waiting for network confirmation…');
     await t.clock.advance(12*60000);t.window.dispatchEvent(new t.window.Event('pageshow'));await settle();
     assert.ok(checks(t)>20);
@@ -1209,26 +1141,6 @@ test('currency choice comes first, then other coins and preview tabs disappear f
  assert.ok(win.querySelector('.nimiq-payment-preview .nimiq-payment-card'),'the actual funding card remains available without a preview tab');
 });
 
-test('handoff is created only on explicit Pay choice and the URL contains only an opaque token',async()=>{
- const browser=await start({nimOnly:true,mobile:true,clocked:true});await submitNim(browser);
- browser.$('wire-choice-cancel').click();browser.$('message').value='Private handoff note';
- browser.$('card-form').dispatchEvent(new browser.window.Event('submit',{cancelable:true}));await settle();
- assert.equal(browser.calls.filter(([p])=>p==='/api/handoff').length,0);
- browser.$('wire-choice-open').click();await settle();
- const creation=browser.calls.find(([p])=>p==='/api/handoff')[1];
- assert.deepEqual(creation,{payment_id:'a'.repeat(48)});
- const prepared=browser.calls.find(([p,b])=>p==='/api/payments'&&b)[1];
- assert.equal(prepared.amount,'2.5');assert.equal(prepared.message,'Private handoff note');
- assert.ok(browser.calls.findIndex(([p,b])=>p==='/api/payments'&&b)<browser.calls.findIndex(([p])=>p==='/api/handoff'));
- const link=browser.opened.at(-1).location.href,destination=new URL(link).searchParams.get('url');
- assert.equal(destination,'https://wire.phoenixmail.ca/#h='+handoffToken);
- assert.ok(!/example|%7B|wire-nim|2\.5|Private|recipient|sender/i.test(link));
- assert.equal(browser.opened.at(-1).opener,null);
- assert.equal(browser.calls.filter(([p,b])=>p==='/api/payments'&&b).length,1);
- assert.ok(!browser.calls.some(([p])=>p.endsWith('/start')));
- for(const data of [browser.snapshot(),browser.snapshotLocal(),browser.consoleMessages])assert.ok(!JSON.stringify(data).includes(handoffToken));
-});
-
 test('redeem clears the token before the request, opens only the prepared card without a code or auto payment',async()=>{
  const gate={};
  const app=await start({nimOnly:true,nativeMode:'success',session:{verified:false},clocked:true,url:'https://wire.phoenixmail.ca/#h='+handoffToken,holdRedeem:gate});
@@ -1274,49 +1186,6 @@ test('invalid, expired or used handoff returns to normal email verification with
   const again=await start({nimOnly:true,session:{verified:false},clocked:true,url:app.window.location.href,saved:app.snapshot()});
   assert.equal(again.calls.filter(([p])=>p==='/api/handoff/redeem').length,0);
  }
-});
-
-test('handoff creation errors are translated, retryable and keep Hub and stores usable',async()=>{
- for(const language of ['fr','en','es','de','zh'])for(const handoffStatus of [401,429,'network']){
-  const t=await start({nimOnly:true,clocked:true,handoffStatus,local:{'wire-language':language}});
-  await submitNim(t);t.$('wire-choice-open').click();await settle();
-  const message=t.$('wire-choice-status').textContent;
-  assert.ok(message.length>10);assert.equal(t.$('wire-choice-status').hidden,false);
-  assert.equal(t.$('wire-nim-choice').hidden,false);
-  assert.equal(t.$('wire-choice-open').getAttribute('aria-disabled'),null);
-  assert.equal(t.$('wire-choice-open').getAttribute('href'),'#');
-  assert.equal(t.opened.at(-1).closed,true);
-  t.$('wire-choice-get').click();assert.equal(t.$('wire-choice-stores').hidden,false);
-  t.$('wire-choice-open').click();await settle();
-  assert.equal(t.calls.filter(([p])=>p==='/api/handoff').length,2);
-  t.$('wire-choice-hub').click();await settle();
-  assert.equal(t.$('wire-nim-choice').hidden,true);assert.equal(t.checkouts.length,1);
- }
-});
-
-test('cancel during creation prevents late navigation and blocked popups offer a direct retry',async()=>{
- const gate={},t=await start({nimOnly:true,clocked:true,holdHandoff:gate});await submitNim(t);
- t.$('wire-choice-open').click();await settle();t.$('wire-choice-cancel').click();
- gate.release();await settle();assert.equal(t.opened.at(-1).closed,true);assert.equal(t.opened.at(-1).location.href,undefined);
- const blocked=await start({nimOnly:true,clocked:true,popupBlocked:true});await submitNim(blocked);
- blocked.$('wire-choice-open').click();await settle();
- assert.equal(new URL(blocked.$('wire-choice-open').href).searchParams.get('url'),'https://wire.phoenixmail.ca/#h='+handoffToken);
- assert.match(blocked.$('wire-choice-status').textContent,/again/);
- assert.equal(blocked.checkouts.length,0);
-});
-
-test('stalled handoff requests time out without a blank page, leaking tokens or automatic retries',async()=>{
- const app=await start({nimOnly:true,session:{verified:false},clocked:true,holdRedeem:{},url:'https://wire.phoenixmail.ca/#h='+handoffToken});
- assert.equal(app.window.location.hash,'');await app.clock.advance(15000);
- assert.equal(app.$('wire-sender').hidden,false);assert.match(app.$('wire-status').textContent,/Reopen the link from Safari/);
- assert.equal(app.calls.filter(([p])=>p==='/api/handoff/redeem').length,1);
- for(const data of [app.snapshot(),app.snapshotLocal(),app.consoleMessages])assert.ok(!JSON.stringify(data).includes(handoffToken));
- const browser=await start({nimOnly:true,clocked:true,holdHandoff:{}});await submitNim(browser);
- browser.$('wire-choice-open').click();await settle();await browser.clock.advance(15000);
- assert.equal(browser.$('wire-nim-choice').hidden,false);assert.equal(browser.opened.at(-1).closed,true);
- assert.match(browser.$('wire-choice-status').textContent,/Could not open/);
- assert.equal(browser.$('wire-choice-open').getAttribute('aria-disabled'),null);
- browser.$('wire-choice-hub').click();await settle();assert.equal(browser.checkouts.length,1);
 });
 
 test('retired personal-data fragments and saved drafts are erased and never redeemed or restored',async()=>{
@@ -1419,7 +1288,7 @@ test('native diagnostic exposes type/code/message as copyable text and logs only
  const detail=app.$('nim-wallet-detail').textContent;
  assert.match(detail,/type=INVALID_DATA/);assert.match(detail,/code=BAD_DATA/);assert.match(detail,/message=Control character \\u0000 is not allowed/);
  for(const secret of ['friend@example.test','sender@example.test','NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY','https://example.test',handoffToken,'Bonjour 🐦','2.5'])assert.ok(!detail.includes(secret),secret);
- assert.deepEqual(app.consoleMessages,[['Nimiq Pay request failed:',detail]]);
+ assert.deepEqual(app.consoleMessages,[['Nimpay request failed:',detail]]);
  const copies=[];Object.defineProperty(app.window.navigator,'clipboard',{value:{async writeText(text){copies.push(text);}},configurable:true});
  app.$('nim-wallet-copy').click();await settle();assert.deepEqual(copies,[detail]);
  assert.equal(app.$('nim-wallet-failure').hidden,false);assert.equal(app.$('nim-wallet-retry').hidden,false);
@@ -1511,18 +1380,6 @@ test('Safari keeps the prepared NIM card and truthful ready, confirmation-pendin
  assert.equal(app.$('wire-cards-list').children.length,1);assert.equal(app.nativeCalls.length,0);
 });
 
-test('wallet choice presents Pay, Wallet then Get and Phoenix buttons retain neutral surfaces with accent outlines',async()=>{
- const app=await start({nimOnly:true});await submitNim(app);
- const choices=[...app.doc.querySelectorAll('.wire-wallet-choice>a,.wire-wallet-choice>button')];
- assert.deepEqual(choices.map(el=>el.id),['wire-choice-open','wire-choice-hub','wire-choice-get','wire-choice-cancel']);
- assert.equal(choices[0].textContent,'Pay with Nimiq Pay');assert.equal(choices[1].textContent,'Nimiq Wallet');assert.equal(choices[2].textContent,'Get Nimiq Pay');
- const css=read('../internal/web/static/wire-pay.css');
- assert.match(css,/data-theme="dark"\]\{--wire-button-bg:#1b1e22;--wire-button-hover:#272b30/);
- assert.match(css,/data-theme="light-paper"\]\{--wire-button-bg:#ffffff;--wire-button-hover:#eef1f5/);
- assert.match(css,/background:var\(--wire-button-bg\);background-image:none/);
- assert.match(css,/border:1px solid var\(--accent\)/);
-});
-
 test('an unfunded started card has a non-sticky state and can always fold into a blank new form',async()=>{
  const app=await tracked({width:375});
  assert.match(app.$('nim-progress-message').textContent,/Not yet paid/);assert.match(app.$('nim-progress-message').textContent,/Started at \d\d:\d\d/);
@@ -1559,9 +1416,8 @@ test('a fresh form prepares a distinct card with a fresh request id and retains 
  const app=await tracked();const original=app.window.sessionStorage.getItem('wire-request-id');
  app.$('new-card').click();app.$('recipient').value='new@example.test';app.$('amount').value='1.25';app.$('message').value='New intent';
  app.$('card-form').dispatchEvent(new app.window.Event('submit',{cancelable:true}));await settle();
- app.$('wire-choice-open').click();await settle();
  const creation=app.calls.find(([p,b])=>p==='/api/payments'&&b)[1];assert.notEqual(creation.request_id,original);assert.equal(creation.recipient,'new@example.test');assert.equal(creation.amount,'1.25');
- const handed=app.calls.find(([p])=>p==='/api/handoff')[1];assert.notEqual(handed.payment_id,'a'.repeat(48));
+ assert.equal(app.calls.filter(([p])=>p==='/api/handoff').length,0);
  assert.equal(app.$('payment-list').children.length,2);assert.ok(app.$('payment-list').textContent.includes('2.5 NIM'));
  assert.ok(!app.calls.some(([p])=>p.includes('/cancel')));assert.equal(app.nativeCalls.length,0);
 });
@@ -1837,7 +1693,7 @@ test('recipient has exactly two wallet choices after code and resend, disabled u
  assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,1);
  assert.match(app.$('claim-status').textContent,/Code sent/);
  const choices=[...app.$('claim-choices').querySelectorAll('button')];
- assert.deepEqual(choices.map(b=>b.textContent),['Receive in Nimiq Pay','Receive in Nimiq Wallet']);
+ assert.deepEqual(choices.map(b=>b.textContent),['Receive in Nimpay','Receive in Nimiq Wallet']);
  assert.equal(app.$('claim-code').closest('label').nextElementSibling,app.$('request-claim-code'));
  assert.equal(app.$('request-claim-code').nextElementSibling,app.$('claim-choices'));
  assert.equal(app.$('claim-form').querySelector('select'),null);
@@ -1926,7 +1782,7 @@ test('handoff creation failures keep both wallet choices available and never ope
  assert.equal(app.$('claim-status').textContent,flowText('en','claim_payoutUnavailable'));
 });
 
-test('Nimiq Pay receipt uses the first account with no selector or automatic replacement code',async()=>{
+test('Nimpay receipt uses the first account with no selector or automatic replacement code',async()=>{
  const app=await recipientPage({accounts:[receivingAddress,otherReceivingAddress]});
  assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,0);
  assert.equal(app.accountCalls(),0);app.enterCode();await app.choose('pay');
@@ -2033,7 +1889,7 @@ test('duplicate wallet taps send one payout; Enter does not silently choose a wa
 });
 
 test('two-choice recipient labels and narrow layout cover five languages with no technical wallet name',async()=>{
- const labels={fr:['Recevoir dans Nimiq Pay','Recevoir dans Nimiq Wallet','Renvoyer le code'],en:['Receive in Nimiq Pay','Receive in Nimiq Wallet','Resend code'],es:['Recibir en Nimiq Pay','Recibir en Nimiq Wallet','Reenviar código'],de:['In Nimiq Pay empfangen','In Nimiq Wallet empfangen','Code erneut senden'],zh:['接收到 Nimiq Pay','接收到 Nimiq Wallet','重新发送验证码']};
+ const labels={fr:['Recevoir dans Nimpay','Recevoir dans Nimiq Wallet','Renvoyer le code'],en:['Receive in Nimpay','Receive in Nimiq Wallet','Resend code'],es:['Recibir en Nimpay','Recibir en Nimiq Wallet','Reenviar código'],de:['In Nimpay empfangen','In Nimiq Wallet empfangen','Code erneut senden'],zh:['接收到 Nimpay','接收到 Nimiq Wallet','重新发送验证码']};
  for(const [language,expected]of Object.entries(labels)){
   const app=await recipientPage({language,accounts:[receivingAddress]});
   assert.deepEqual([app.$('claim-pay').textContent,app.$('claim-wallet').textContent,app.$('request-claim-code').textContent],expected);
@@ -2233,7 +2089,7 @@ test('limited cancellation resumes normal tracking when funding won the race',as
 
 test('decline, transport failure and pending verification are distinct from a low balance',async()=>{
  const denied=await failedNative({nativeMode:'denied',redeemDraft:{...handoffDraft,language:'en'}});
- assert.equal(denied.$('nim-progress-message').textContent,'Payment declined in Nimiq Pay.');
+ assert.equal(denied.$('nim-progress-message').textContent,'Payment declined in Nimpay.');
  const offline=await failedNative({redeemDraft:{...handoffDraft,language:'en'}});
  assert.equal(offline.$('nim-progress-message').textContent,'A network error interrupted the payment request.');
  const pending=await failedNative({nativeMode:'success-no-confirm',redeemDraft:{...handoffDraft,language:'en'}});
@@ -2244,7 +2100,7 @@ test('decline, transport failure and pending verification are distinct from a lo
  assert.ok(!/balance|INTERNAL_ERROR|-32603/.test(unknown.$('nim-progress-message').textContent));
 });
 
-test('creation inside Nimiq Pay cancels the same card without a cross-browser detour',async()=>{
+test('creation inside Nimpay cancels the same card without a cross-browser detour',async()=>{
  const app=await start({nimOnly:true,nativeMode:'error',nativeError:{type:'INTERNAL_ERROR',code:-32603,message:'Transaction value exceeds balance'}});
  await submitNim(app);
  assert.equal(app.$('nim-progress-message').textContent,'Your balance is too low to pay for this card.');
@@ -2277,7 +2133,7 @@ test('cancelled limited cards replace View with Done and keep translated exit he
   assert.equal(button.hidden,false);assert.equal(button.textContent,label);
   assert.equal(app.$('wire-handoff-help').hidden,true);
   assert.equal(help.hidden,false);assert.ok(help.textContent.includes(hints[language]));
-  assert.match(help.textContent,/‹/);assert.match(help.textContent,/✕/);assert.ok(!/Safari|Nimiq Pay/.test(help.textContent));
+  assert.match(help.textContent,/‹/);assert.match(help.textContent,/✕/);assert.ok(!/Safari|Nimpay/.test(help.textContent));
   assert.equal(help.previousElementSibling.id,'wire-handoff-state');
   const originalClose=app.window.close;let closes=0;app.window.close=()=>{closes++;};const before=app.calls.length;
   const location=app.window.location.href,opened=app.opened.length;
@@ -2349,22 +2205,6 @@ test('limited cancellation has one terminal screen and cannot reopen its payment
  }
 });
 
-test('foreground refresh closes stale wallet choice and payment view and updates sender history',async()=>{
- for(const event of ['visibilitychange','pageshow'])for(const stage of ['cancelled','funded','sent']){
-  const app=await start({nimOnly:true,clocked:true});await submitNim(app);
-  assert.equal(app.$('wire-nim-choice').hidden,false);
-  app.$('wire-choice-open').click();await settle();
-  app.setStage(stage);const before=app.calls.length;
-  if(event==='visibilitychange'){app.clock.hidden(true);app.clock.hidden(false);}else app.window.dispatchEvent(new app.window.Event('pageshow'));
-  await settle();
-  assert.ok(app.calls.slice(before).some(([p,b])=>p==='/api/payments'&&!b));
-  assert.equal(app.$('wire-nim-choice').hidden,true);
-  assert.equal(app.doc.querySelector('.wire-nim-window'),null);
-  if(stage==='cancelled')assert.equal(app.$('wire-cards-list').children.length,0);
- }
-});
-
-
 test('funding_not_started is quiet while genuine server failures still show verification unavailable',async()=>{
  for(const language of ['fr','en','es','de','zh']){
   const app=await start({redeemDraft:{...handoffDraft,language},redeemStage:'funding_started',nativeMode:'error',clocked:true,url:'https://wire.phoenixmail.ca/#h='+handoffToken,confirmCode:'funding_not_started'});
@@ -2377,30 +2217,53 @@ test('funding_not_started is quiet while genuine server failures still show veri
 });
 
 
-test('mobile sender suggestion uses only the current host and leaves web email/code sign-in usable in five languages',async()=>{
- const labels={fr:'Ouvrir dans Nimiq Pay (recommandé)',en:'Open in Nimiq Pay (recommended)',es:'Abrir en Nimiq Pay (recomendado)',de:'In Nimiq Pay öffnen (empfohlen)',zh:'在 Nimiq Pay 中打开（推荐）'};
- for(const [language,label]of Object.entries(labels)){
-  const app=await start({mobile:true,session:{verified:false},url:'https://preview.example.test:8443/?lang='+language+'#unrelated'});
+
+
+test('desktop sender pays directly with Nimiq Wallet without chooser or a new handover',async()=>{
+ const app=await start({nimOnly:true});await submitNim(app);
+ assert.equal(app.checkouts.length,1);assert.equal(app.nativeCalls.length,0);
+ assert.equal(app.$('wire-nim-choice'),null);assert.equal(app.calls.filter(([p])=>p==='/api/handoff').length,0);
+});
+
+test('mobile external entry has only the Nimpay link and hides email, code and invitation in five languages',async()=>{
+ const labels={fr:'Ouvrir dans Nimpay',en:'Open in Nimpay',es:'Abrir en Nimpay',de:'In Nimpay öffnen',zh:'在 Nimpay 中打开'};
+ for(const [language,label]of Object.entries(labels))for(const inviteOnly of [false,true]){
+  const app=await start({mobile:true,inviteOnly,session:{verified:false},url:'https://preview.example.test:8443/'});
   app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));await settle();
-  assert.equal(app.$('wire-miniapp-suggestion').hidden,false);
-  const link=app.$('wire-miniapp-open');assert.equal(link.tagName,'A');assert.equal(link.textContent,label);
-  assert.equal(link.href,'https://nimpay.app/miniapps/open/preview.example.test:8443');
-  assert.ok(app.$('wire-miniapp-help').textContent.length>10);
-  assert.equal(app.$('wire-sender').hidden,false);assert.equal(app.$('wire-email').disabled,false);
-  app.$('wire-email').value='sender@example.test';app.$('wire-send-code').click();await settle();
-  assert.equal(app.$('wire-code-box').hidden,false);
-  assert.equal(app.opened.length,0,'the suggestion never opens another context automatically');
-  app.$('wire-code').value='123456';app.$('wire-verify').click();await settle();
-  assert.equal(app.$('wire-ready').hidden,false);assert.equal(app.$('wire-miniapp-suggestion').hidden,true);
+  assert.equal(app.$('wire-miniapp-suggestion').hidden,false);assert.equal(app.$('wire-miniapp-open').textContent,label);
+  assert.equal(app.$('wire-miniapp-open').href,'https://nimpay.app/miniapps/open/preview.example.test:8443');
+  assert.equal(app.$('wire-miniapp-help'),null);assert.equal(app.$('wire-sender').hidden,true);
+  assert.equal(app.$('wire-invite-gate').hidden,true);
+  assert.equal(app.opened.length,0);assert.ok(!app.calls.some(([p])=>p==='/api/sender/request'||p==='/api/handoff'));
+ }
+ const maintenance=await start({mobile:true,maintenance:true,session:{verified:false}});assert.equal(maintenance.$('wire-maintenance').hidden,false);
+ const signed=await start({mobile:true,session:{verified:true,email:'sender@example.test',admin:true}});
+ assert.equal(signed.$('wire-ready').hidden,true);assert.equal(signed.$('wire-admin'),null);
+});
+
+test('Nimpay keeps email login then native direct payment, while claim URLs keep the web form',async()=>{
+ const app=await start({mobile:true,nativeMode:'success',nimOnly:true,session:{verified:false}});
+ assert.equal(app.$('wire-sender').hidden,false);assert.equal(app.$('wire-miniapp-suggestion').hidden,true);
+ app.$('wire-email').value='sender@example.test';app.$('wire-send-code').click();await settle();
+ app.$('wire-code').value='123456';app.$('wire-verify').click();await settle();await submitNim(app);
+ assert.equal(app.nativeCalls.length,1);assert.equal(app.checkouts.length,0);assert.equal(app.$('wire-nim-choice'),null);
+ const claim=await start({mobile:true,session:{verified:false},url:'https://wire.example.test/?claim=card'});
+ assert.equal(claim.$('wire-miniapp-suggestion').hidden,true);assert.equal(claim.$('wire-sender').hidden,false);
+});
+
+
+test('foreground still removes a stale full-session payment window when its card becomes unpayable',async()=>{
+ for(const event of ['visibilitychange','pageshow'])for(const stage of ['cancelled','funded','sent']){
+  const app=await tracked();app.setStage(stage);
+  if(event==='visibilitychange'){app.clock.hidden(true);app.clock.hidden(false);}else app.window.dispatchEvent(new app.window.Event('pageshow'));
+  await settle();assert.equal(app.doc.querySelector('.wire-nim-window'),null);
+  if(stage==='cancelled')assert.equal(app.$('wire-cards-list').children.length,0);
  }
 });
 
-test('mobile recommendation stays hidden outside eligible unsigned sender pages',async()=>{
- const variants=[{}, {mobile:true,nativeMode:'missing'}, {mobile:true,url:'https://wire.example.test/?claim=card'}, {mobile:true,session:{verified:true,email:'sender@example.test'}}, {mobile:true,nimEnabled:false}, {mobile:true,session:{verified:false,email:'',handoff:{payment_id:'a'.repeat(48)}},nimStage:'ready'}];
- for(const options of variants){
-  const app=await start({session:{verified:false},...options});assert.equal(app.$('wire-miniapp-suggestion').hidden,true);
- }
- const android=await start({android:true,session:{verified:false}});assert.equal(android.$('wire-miniapp-suggestion').hidden,false);
- for(const page of ['classic.html','terms.html','privacy.html'])assert.ok(!read('../internal/web/static/'+page).includes('wire-miniapp-suggestion'));
- const css=read('../internal/web/static/wire-pay.css');assert.match(css,/\.wire-miniapp-link\{[^}]*min-height:44px[^}]*var\(--accent\)/);
+test('Wire display copy uses Nimpay while the injected provider identifier is unchanged',()=>{
+ for(const page of ['wire-pay.js','flow.js','flow-text.js','legal.js','classic.html','privacy.html'])assert.ok(!read('../internal/web/static/'+page).includes('Nimiq Pay'));
+ assert.ok(read('../internal/web/static/wire-pay.js').includes('window.nimiqPay'));
+ assert.ok(!read('../internal/web/static/wire-pay.js').includes("api('/api/handoff',"));
+ assert.ok(!read('../internal/web/static/index.html').includes('wire-nim-choice'));
 });
