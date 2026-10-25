@@ -3,7 +3,7 @@ import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,send
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage,renderCardPreview,assetMark } from './model.js?v=0.4.30';
-import { mountNimFlow } from './flow.js?v=0.4.43';
+import { mountNimFlow } from './flow.js?v=0.4.45';
 import { flowText } from './flow-text.js?v=0.4.43';
 
 // CSS can reveal the page without scripts; clear the startup attribute so
@@ -39,7 +39,7 @@ const handoffWords={
     "handoffConflict": "Un autre expéditeur est connecté ici. Déconnectez-vous, puis rouvrez le lien depuis Safari.",
     "handoffNotFundable": "Cette carte ne peut plus être alimentée par ce lien. Consultez son état dans Safari. Ne payez pas une deuxième fois.",
     "handoffCardExpired": "Cette carte a expiré. Consultez son état dans Safari. Ne payez pas une deuxième fois.",
-    "handoffLimited": "Cet accès permet uniquement de payer et de suivre cette carte. Votre compte complet reste dans Safari.",
+    "handoffLimited": "Cet accès permet de payer, suivre ou annuler cette carte non payée. Votre compte complet reste dans le navigateur d’origine.",
     "handoffResume": "Afficher la carte",
     "handoffUnavailable": "Impossible de reprendre cette carte. Rouvrez le lien depuis Safari."
   },
@@ -54,7 +54,7 @@ const handoffWords={
     "handoffConflict": "Another sender is signed in here. Sign out, then reopen the link from Safari.",
     "handoffNotFundable": "This card can no longer be funded through this link. Check its status in Safari. Do not pay again.",
     "handoffCardExpired": "This card has expired. Check its status in Safari. Do not pay again.",
-    "handoffLimited": "This access only lets you pay and follow this card. Your full account stays in Safari.",
+    "handoffLimited": "This access lets you pay, follow or cancel this unpaid card. Your full account stays in the original browser.",
     "handoffResume": "View the card",
     "handoffUnavailable": "Unable to resume this card. Reopen the link from Safari."
   },
@@ -69,7 +69,7 @@ const handoffWords={
     "handoffConflict": "Hay otro remitente conectado aquí. Cierra su sesión y vuelve a abrir el enlace desde Safari.",
     "handoffNotFundable": "Esta tarjeta ya no se puede financiar mediante este enlace. Consulta su estado en Safari. No vuelvas a pagar.",
     "handoffCardExpired": "Esta tarjeta ha caducado. Consulta su estado en Safari. No vuelvas a pagar.",
-    "handoffLimited": "Este acceso solo permite pagar y seguir esta tarjeta. Tu cuenta completa permanece en Safari.",
+    "handoffLimited": "Este acceso permite pagar, seguir o cancelar esta tarjeta sin pagar. Tu cuenta completa permanece en el navegador de origen.",
     "handoffResume": "Ver la tarjeta",
     "handoffUnavailable": "No se pudo retomar esta tarjeta. Vuelve a abrir el enlace desde Safari."
   },
@@ -84,7 +84,7 @@ const handoffWords={
     "handoffConflict": "Hier ist ein anderer Absender angemeldet. Melde ihn ab und öffne den Link erneut in Safari.",
     "handoffNotFundable": "Diese Karte kann über diesen Link nicht mehr aufgeladen werden. Prüfe ihren Status in Safari. Bezahle nicht erneut.",
     "handoffCardExpired": "Diese Karte ist abgelaufen. Prüfe ihren Status in Safari. Bezahle nicht erneut.",
-    "handoffLimited": "Dieser Zugang erlaubt nur das Bezahlen und Verfolgen dieser Karte. Dein vollständiges Konto bleibt in Safari.",
+    "handoffLimited": "Mit diesem Zugang kannst du diese unbezahlte Karte bezahlen, verfolgen oder stornieren. Dein vollständiges Konto bleibt im ursprünglichen Browser.",
     "handoffResume": "Karte anzeigen",
     "handoffUnavailable": "Diese Karte konnte nicht fortgesetzt werden. Öffne den Link erneut in Safari."
   },
@@ -99,7 +99,7 @@ const handoffWords={
     "handoffConflict": "这里已登录另一位发件人。请先退出，再从 Safari 重新打开链接。",
     "handoffNotFundable": "此链接已无法为该卡片充值。请在 Safari 查看状态，勿再次付款。",
     "handoffCardExpired": "此卡片已过期。请在 Safari 查看状态，勿再次付款。",
-    "handoffLimited": "此访问权限仅用于支付和跟踪这张卡片。完整账户仍在 Safari 中。",
+    "handoffLimited": "此访问权限可用于支付、跟踪或取消这张未付款的卡片。完整账户仍在原浏览器中。",
     "handoffResume": "查看卡片",
     "handoffUnavailable": "无法继续处理此卡片。请从 Safari 重新打开链接。"
   }

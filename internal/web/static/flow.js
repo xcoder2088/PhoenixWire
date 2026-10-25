@@ -3,6 +3,17 @@ import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,send
 import { flowText } from './flow-text.js?v=0.4.43';
 import { addressValid,cardPresentation,paintCard,renderCardPreview } from './model.js?v=0.4.30';
 
+// A provider error is not evidence of funding; the server check still decides.
+const nativeFailureWords={
+ fr:{network:'Une erreur réseau a interrompu la demande de paiement.',balance:'Ton solde est insuffisant pour payer cette carte.',refused:'Paiement refusé dans Nimiq Pay.',cancelled:'Carte annulée.'},
+ en:{network:'A network error interrupted the payment request.',balance:'Your balance is too low to pay for this card.',refused:'Payment declined in Nimiq Pay.',cancelled:'Card cancelled.'},
+ es:{network:'Un error de red interrumpió la solicitud de pago.',balance:'Tu saldo es insuficiente para pagar esta tarjeta.',refused:'Pago rechazado en Nimiq Pay.',cancelled:'Tarjeta cancelada.'},
+ de:{network:'Ein Netzwerkfehler hat die Zahlungsanfrage unterbrochen.',balance:'Dein Guthaben reicht nicht aus, um diese Karte zu bezahlen.',refused:'Zahlung in Nimiq Pay abgelehnt.',cancelled:'Karte storniert.'},
+ zh:{network:'网络错误中断了付款请求。',balance:'你的余额不足以支付这张卡片。',refused:'已在 Nimiq Pay 中拒绝付款。',cancelled:'卡片已取消。'}
+};
+const nativeReason=error=>error?.type==='PERMISSION_DENIED'||error?.code===4001||error?.name==='PermissionDeniedError'?'refused':/transaction value exceeds balance|insufficient (?:funds|balance)/i.test(typeof error?.message==='string'?error.message:'')?'balance':error?.type==='NETWORK_ERROR'?'network':'';
+const failureText=key=>(nativeFailureWords[document.documentElement.lang]||nativeFailureWords.en)[key];
+
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
 export function mountNimFlow(root=document,{embedded=false,chooseWallet=null,onClose=null,onStatus=()=>{},initialDraft=null,onDraftUsed=()=>{},initialPayment=null,scopedPaymentID=''}={}){
 // The bundled official Iqons adapter validates public Nimiq addresses through this hook.
@@ -192,6 +203,7 @@ const copyDetail=document.createElement('button');copyDetail.id='nim-wallet-copy
 const retryButton=document.createElement('button');retryButton.id='nim-wallet-retry';retryButton.type='button';retryButton.className='secondary-btn';
 const retryWait=document.createElement('p');retryWait.id='nim-wallet-wait';retryWait.setAttribute('role','status');
 const cancelButton=document.createElement('button');cancelButton.id='nim-wallet-cancel';cancelButton.type='button';cancelButton.className='secondary-btn';
+let renderedFailure=null;
 const details=document.createElement('details');details.id='nim-wallet-details';const summary=document.createElement('summary');details.append(summary,detailLabel,walletDetail,copyDetail);
 walletNote.setAttribute('role','status');walletPanel.append(retryButton,cancelButton,walletNote,retryWait,details);progress.append(walletPanel);
 cancelButton.addEventListener('click',()=>{if(displayed)void cancelCard(displayed.id);});
@@ -225,9 +237,10 @@ function renderWallet(p){
   if(!document.hidden&&paymentList.some(p=>(walletFailures.get(p.id)?.waitUntil||0)>Date.now()))walletTimer=setTimeout(()=>renderProgress(),1000);
   return;
  }
+ if(renderedFailure!==failure){details.open=false;renderedFailure=failure;}
  // The payment status already explains approval, delay and expiry; do not repeat it below.
  walletNote.textContent=recoveryStates.get(p.id)?.notice||'';walletNote.hidden=!walletNote.textContent;summary.textContent=ht('details');detailLabel.textContent=rt('detail');details.hidden=!failure.detail;
- cancelButton.textContent=ht('cancel');cancelButton.hidden=Boolean(scopedPaymentID)||!unpaidCard(p);cancelButton.disabled=cancelling.has(p.id)||busy||nativeRequestInFlight;
+ cancelButton.textContent=ht('cancel');cancelButton.hidden=Boolean(scopedPaymentID&&p.id!==scopedPaymentID)||!unpaidCard(p);cancelButton.disabled=cancelling.has(p.id)||busy||nativeRequestInFlight;
  if(walletDetail.textContent!==(failure.detail||''))walletDetail.textContent=failure.detail||'';
  walletDetail.hidden=!failure.detail;detailLabel.hidden=!failure.detail;copyDetail.hidden=!failure.detail;
  copyDetail.textContent=rt('copy');retryButton.textContent=rt('retry');
@@ -277,7 +290,7 @@ function renderHistory(){
   view.state.textContent=nimHistoryLabel(p,document.documentElement.lang);
   if(wait>0)view.state.textContent+=' '+rt('remaining').replace('{time}',Math.floor(wait/60)+':'+String(wait%60).padStart(2,'0'));
   view.retry.textContent=rt('retry');view.retry.hidden=!unpaidCard(p)||failure?.funded;view.retry.disabled=busy||nativeRequestInFlight||wait>0;
-  view.cancel.textContent=ht('cancel');view.cancel.hidden=Boolean(scopedPaymentID)||!unpaidCard(p);view.cancel.disabled=cancelling.has(p.id)||busy||nativeRequestInFlight;
+  view.cancel.textContent=ht('cancel');view.cancel.hidden=Boolean(scopedPaymentID&&p.id!==scopedPaymentID)||!unpaidCard(p);view.cancel.disabled=cancelling.has(p.id)||busy||nativeRequestInFlight;
   view.recover.textContent=recoveryAllowed(p)?t('recover'):'';view.recover.hidden=!recoveryAllowed(p)||Boolean(recovery.href);view.recover.disabled=Boolean(recovery.loading);
   view.link.hidden=!recoveryAllowed(p)||!recovery.href;if(recovery.href)view.link.href=recovery.href;else view.link.removeAttribute('href');view.link.textContent=rt('openRecovery');
   view.resend.textContent=p.stage==='delivery_failed'?pt('resend'):'';view.resend.hidden=p.stage!=='delivery_failed';view.resend.disabled=busy||checks.has(p.id);
@@ -288,12 +301,13 @@ function renderHistory(){
 }
 async function cancelCard(id){
  const p=paymentList.find(p=>p.id===id);
- if(!p||scopedPaymentID||!unpaidCard(p)||cancelling.has(id)||busy||nativeRequestInFlight||!window.confirm(ht('confirm')))return;
+ if(!p||scopedPaymentID&&id!==scopedPaymentID||!unpaidCard(p)||cancelling.has(id)||busy||nativeRequestInFlight||!window.confirm(ht('confirm')))return;
  cancelling.add(id);renderProgress();
  try{
   const result=await cancelUnpaidCard(p,(path,data)=>api(path,data,{timeout:true}));
   rememberRecord(result.payment);walletFailures.delete(id);stopMonitor(monitor(result.payment));
   if(result.received){recoveryStates.set(id,{notice:ht('arrived')});observe(result.payment);}
+  else if(scopedPaymentID){displayed=result.payment;active=null;fallback.hidden=true;fallbackCheckout=null;save('wire-pending-payment','');save('wire-pending-wallet','');}
   else if(displayed?.id===id)newCard(id);
   onStatus(result.payment,result.received?ht('arrived'):'');
   await loadHistory();
@@ -403,9 +417,9 @@ async function loadHistory(){
  const data=await api('/api/payments',undefined,{timeout:true});$('my-payments').hidden=Boolean(scopedPaymentID);
  paymentList=scopedPaymentID?data.payments.filter(p=>p.id===scopedPaymentID):data.payments;
  const current=paymentList.find(p=>p.id===displayed?.id);
- if(current?.stage==='cancelled'&&!scopedPaymentID)newCard(current.id);
+ if(current?.stage==='cancelled'){if(scopedPaymentID)displayed=current;else newCard(current.id);}
  for(const p of paymentList)pendingFailure(p);
- const visible=paymentList.filter(p=>!isFolded(p)&&p.stage!=='cancelled');
+ const visible=paymentList.filter(p=>!isFolded(p)&&(p.stage!=='cancelled'||p.id===scopedPaymentID));
  active=preparedContext?visible.find(p=>p.id===(initialPayment?.id||scopedPaymentID))||null:freshForm||editingTransferredDraft?null:visible.find(p=>p.id===displayed?.id)||visible.find(p=>p.stage!=='sent')||null;
  const pending=read('wire-pending-payment');
  const shown=preparedContext?active:freshForm||editingTransferredDraft?null:visible.find(p=>p.id===pending)||visible.find(p=>p.id===displayed?.id)||active||(!embedded?visible[0]:null);
@@ -426,12 +440,14 @@ function monitor(p){
 }
 function stopMonitor(watch){clearTimeout(watch.timer);watch.timer=null;watch.stopped=true;}
 function progressText(p){
+ if(p.stage==='cancelled')return failureText('cancelled');
  const watch=monitors.get(p.id),failure=walletFailures.get(p.id);
  if(watch?.note&&['offline','session'].includes(watch.note)&&p.stage!=='sent')return pt(watch.note);
  if(failure&&p.stage!=='sent'){
   if(failure.expired||Date.now()>=deadline(p))return rt('expired');
   if(failure.funded)return rt('received');
   if(failure.state==='unfunded'){
+   if(failure.reason)return failureText(failure.reason);
    const at=Date.parse(p.started_at||'');
    const started=Number.isFinite(at)?rt('started').replace('{time}',new Intl.DateTimeFormat(document.documentElement.lang,{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(at)):'';
    return rt('unpaid')+(started?'\n'+started:'');
@@ -447,13 +463,13 @@ function progressText(p){
 }
 function renderProgress(){
  if(destroyed)return;
- const p=displayed,show=p&&(['funding_started','funded','delivery_pending','delivery_failed','sent'].includes(p.stage)||walletFailures.has(p.id));
+ const p=displayed,show=p&&(['funding_started','funded','delivery_pending','delivery_failed','sent','cancelled'].includes(p.stage)||walletFailures.has(p.id));
  renderWallet(p);
  $('new-card').hidden=Boolean(scopedPaymentID)||!verified||embedded&&p?.stage==='sent';
  if(show)progress.append($('new-card'));else root.querySelector('.workspace').before($('new-card'));
  $('preview-submit').disabled=busy||nativeRequestInFlight;
  renderHistory();
- const complete=embedded&&p?.stage==='sent';
+ const complete=embedded&&['sent','cancelled'].includes(p?.stage);
  const newlyComplete=complete&&!root.classList.contains('wire-nim-complete');
  if(embedded)root.classList.toggle('wire-nim-complete',complete);
  if(embedded){
@@ -469,7 +485,7 @@ function renderProgress(){
  }
  progress.hidden=!show;if(!claimMode)$('preview-submit').hidden=Boolean(show);if(!show)return;
  const text=progressText(p);$('nim-progress-message').textContent=text;
- $('nim-progress-close').textContent=walletFailures.has(p.id)&&p.stage!=='sent'?(progressWords[document.documentElement.lang]||progressWords.en).close:pt('close');$('nim-progress-close').hidden=!walletFailures.has(p.id)&&p.stage!=='sent'&&Date.now()<deadline(p);
+ $('nim-progress-close').textContent=walletFailures.has(p.id)&&p.stage!=='sent'?(progressWords[document.documentElement.lang]||progressWords.en).close:pt('close');$('nim-progress-close').hidden=p.stage!=='cancelled'&&!walletFailures.has(p.id)&&p.stage!=='sent'&&Date.now()<deadline(p);
  $('nim-progress-resend').textContent=pt('resend');$('nim-progress-resend').hidden=p.stage!=='delivery_failed'||Date.now()>=deadline(p);
  $('nim-progress-resend').disabled=checks.has(p.id)||busy;
  $('preview-submit').hidden=true;
@@ -638,9 +654,9 @@ async function requestWallet(p,started,forceHub=false){
    if(failure){
     const detail=diagnostic(failure,p);
     console.warn('Nimiq Pay request failed:',detail);
-    const failed={detail,state:'checking',waitUntil:0};
+    const failed={detail,state:'checking',waitUntil:0,reason:nativeReason(failure)};
     walletFailures.set(p.id,failed);
-    const refused=failure.type==='PERMISSION_DENIED'||failure.code===4001||failure.name==='PermissionDeniedError';
+    const refused=failed.reason==='refused';
     try{await confirm(p.id);return;}
     catch(error){failed.state=error.message==='funding_pending'?'unfunded':'unknown';failed.expired=error.status===410;}
     fallbackCheckout={p,checkout};fallback.hidden=refused||isFolded(p)||displayed?.id!==p.id;

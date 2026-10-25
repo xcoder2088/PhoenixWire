@@ -1,3 +1,38 @@
+## NIM payment failure and cancellation (cache 0.4.45)
+
+The limited hand-over session can cancel its own unpaid card using
+`POST /api/payments/<id>/cancel` with `{}`, following a localized confirmation.
+No sender sign-in or new card is required. The server enforces the card scope.
+Success shows a terminal cancelled screen in the limited context, with no payment
+controls. The full sender context removes the cancelled card as before.
+`already_funded` calls confirm and resumes tracking, without paying again.
+
+Known insufficient-balance errors, permission refusal, network request errors and
+pending funding verification have separate plain-language feedback in all five
+languages. A provider error never establishes the on-chain funding state: the
+server check wins. Unknown errors do not become balance errors. Redacted technical
+details start collapsed for each new failure and expand only on request; a CSS
+closed-state rule also hides their content. Retry retains the existing safety
+check and server delay. Error details are not persisted.
+
+Closing a payment window returns to Wire in its current browser context. Native
+creation stays in Nimiq Pay; a Safari-created hand-over remains usable in Nimiq
+Pay, including cancellation, without forcing another browser or authentication.
+The official mini-app overview documents incoming deep links, but does not
+provide a verified way to focus the original Safari tab from the WebView:
+https://www.nimiq.dev/mini-apps . No speculative external-browser redirect is used.
+
+Automated DOM tests cover both full native creation and Safari-style hand-over,
+all five balance messages, collapsed diagnostics, cancellation and its confirmation,
+no new card/sign-in request, funding races, decline, network failure and uncertain
+verification. These are not physical iPhone, Safari or native-app validations.
+No new static files are required. Existing flow.js, wire-pay.js and wire-pay.css
+references use cache version 0.4.45.
+
+Validation: `npm ci --ignore-scripts`, then
+`node --test --test-timeout=90000 tests/*.test.mjs engine/secureclaim/web/tests/*.cjs`:
+290 tests executed, 290 passed.
+
 # The payment window is PhoenixMail's
 
 ## Legal-copy clarification and public contact (cache 0.4.40)

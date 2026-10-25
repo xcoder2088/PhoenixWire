@@ -205,6 +205,7 @@ html[data-palette="phoenixfire"] .wire-body button:hover:not(:disabled),html[dat
 /* Compact unpaid-card controls; technical data expands only on request. */
 #nim-progress-message { white-space: pre-line; }
 #nim-wallet-details { min-width:0; margin:0; }
+#nim-wallet-details:not([open]) > :not(summary) { display:none; }
 #nim-wallet-details summary { cursor:pointer; color:var(--accent); }
 #nim-wallet-details p { margin:0; flex:none; min-height:0; height:auto; }
 #nim-wallet-details pre { max-width:100%; overflow-wrap:anywhere; white-space:pre-wrap; }

@@ -143,7 +143,7 @@ async function start({audioReject=false,maintenance=false,inviteOnly=false,admin
     }
     if(currentSession.handoff?.payment_id){
       const id=currentSession.handoff.payment_id;
-      if(!['/api/config','/api/session','/api/logout','/api/payments'].includes(path)&&!['art','start','checkout','confirm','resend'].some(action=>path==='/api/payments/'+id+'/'+action))return answer(403,{code:'handoff_scope'});
+      if(!['/api/config','/api/session','/api/logout','/api/payments'].includes(path)&&!['art','start','checkout','confirm','resend','cancel'].some(action=>path==='/api/payments/'+id+'/'+action))return answer(403,{code:'handoff_scope'});
       if(path==='/api/payments'&&options.method)return answer(403,{code:'handoff_scope'});
     }
     if(path.startsWith('/api/admin/'))return answer(200,adminAccess||{open:!inviteOnly,allowed:[],blocked:[],registered:['sender@example.test'],admins:['sender@example.test']});
@@ -1430,7 +1430,7 @@ test('native diagnostic exposes type/code/message as copyable text and logs only
 
 test('native retry waits from server started_at, counts down, and only pays on an explicit click after three minutes',async()=>{
  const app=await failedNative({nativeResults:['error','success'],createdAgo:7200000});
- assert.match(app.$('nim-progress-message').textContent,/Paiement non reçu/);assert.ok(app.$('nim-progress-message').textContent.split('\n').length<=2);
+ assert.match(app.$('nim-progress-message').textContent,/erreur réseau/);assert.ok(app.$('nim-progress-message').textContent.split('\n').length<=2);
  await app.clock.advance(30000);const before=app.calls.length;
  app.$('nim-wallet-retry').click();await settle();
  assert.equal(app.nativeCalls.length,1);assert.match(app.$('nim-wallet-wait').textContent,/2:30/);assert.equal(app.$('nim-wallet-retry').disabled,true);
@@ -1482,12 +1482,12 @@ test('retry handles never-started and expired checkouts, and fails closed when t
 });
 
 test('native failure state, retry, copy and close explanation are translated in all five languages',async()=>{
- const expected={fr:['Paiement non reçu','Réessayer le paiement','Tu peux fermer'],en:['Not yet paid','Retry payment','You can close'],es:['Aún no pagada','Reintentar el pago','Puedes cerrar'],de:['noch nicht bezahlt','Zahlung erneut versuchen','Du kannst schließen'],zh:['尚未付款','重试付款','你可以关闭']};
+ const expected={fr:['erreur réseau','Réessayer le paiement','Tu peux fermer'],en:['network error','Retry payment','You can close'],es:['error de red','Reintentar el pago','Puedes cerrar'],de:['Netzwerkfehler','Zahlung erneut versuchen','Du kannst schließen'],zh:['网络错误','重试付款','你可以关闭']};
  for(const [language,labels]of Object.entries(expected)){
   const app=await failedNative({redeemDraft:{...handoffDraft,language}});
   assert.ok(app.$('nim-progress-message').textContent.includes(labels[0]));assert.equal(app.$('nim-wallet-retry').textContent,labels[1]);
   assert.equal(app.$('nim-wallet-close-note').hidden,true);assert.ok(app.$('nim-wallet-copy').textContent);
-  assert.equal(app.$('nim-wallet-cancel').hidden,true,'limited app sessions cannot cancel');
+  assert.equal(app.$('nim-wallet-cancel').hidden,false,'limited sessions can cancel their own unpaid card');
   app.$('nim-wallet-retry').click();await settle();assert.match(app.$('nim-wallet-wait').textContent,/3:00/);
   assert.ok(app.$('nim-wallet-wait').textContent.length>15);
  }
@@ -2189,4 +2189,83 @@ test('the sent banner turns into "payment received" once the card was claimed, a
  assert.equal(claimed.$('wire-card-notices').hidden,false);assert.match(text,/Payment received by friend@example.test\./);assert.doesNotMatch(text,/Card funded|alid until/);
  const waiting=await start({clocked:true,local:{'wire-usdt-cards':JSON.stringify([card])},serverCards:[card],state:()=>({state:'ready',balanceUnits:2100000})});await waiting.clock.advance(2500);
  assert.match(waiting.$('wire-card-notices').textContent,/Card funded\. Email sent to friend@example\.test\./);
+});
+
+
+test('known low balance is simple, localized and cancellable in the limited payment window',async()=>{
+ const words={fr:'Ton solde est insuffisant pour payer cette carte.',en:'Your balance is too low to pay for this card.',es:'Tu saldo es insuficiente para pagar esta tarjeta.',de:'Dein Guthaben reicht nicht aus, um diese Karte zu bezahlen.',zh:'你的余额不足以支付这张卡片。'};
+ for(const [language,text]of Object.entries(words)){
+  const app=await failedNative({redeemDraft:{...handoffDraft,language},nativeError:{type:'INTERNAL_ERROR',code:-32603,message:'Failed to send payment transaction: Transaction value exceeds balance'},width:375});
+  assert.equal(app.$('nim-progress-message').textContent,text);
+  assert.equal(app.$('nim-wallet-details').open,false);
+  assert.match(read('../internal/web/static/wire-pay.css'),/#nim-wallet-details:not\(\[open\]\) > :not\(summary\) \{ display:none; \}/);
+  assert.equal(app.$('nim-wallet-cancel').hidden,false);
+  assert.equal(app.$('nim-wallet-retry').hidden,false);
+  const before=app.calls.length;
+  app.$('nim-wallet-cancel').click();await settle();
+  const calls=app.calls.slice(before);
+  assert.deepEqual(calls.filter(([p])=>p.endsWith('/cancel')), [['/api/payments/'+ 'a'.repeat(48)+'/cancel',{}]]);
+  assert.equal(calls.filter(([p,b])=>p==='/api/payments'&&b||p.startsWith('/api/sender/')).length,0);
+  assert.equal(app.nativeCalls.length,1);
+  assert.equal(app.$('nim-wallet-failure').hidden,true);
+  assert.equal(app.$('nim-handoff-pay').hidden,true);
+  assert.equal(app.$('nim-progress').hidden,false);
+  assert.ok(app.$('nim-progress-message').textContent.length>0);
+  assert.equal(app.confirmations.length,1);
+  app.$('nim-progress-close').click();await settle();
+  assert.equal(app.doc.querySelector('.wire-nim-window'),null);
+  assert.equal(app.$('wire-entry').hidden,true,'no reauthentication after cancellation');
+  app.$('wire-handoff-open').click();await settle();
+  assert.equal(app.$('nim-progress').hidden,false,'reopening preserves the cancelled outcome');
+  assert.equal(app.$('nim-handoff-pay').hidden,true);
+  assert.equal(app.$('nim-wallet-failure').hidden,true);
+ }
+});
+
+test('limited cancellation resumes normal tracking when funding won the race',async()=>{
+ const app=await failedNative({cancelCode:'already_funded'});
+ const before=app.calls.length;app.$('nim-wallet-cancel').click();await settle();
+ const calls=app.calls.slice(before);
+ assert.ok(calls.some(([p])=>p.endsWith('/cancel')));
+ assert.ok(calls.some(([p])=>p.endsWith('/confirm')));
+ assert.equal(app.$('nim-wallet-failure').hidden,true);
+ assert.equal(app.$('nim-handoff-pay').hidden,true);
+ assert.ok(!/cancelled|annulée/i.test(app.$('nim-progress-message').textContent));
+ assert.equal(app.nativeCalls.length,1);
+ assert.equal(calls.filter(([p,b])=>p==='/api/payments'&&b||p.startsWith('/api/sender/')).length,0);
+});
+
+test('decline, transport failure and pending verification are distinct from a low balance',async()=>{
+ const denied=await failedNative({nativeMode:'denied',redeemDraft:{...handoffDraft,language:'en'}});
+ assert.equal(denied.$('nim-progress-message').textContent,'Payment declined in Nimiq Pay.');
+ const offline=await failedNative({redeemDraft:{...handoffDraft,language:'en'}});
+ assert.equal(offline.$('nim-progress-message').textContent,'A network error interrupted the payment request.');
+ const pending=await failedNative({nativeMode:'success-no-confirm',redeemDraft:{...handoffDraft,language:'en'}});
+ assert.ok(!/balance|declined|INTERNAL_ERROR|-32603/.test(pending.$('nim-progress-message').textContent));
+ assert.equal(pending.$('nim-wallet-failure').hidden,true,'a returned hash is not a wallet rejection');
+ for(const app of [denied,offline])assert.equal(app.$('nim-wallet-details').open,false);
+ const unknown=await failedNative({nativeError:{type:'INTERNAL_ERROR',code:-32603,message:'Unexpected provider failure'},redeemDraft:{...handoffDraft,language:'en'}});
+ assert.ok(!/balance|INTERNAL_ERROR|-32603/.test(unknown.$('nim-progress-message').textContent));
+});
+
+test('creation inside Nimiq Pay cancels the same card without a cross-browser detour',async()=>{
+ const app=await start({nimOnly:true,nativeMode:'error',nativeError:{type:'INTERNAL_ERROR',code:-32603,message:'Transaction value exceeds balance'}});
+ await submitNim(app);
+ assert.equal(app.$('nim-progress-message').textContent,'Your balance is too low to pay for this card.');
+ const before=app.calls.length;app.$('nim-wallet-cancel').click();await settle();
+ assert.equal(app.calls.slice(before).filter(([p])=>p.endsWith('/cancel')).length,1);
+ assert.equal(app.calls.slice(before).filter(([p,b])=>p==='/api/payments'&&b||p.startsWith('/api/sender/')).length,0);
+ assert.equal(app.nativeCalls.length,1);
+ assert.equal(app.$('nim-progress').hidden,true);
+ assert.equal(app.$('wire-cards-list').children.length,0);
+});
+
+
+test('declining cancellation keeps the limited card without POST or navigation',async()=>{
+ const app=await failedNative({cancelConfirm:false});const before=app.calls.length;
+ app.$('nim-wallet-cancel').click();await settle();
+ assert.equal(app.calls.slice(before).filter(([p])=>p.endsWith('/cancel')).length,0);
+ assert.equal(app.$('nim-wallet-cancel').hidden,false);
+ assert.equal(app.$('wire-entry').hidden,true);
+ assert.equal(app.nativeCalls.length,1);
 });
