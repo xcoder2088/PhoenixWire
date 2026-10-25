@@ -485,7 +485,7 @@ function renderProgress(){
  }
  progress.hidden=!show;if(!claimMode)$('preview-submit').hidden=Boolean(show);if(!show)return;
  const text=progressText(p);$('nim-progress-message').textContent=text;
- $('nim-progress-close').textContent=walletFailures.has(p.id)&&p.stage!=='sent'?(progressWords[document.documentElement.lang]||progressWords.en).close:pt('close');$('nim-progress-close').hidden=p.stage!=='cancelled'&&!walletFailures.has(p.id)&&p.stage!=='sent'&&Date.now()<deadline(p);
+ $('nim-progress-close').textContent=walletFailures.has(p.id)&&p.stage!=='sent'?(progressWords[document.documentElement.lang]||progressWords.en).close:pt('close');$('nim-progress-close').hidden=Boolean(scopedPaymentID&&walletFailures.has(p.id)&&!['sent','cancelled'].includes(p.stage))||(p.stage!=='cancelled'&&!walletFailures.has(p.id)&&p.stage!=='sent'&&Date.now()<deadline(p));
  $('nim-progress-resend').textContent=pt('resend');$('nim-progress-resend').hidden=p.stage!=='delivery_failed'||Date.now()>=deadline(p);
  $('nim-progress-resend').disabled=checks.has(p.id)||busy;
  $('preview-submit').hidden=true;

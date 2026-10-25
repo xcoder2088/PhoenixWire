@@ -1422,7 +1422,7 @@ test('native diagnostic exposes type/code/message as copyable text and logs only
  const copies=[];Object.defineProperty(app.window.navigator,'clipboard',{value:{async writeText(text){copies.push(text);}},configurable:true});
  app.$('nim-wallet-copy').click();await settle();assert.deepEqual(copies,[detail]);
  assert.equal(app.$('nim-wallet-failure').hidden,false);assert.equal(app.$('nim-wallet-retry').hidden,false);
- assert.equal(app.$('nim-progress-close').hidden,false);
+ assert.equal(app.$('nim-progress-close').hidden,true);
  assert.equal(app.nativeCalls[0].request.data,'\u0000\u0082\u0080\u0092\u0087');
  for(const store of [app.snapshot(),app.snapshotLocal()])assert.ok(!JSON.stringify(store).includes('INVALID_DATA'));
  const css=read('../internal/web/static/wire-pay.css');assert.match(css,/#nim-wallet-detail\{[^}]*white-space:pre-wrap[^}]*overflow-wrap:anywhere/);
@@ -2314,4 +2314,24 @@ test('a reloaded cancelled limited card also offers Done without reopening it or
  const before=app.calls.length;app.$('wire-handoff-open').click();await app.clock.advance(300);await settle();
  assert.equal(closes,1);assert.equal(app.$('wire-handoff-exit-help').hidden,false);assert.equal(app.calls.length,before);
  app.window.close=originalClose;
+});
+
+
+test('limited failure has retry and cancel, with Back and X replacing the redundant Close in five languages',async()=>{
+ for(const language of ['fr','en','es','de','zh']){
+  for(const selector of ['.wire-window-back','.wire-nim-close']){
+   const app=await failedNative({redeemDraft:{...handoffDraft,language}});
+   assert.equal(app.$('nim-progress-close').hidden,true);
+   assert.equal(app.$('nim-wallet-retry').hidden,false);
+   assert.equal(app.$('nim-wallet-cancel').hidden,false);
+   const back=app.doc.querySelector(selector);assert.ok(back);assert.equal(back.hidden,false);
+   const before=app.calls.length;back.click();await settle();
+   assert.equal(app.doc.querySelector('.wire-nim-window'),null);
+   assert.equal(app.$('wire-handoff-home').hidden,false);
+   assert.equal(app.calls.length,before,'closing only dismisses the payment window');
+  }
+ }
+ const full=await start({nimOnly:true,nativeMode:'error',clocked:true});await submitNim(full);
+ assert.equal(full.$('nim-progress-close').hidden,false,'full sender session retains Close');
+ full.$('nim-progress-close').click();await settle();assert.equal(full.doc.querySelector('.wire-nim-window'),null);
 });
