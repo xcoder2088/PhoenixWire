@@ -262,3 +262,6 @@ footer .wire-powered:focus-visible{outline:2px solid #ff8a18;outline-offset:3px}
 #wire-maintenance,#wire-invite-gate>p,#sender-invite-gate>p{margin:.8rem 0;padding:.8rem 1rem;border-radius:12px;font-weight:650;line-height:1.5}
 #wire-maintenance,#wire-invite-gate>p,#sender-invite-gate>p{position:static;box-sizing:border-box;width:100%;color:var(--text);background:var(--panel2);border:2px solid var(--accent);border-left-width:6px;overflow-wrap:anywhere}
 @media(min-width:600px){.wire-relay-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Keep the host exit instructions readable when scripted closing is refused. */
+#wire-handoff-exit-help{font-size:1rem;line-height:1.6;margin:1rem 0;overflow-wrap:anywhere;}

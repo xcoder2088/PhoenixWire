@@ -15,7 +15,7 @@ const nativeReason=error=>error?.type==='PERMISSION_DENIED'||error?.code===4001|
 const failureText=key=>(nativeFailureWords[document.documentElement.lang]||nativeFailureWords.en)[key];
 
 // The same protected NIM flow mounts either on classic.html or inside the authenticated payment window.
-export function mountNimFlow(root=document,{embedded=false,chooseWallet=null,onClose=null,onStatus=()=>{},initialDraft=null,onDraftUsed=()=>{},initialPayment=null,scopedPaymentID=''}={}){
+export function mountNimFlow(root=document,{embedded=false,chooseWallet=null,onClose=null,onStatus=()=>{},onUnpayable=()=>{},initialDraft=null,onDraftUsed=()=>{},initialPayment=null,scopedPaymentID=''}={}){
 // The bundled official Iqons adapter validates public Nimiq addresses through this hook.
 if(!embedded)window.PhoenixNimiqPayments={addressValid};
 
@@ -310,7 +310,7 @@ async function cancelCard(id){
   else if(scopedPaymentID){displayed=result.payment;active=null;fallback.hidden=true;fallbackCheckout=null;save('wire-pending-payment','');save('wire-pending-wallet','');}
   else if(displayed?.id===id)newCard(id);
   onStatus(result.payment,result.received?ht('arrived'):'');
-  await loadHistory();
+  if(!scopedPaymentID||result.received)await loadHistory();
  }catch(error){
   recoveryStates.set(id,{notice:ht(error.message==='cannot_cancel'?'cannot':'failed')});
   $('nim-progress-message').textContent=ht(error.message==='cannot_cancel'?'cannot':'failed');
@@ -539,7 +539,7 @@ function runMonitor(watch){
  clearTimeout(watch.timer);watch.timer=null;
  watch.running=(async()=>{
   try{await confirm(watch.payment.id);watch.note='';}
-  catch(error){const f=walletFailures.get(watch.payment.id);if(f&&error.message==='funding_pending'&&!f.funded)f.state='unfunded';watch.note=error.status===401?'session':error.message==='funding_pending'?'':error.status===410?'expired':'offline';if(error.status===410)stopMonitor(watch);}
+  catch(error){const f=walletFailures.get(watch.payment.id);if(f&&['funding_pending','funding_not_started'].includes(error.message)&&!f.funded)f.state='unfunded';watch.note=error.status===401?'session':['funding_pending','funding_not_started'].includes(error.message)?'':error.status===410?'expired':!error.status||error.status>=500?'offline':'';if(error.status===410)stopMonitor(watch);}
   finally{watch.running=null;if(!destroyed){renderProgress();schedule(watch);}}
  })();return watch.running;
 }
@@ -556,8 +556,21 @@ function resume(){
  renderProgress();scheduleHistory();
  for(const p of paymentList){if(['funding_started','funded','delivery_pending','delivery_failed'].includes(p.stage))void runMonitor(monitor(p));}
 }
-function visibility(){if(document.hidden){clearTimeout(historyTimer);clearTimeout(walletTimer);clearTimeout(reception.timer);for(const watch of monitors.values()){clearTimeout(watch.timer);watch.timer=null;}}else resume();}
-document.addEventListener('visibilitychange',visibility);window.addEventListener('pageshow',resume);window.addEventListener('online',resume);
+let foregroundRequest=null;
+function foreground(){
+ if(claimMode){resume();return;}
+ if(destroyed||document.hidden||!verified)return;
+ if(foregroundRequest)return foregroundRequest;
+ const id=displayed?.id,wasPayable=displayed&&['preparing','ready','funding_started'].includes(displayed.stage);
+ foregroundRequest=(async()=>{
+  try{await loadHistory();const current=paymentList.find(p=>p.id===id);
+   if(wasPayable&&current&&['cancelled','funded','delivery_pending','delivery_failed','sent'].includes(current.stage))onUnpayable(current);
+  }catch{ /* Keep the current view until a server state can be read. */ }
+  finally{foregroundRequest=null;resume();}
+ })();return foregroundRequest;
+}
+function visibility(){if(document.hidden){clearTimeout(historyTimer);clearTimeout(walletTimer);clearTimeout(reception.timer);for(const watch of monitors.values()){clearTimeout(watch.timer);watch.timer=null;}}else void foreground();}
+document.addEventListener('visibilitychange',visibility);window.addEventListener('pageshow',foreground);window.addEventListener('online',resume);
 $('nim-progress-close').addEventListener('click',()=>{if(onClose)onClose(displayed);else location.assign('/');});
 function resendCard(id){
  if(busy||checks.has(id))return;
@@ -972,7 +985,7 @@ async function boot(){
 }
 const started=boot();
 
-return {ready:started,resume,destroy(){destroyed=true;window.removeEventListener('wire-language',refreshText);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pageshow',resume);window.removeEventListener('online',resume);clearInterval(coolTimer);clearTimeout(reception.timer);clearTimeout(walletTimer);clearTimeout(historyTimer);for(const watch of monitors.values())stopMonitor(watch);for(const controller of controllers)controller.abort();controllers.clear();}};
+return {ready:started,resume,destroy(){destroyed=true;window.removeEventListener('wire-language',refreshText);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('pageshow',foreground);window.removeEventListener('online',resume);clearInterval(coolTimer);clearTimeout(reception.timer);clearTimeout(walletTimer);clearTimeout(historyTimer);for(const watch of monitors.values())stopMonitor(watch);for(const controller of controllers)controller.abort();controllers.clear();}};
 }
 
 if(typeof document!=='undefined'&&document.getElementById('card-form'))mountNimFlow();

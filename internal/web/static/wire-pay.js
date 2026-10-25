@@ -3,7 +3,7 @@ import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,send
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage,renderCardPreview,assetMark } from './model.js?v=0.4.30';
-import { mountNimFlow } from './flow.js?v=0.4.47';
+import { mountNimFlow } from './flow.js?v=0.4.48';
 import { flowText } from './flow-text.js?v=0.4.43';
 
 // CSS can reveal the page without scripts; clear the startup attribute so
@@ -359,6 +359,7 @@ function openNimWindow(payment=null) {
  if(payment){nimView?.dismiss();nimCache?.flow.destroy();nimCache=null;handoffPayment=payment;}
  if ((!email&&!scopedID) || !nimOn) return;
  choosingCoin=false;
+ if(cancelledHandoff()){paintHandoff();return;}
  if(nimView)return;
  closePaymentWindow();
  if(nimCache){
@@ -384,14 +385,14 @@ function openNimWindow(payment=null) {
  document.body.append(modal); nimView = { root: modal, dismiss };
  const prepared=handoffPayment;
  paintNim(modal);flow=mountNimFlow(root,{embedded:true,chooseWallet,initialPayment:prepared,scopedPaymentID:scopedID,onStatus:(p,message)=>{
-  if(scopedID){handoffPayment=p;$('wire-handoff-state').textContent=message;paintHandoff();return;}
+  if(scopedID){handoffPayment=p;$('wire-handoff-state').textContent=message;paintHandoff();if(p.stage==='cancelled'){dismiss();flow?.destroy();nimCache=null;}return;}
   nimCards.set(p.id,p);
   if(p.stage==='sent'){
    const notices=nimNotices();
    if(!notices.some(n=>n.id===p.id&&n.sender===email)){notices.push({id:p.id,sender:email,noticePending:true});save('wire-nim-notices',JSON.stringify(notices));playSentSound(p.created);}
   }
   renderCards();scheduleNimCards();
- },onClose:()=>{dismiss();if(!scopedID)renderCards();}});
+ },onUnpayable:()=>{closeWalletChoice();dismiss();handoffPayment=null;},onClose:()=>{dismiss();if(!scopedID)renderCards();}});
  nimCache={modal,flow,escape,view:nimView};
  back.focus();
 }

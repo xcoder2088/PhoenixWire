@@ -64,7 +64,7 @@ function fakeClock(window){
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
 const handoffToken='Q'.repeat(43);
 const handoffDraft={recipient:'friend@example.test',amount:'2.5',message:'Bonjour 🐦',language:'fr'};
-async function start({audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
+async function start({confirmCode='',confirmStatus=409,audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
   const dom = new JSDOM(read(classic?'../internal/web/static/classic.html':'../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
@@ -168,6 +168,7 @@ async function start({audioReject=false,maintenance=false,inviteOnly=false,admin
       return answer(200,{payment:nim,checkout:{appName:'Phoenix Wire',recipient:nim.address,value:nim.luna,recipientData:rawMarker}});
     }
     if (path.endsWith('/confirm')) {
+      if(confirmCode)return answer(confirmStatus,{code:confirmCode});
       activeConfirms++;maxConfirms=Math.max(maxConfirms,activeConfirms);
       try{
       if(nim.stage==='ready')return answer(409,{code:'funding_not_started'});
@@ -695,7 +696,7 @@ test('iPhone suspended timers resume immediately on visibilitychange and pagesho
   t.clock.suspend(5*60000);t.window.dispatchEvent(new t.window.Event('pageshow'));await settle();
   assert.equal(checks(t),before+2);
   t.setStage('sent');t.window.dispatchEvent(new t.window.Event('pageshow'));await settle();
-  assert.equal(t.$('nim-progress-close').hidden,false);
+  assert.equal(t.doc.querySelector('.wire-nim-window'),null);
   assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);assert.equal(t.maxConfirms(),1);
 });
 
@@ -738,7 +739,7 @@ test('a temporary read failure recovers automatically, while a card stops tracki
   const exp=await tracked({createdAgo:86400000-20000});await exp.clock.advance(20000);
   assert.match(exp.$('nim-progress-message').textContent,/expired|24-hour expiry/);const count=exp.calls.length;
   exp.window.dispatchEvent(new exp.window.Event('pageshow'));await exp.clock.advance(10*60000);
-  assert.equal(exp.calls.length,count+1,'foreground checks for a server refund after expiry');assert.equal(exp.checkouts.length,0);
+  assert.ok(exp.calls.length>count,'foreground checks for a server refund after expiry');assert.equal(exp.nativeCalls.length,0);assert.equal(exp.checkouts.length,0);
 });
 
 test('logout stops the cached NIM tracker',async()=>{
@@ -2207,12 +2208,9 @@ test('known low balance is simple, localized and cancellable in the limited paym
   assert.deepEqual(calls.filter(([p])=>p.endsWith('/cancel')), [['/api/payments/'+ 'a'.repeat(48)+'/cancel',{}]]);
   assert.equal(calls.filter(([p,b])=>p==='/api/payments'&&b||p.startsWith('/api/sender/')).length,0);
   assert.equal(app.nativeCalls.length,1);
-  assert.equal(app.$('nim-wallet-failure').hidden,true);
-  assert.equal(app.$('nim-handoff-pay').hidden,true);
-  assert.equal(app.$('nim-progress').hidden,false);
-  assert.ok(app.$('nim-progress-message').textContent.length>0);
+  assert.equal(app.doc.querySelector('.wire-nim-window'),null);
+  assert.equal(app.$('wire-handoff-state').textContent,({fr:'Carte annulée.',en:'Card cancelled.',es:'Tarjeta cancelada.',de:'Karte storniert.',zh:'卡片已取消。'})[language]);
   assert.equal(app.confirmations.length,1);
-  app.$('nim-progress-close').click();await settle();
   assert.equal(app.doc.querySelector('.wire-nim-window'),null);
   assert.equal(app.$('wire-entry').hidden,true,'no reauthentication after cancellation');
   assert.equal(app.$('wire-handoff-open').textContent,({fr:'Terminé',en:'Done',es:'Listo',de:'Fertig',zh:'完成'})[language]);
@@ -2274,7 +2272,7 @@ test('cancelled limited cards replace View with Done and keep translated exit he
  const hints={fr:'Tu peux revenir à ton navigateur',en:'You can return to your browser',es:'Puedes volver a tu navegador',de:'zu deinem Browser zurückkehren',zh:'返回浏览器'};
  for(const [language,label]of Object.entries(labels)){
   const app=await failedNative({redeemDraft:{...handoffDraft,language}});
-  app.$('nim-wallet-cancel').click();await settle();app.$('nim-progress-close').click();await settle();
+  app.$('nim-wallet-cancel').click();await settle();
   const button=app.$('wire-handoff-open'),help=app.$('wire-handoff-exit-help');
   assert.equal(button.hidden,false);assert.equal(button.textContent,label);
   assert.equal(app.$('wire-handoff-help').hidden,true);
@@ -2308,7 +2306,7 @@ test('limited cards that are not cancelled keep View the card and do not attempt
 
 test('a reloaded cancelled limited card also offers Done without reopening it or making requests',async()=>{
  const app=await start({session:{verified:false,email:'',handoff:{payment_id:'a'.repeat(48)}},nimStage:'cancelled',clocked:true,nativeMode:'error'});
- app.$('nim-progress-close').click();await settle();
+ assert.equal(app.doc.querySelector('.wire-nim-window'),null);
  assert.equal(app.$('wire-handoff-open').textContent,'Done');
  const originalClose=app.window.close;let closes=0;app.window.close=()=>{closes++;throw Error('not permitted');};
  const before=app.calls.length;app.$('wire-handoff-open').click();await app.clock.advance(300);await settle();
@@ -2334,4 +2332,46 @@ test('limited failure has retry and cancel, with Back and X replacing the redund
  const full=await start({nimOnly:true,nativeMode:'error',clocked:true});await submitNim(full);
  assert.equal(full.$('nim-progress-close').hidden,false,'full sender session retains Close');
  full.$('nim-progress-close').click();await settle();assert.equal(full.doc.querySelector('.wire-nim-window'),null);
+});
+
+
+test('limited cancellation has one terminal screen and cannot reopen its payment window in all languages',async()=>{
+ for(const language of ['fr','en','es','de','zh']){
+  const app=await failedNative({redeemDraft:{...handoffDraft,language}});
+  app.$('nim-wallet-cancel').click();await settle();
+  assert.equal(app.doc.querySelector('.wire-nim-window'),null);
+  assert.equal(app.doc.querySelector('#nim-progress'),null);
+  assert.equal(app.$('wire-handoff-exit-help').hidden,false);
+  const text=app.$('wire-handoff-state').textContent;
+  assert.equal(app.doc.body.textContent.split(text).length-1,1);
+  app.window.dispatchEvent(new app.window.Event('pageshow'));await settle();
+  assert.equal(app.doc.querySelector('.wire-nim-window'),null);
+ }
+});
+
+test('foreground refresh closes stale wallet choice and payment view and updates sender history',async()=>{
+ for(const event of ['visibilitychange','pageshow'])for(const stage of ['cancelled','funded','sent']){
+  const app=await start({nimOnly:true,clocked:true});await submitNim(app);
+  assert.equal(app.$('wire-nim-choice').hidden,false);
+  app.$('wire-choice-open').click();await settle();
+  app.setStage(stage);const before=app.calls.length;
+  if(event==='visibilitychange'){app.clock.hidden(true);app.clock.hidden(false);}else app.window.dispatchEvent(new app.window.Event('pageshow'));
+  await settle();
+  assert.ok(app.calls.slice(before).some(([p,b])=>p==='/api/payments'&&!b));
+  assert.equal(app.$('wire-nim-choice').hidden,true);
+  assert.equal(app.doc.querySelector('.wire-nim-window'),null);
+  if(stage==='cancelled')assert.equal(app.$('wire-cards-list').children.length,0);
+ }
+});
+
+
+test('funding_not_started is quiet while genuine server failures still show verification unavailable',async()=>{
+ for(const language of ['fr','en','es','de','zh']){
+  const app=await start({redeemDraft:{...handoffDraft,language},redeemStage:'funding_started',nativeMode:'error',clocked:true,url:'https://wire.phoenixmail.ca/#h='+handoffToken,confirmCode:'funding_not_started'});
+  await app.clock.advance(4000);await settle();
+  assert.ok(!/Unable to check|Impossible de vérifier|No se puede comprobar|nicht geprüft|无法/.test(app.$('nim-progress-message').textContent));
+ }
+ const app=await start({nimStage:'funding_started',nimOnly:true,nativeMode:'error',clocked:true,confirmCode:'chain_unavailable',confirmStatus:503});
+ app.$('pay').click();await settle();await app.clock.advance(4000);await settle();
+ assert.match(app.$('nim-progress-message').textContent,/The service is not responding/);
 });
