@@ -29,6 +29,8 @@ const walletChoiceWords={
 
 const handoffWords={
   "fr": {
+    "miniAppOpen": "Ouvrir dans Nimiq Pay (recommandé)",
+    "miniAppHelp": "Plus simple sur téléphone : tout se passe dans l’application.",
     "handoffDone": "Terminé",
     "handoffCancelled": "Carte annulée.",
     "handoffExitHelp": "Tu peux revenir à ton navigateur avec la flèche ‹ en haut à gauche de l’iPhone, ou fermer cette fenêtre avec ✕.",
@@ -47,6 +49,8 @@ const handoffWords={
     "handoffUnavailable": "Impossible de reprendre cette carte. Rouvrez le lien depuis Safari."
   },
   "en": {
+    "miniAppOpen": "Open in Nimiq Pay (recommended)",
+    "miniAppHelp": "Easier on your phone: everything happens in the app.",
     "handoffDone": "Done",
     "handoffCancelled": "Card cancelled.",
     "handoffExitHelp": "You can return to your browser using the ‹ arrow at the top left of the iPhone, or close this window with ✕.",
@@ -65,6 +69,8 @@ const handoffWords={
     "handoffUnavailable": "Unable to resume this card. Reopen the link from Safari."
   },
   "es": {
+    "miniAppOpen": "Abrir en Nimiq Pay (recomendado)",
+    "miniAppHelp": "Más fácil en el teléfono: todo se hace en la aplicación.",
     "handoffDone": "Listo",
     "handoffCancelled": "Tarjeta cancelada.",
     "handoffExitHelp": "Puedes volver a tu navegador con la flecha ‹ de la esquina superior izquierda del iPhone, o cerrar esta ventana con ✕.",
@@ -83,6 +89,8 @@ const handoffWords={
     "handoffUnavailable": "No se pudo retomar esta tarjeta. Vuelve a abrir el enlace desde Safari."
   },
   "de": {
+    "miniAppOpen": "In Nimiq Pay öffnen (empfohlen)",
+    "miniAppHelp": "Einfacher auf dem Smartphone: Alles findet in der App statt.",
     "handoffDone": "Fertig",
     "handoffCancelled": "Karte storniert.",
     "handoffExitHelp": "Du kannst mit dem Pfeil ‹ oben links auf dem iPhone zu deinem Browser zurückkehren oder dieses Fenster mit ✕ schließen.",
@@ -101,6 +109,8 @@ const handoffWords={
     "handoffUnavailable": "Diese Karte konnte nicht fortgesetzt werden. Öffne den Link erneut in Safari."
   },
   "zh": {
+    "miniAppOpen": "在 Nimiq Pay 中打开（推荐）",
+    "miniAppHelp": "在手机上更简单：一切都在应用内完成。",
     "handoffDone": "完成",
     "handoffCancelled": "卡片已取消。",
     "handoffExitHelp": "你可以点击 iPhone 左上角的 ‹ 箭头返回浏览器，或点击 ✕ 关闭此窗口。",
@@ -173,7 +183,7 @@ let onMaintenance=()=>{maintenance=true;paintSenderAccess();};
 window.addEventListener('wire-maintenance',()=>onMaintenance());
 function paintMaintenance(){maintenanceBanner.textContent=flowText(lang,'maintenance');maintenanceBanner.hidden=!maintenance||adminActive;}
 accessLink.addEventListener('click',()=>{accessExpanded=true;paintSenderAccess();$('wire-email').focus();});
-function paintSenderAccess(){paintMaintenance();inviteGate.hidden=Boolean(email)||!enabled||!inviteOnly||maintenance;inviteNotice.textContent=flowText(lang,'inviteOnly');accessLink.textContent=adminText(lang,'already');accessLink.hidden=accessExpanded;accessLink.setAttribute('aria-expanded',String(accessExpanded));$('wire-sender').hidden=Boolean(email)||!enabled||inviteOnly&&!accessExpanded&&!maintenance;}
+function paintSenderAccess(){paintMiniAppSuggestion();paintMaintenance();inviteGate.hidden=Boolean(email)||!enabled||!inviteOnly||maintenance;inviteNotice.textContent=flowText(lang,'inviteOnly');accessLink.textContent=adminText(lang,'already');accessLink.hidden=accessExpanded;accessLink.setAttribute('aria-expanded',String(accessExpanded));$('wire-sender').hidden=Boolean(email)||!enabled||inviteOnly&&!accessExpanded&&!maintenance;}
 function configureAdmin(allowed){adminPanel?.destroy();adminPanel=mountAdmin({root:document.querySelector('.wire-shell'),language:()=>lang,request:api,authorized:allowed===true&&Boolean(email),onAccess:(open,view)=>{inviteOnly=!open;if(view)maintenance=view.maintenance===true;paintSenderAccess();}});adminActive=allowed===true&&Boolean(email);paintMaintenance();}
 
 let choosingCoin=false,codeSending=false,codeSentTo='',codeUntil=0,codeTimer=null,senderInviteOnly=false;
@@ -213,6 +223,14 @@ window.PhoenixViewport={center(win){
  win.style.maxHeight=Math.max(100,h-16)+'px';
 }};
 
+// The flow's phone detector is private to its mounted view; use the same device rule here.
+function mobile(){return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
+function paintMiniAppSuggestion(){
+ const box=$('wire-miniapp-suggestion');
+ box.hidden=!(mobile()&&typeof window.nimiqPay==='undefined'&&!new URLSearchParams(location.search).has('claim')&&!scopedID&&!email&&nimOn);
+ const link=$('wire-miniapp-open');link.href='https://nimpay.app/miniapps/open/'+location.host;
+ link.textContent=t('miniAppOpen');$('wire-miniapp-help').textContent=t('miniAppHelp');
+}
 const cancelledHandoff=()=>Boolean(scopedID&&handoffPayment?.id===scopedID&&handoffPayment.stage==='cancelled');
 function paintHandoff(){
  const cancelled=cancelledHandoff(),button=$('wire-handoff-open');
@@ -224,6 +242,7 @@ function paintHandoff(){
  if(cancelled)$('wire-handoff-state').textContent=t('handoffCancelled');
 }
 function paint() {
+ paintMiniAppSuggestion();
  document.documentElement.lang = lang;
  $('wire-handoff-title').textContent=t('nimCard');$('wire-handoff-help').textContent=t('handoffLimited');
  paintHandoff();
@@ -881,7 +900,7 @@ setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
    if (usdtOn) await loadCashlink();
    showSender(Boolean(session.verified), session.email,session.admin);refreshGas();
   }
-  $('pay').disabled=fundingBlocked;paintHandoff();
+  $('pay').disabled=fundingBlocked;paintHandoff();paintMiniAppSuggestion();
   if(handoffError){say(t(handoffError));if(scopedID)$('wire-handoff-state').textContent=t(handoffError);}
  } catch { say(t('off'));if(scopedID){$('wire-entry').hidden=false;$('wire-sender').hidden=false;} }
 })();

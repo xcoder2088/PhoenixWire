@@ -64,7 +64,7 @@ function fakeClock(window){
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
 const handoffToken='Q'.repeat(43);
 const handoffDraft={recipient:'friend@example.test',amount:'2.5',message:'Bonjour 🐦',language:'fr'};
-async function start({confirmCode='',confirmStatus=409,audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
+async function start({nimEnabled=true,confirmCode='',confirmStatus=409,audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
   const dom = new JSDOM(read(classic?'../internal/web/static/classic.html':'../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
@@ -147,7 +147,7 @@ async function start({confirmCode='',confirmStatus=409,audioReject=false,mainten
       if(path==='/api/payments'&&options.method)return answer(403,{code:'handoff_scope'});
     }
     if(path.startsWith('/api/admin/'))return answer(200,adminAccess||{open:!inviteOnly,allowed:[],blocked:[],registered:['sender@example.test'],admins:['sender@example.test']});
-    if (path === '/api/config') return answer(200, { mode: 'integrated', payments_enabled: true, invite_only:inviteOnly, maintenance, assets: nimOnly ? ['NIM'] : ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM'] });
+    if (path === '/api/config') return answer(200, { mode: 'integrated', payments_enabled: true, invite_only:inviteOnly, maintenance, assets: (nimOnly ? ['NIM'] : ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM']).filter(a=>a!=='NIM'||nimEnabled) });
     if (path === '/api/session') return answer(200, currentSession);
     if(path==='/api/usdt/cards')return ownedUnavailable?answer(503,{code:'unavailable'}):answer(200,{cards:owned});
     if (path === '/api/payments' && !options.method) return readsFail?answer(503,{code:'chain_unavailable'}):answer(200, { payments: nimPayments });
@@ -2374,4 +2374,33 @@ test('funding_not_started is quiet while genuine server failures still show veri
  const app=await start({nimStage:'funding_started',nimOnly:true,nativeMode:'error',clocked:true,confirmCode:'chain_unavailable',confirmStatus:503});
  app.$('pay').click();await settle();await app.clock.advance(4000);await settle();
  assert.match(app.$('nim-progress-message').textContent,/The service is not responding/);
+});
+
+
+test('mobile sender suggestion uses only the current host and leaves web email/code sign-in usable in five languages',async()=>{
+ const labels={fr:'Ouvrir dans Nimiq Pay (recommandé)',en:'Open in Nimiq Pay (recommended)',es:'Abrir en Nimiq Pay (recomendado)',de:'In Nimiq Pay öffnen (empfohlen)',zh:'在 Nimiq Pay 中打开（推荐）'};
+ for(const [language,label]of Object.entries(labels)){
+  const app=await start({mobile:true,session:{verified:false},url:'https://preview.example.test:8443/?lang='+language+'#unrelated'});
+  app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));await settle();
+  assert.equal(app.$('wire-miniapp-suggestion').hidden,false);
+  const link=app.$('wire-miniapp-open');assert.equal(link.tagName,'A');assert.equal(link.textContent,label);
+  assert.equal(link.href,'https://nimpay.app/miniapps/open/preview.example.test:8443');
+  assert.ok(app.$('wire-miniapp-help').textContent.length>10);
+  assert.equal(app.$('wire-sender').hidden,false);assert.equal(app.$('wire-email').disabled,false);
+  app.$('wire-email').value='sender@example.test';app.$('wire-send-code').click();await settle();
+  assert.equal(app.$('wire-code-box').hidden,false);
+  assert.equal(app.opened.length,0,'the suggestion never opens another context automatically');
+  app.$('wire-code').value='123456';app.$('wire-verify').click();await settle();
+  assert.equal(app.$('wire-ready').hidden,false);assert.equal(app.$('wire-miniapp-suggestion').hidden,true);
+ }
+});
+
+test('mobile recommendation stays hidden outside eligible unsigned sender pages',async()=>{
+ const variants=[{}, {mobile:true,nativeMode:'missing'}, {mobile:true,url:'https://wire.example.test/?claim=card'}, {mobile:true,session:{verified:true,email:'sender@example.test'}}, {mobile:true,nimEnabled:false}, {mobile:true,session:{verified:false,email:'',handoff:{payment_id:'a'.repeat(48)}},nimStage:'ready'}];
+ for(const options of variants){
+  const app=await start({session:{verified:false},...options});assert.equal(app.$('wire-miniapp-suggestion').hidden,true);
+ }
+ const android=await start({android:true,session:{verified:false}});assert.equal(android.$('wire-miniapp-suggestion').hidden,false);
+ for(const page of ['classic.html','terms.html','privacy.html'])assert.ok(!read('../internal/web/static/'+page).includes('wire-miniapp-suggestion'));
+ const css=read('../internal/web/static/wire-pay.css');assert.match(css,/\.wire-miniapp-link\{[^}]*min-height:44px[^}]*var\(--accent\)/);
 });

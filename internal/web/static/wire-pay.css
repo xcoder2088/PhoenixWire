@@ -265,3 +265,9 @@ footer .wire-powered:focus-visible{outline:2px solid #ff8a18;outline-offset:3px}
 
 /* Keep the host exit instructions readable when scripted closing is refused. */
 #wire-handoff-exit-help{font-size:1rem;line-height:1.6;margin:1rem 0;overflow-wrap:anywhere;}
+
+/* Optional mobile entry: web sign-in remains available below. */
+.wire-miniapp-link{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;min-height:44px;padding:12px 14px;border:1px solid var(--accent);border-radius:10px;background:var(--panel);color:var(--text);font:inherit;line-height:1.5;text-align:center;text-decoration:none;overflow-wrap:anywhere;}
+.wire-miniapp-link:hover{background:var(--panel2);}
+.wire-miniapp-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+#wire-miniapp-help{font-size:1rem;line-height:1.5;color:var(--text);margin:.6rem 0 1rem;}
