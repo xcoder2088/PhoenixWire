@@ -2181,3 +2181,12 @@ test('stablecoin sent audio is limited to a newly sent recent card already known
  const app=await start({clocked:true,serverCards:[{id:'e'.repeat(32),asset:'usdc_polygon',amount:'2',created:'2026-10-23T14:00:00Z',invited:true}]});
  assert.equal(app.soundPlays.length,0,'a card discovered on another browser is not a new send');
 });
+
+test('the sent banner turns into "payment received" once the card was claimed, and is not asked to stay on "valid until"',async()=>{
+ const id='f'.repeat(32),card={id,asset:'usdc_polygon',amount:'2',sender:'sender@example.test',recipient:'friend@example.test',invited:true,noticePending:true};
+ const claimed=await start({clocked:true,local:{'wire-usdt-cards':JSON.stringify([{...card,state:'paid'}])},serverCards:[{...card,state:'paid'}],state:()=>({state:'paid',balanceUnits:0})});await claimed.clock.advance(7000);
+ const text=claimed.$('wire-card-notices').textContent;
+ assert.equal(claimed.$('wire-card-notices').hidden,false);assert.match(text,/Payment received by friend@example.test\./);assert.doesNotMatch(text,/Card funded|alid until/);
+ const waiting=await start({clocked:true,local:{'wire-usdt-cards':JSON.stringify([card])},serverCards:[card],state:()=>({state:'ready',balanceUnits:2100000})});await waiting.clock.advance(2500);
+ assert.match(waiting.$('wire-card-notices').textContent,/Card funded\. Email sent to friend@example\.test\./);
+});
