@@ -56,7 +56,7 @@ clicks) is switched off in every message [`internal/wire/mail.go`].
 - **Availability and risk:** the software is provided as it is, with no warranty (MIT). It moves real money; it has had a code review, not a security
   certification ([AUDIT-2026-10-24.md](AUDIT-2026-10-24.md)). Prices and gas come from third-party data.
 - **Fees:** USDC/USDT: the gas of the card at the moment it is created (with a margin) plus 6 % of the amount; NIM: none beyond the network. The sender sees one
-  amount to pay.
+  amount to pay. The margin helps absorb changes in network costs. A refund retains the full relay fee, including that margin and the 6 % service fee.
 - **Access:** sending is by invitation unless an administrator opens it; opening or closing it never changes a card already sent.
 
 ## What stays, whatever the retention
@@ -68,6 +68,6 @@ clicks) is switched off in every message [`internal/wire/mail.go`].
 
 ## Gaps to decide before promising anything in the pages
 
-1. **Contact for requests.** The pages need a real address to write to (the owner chooses it).
+1. **Contact for requests.** The owner has selected the public contact address `phoenixmails@proton.me`.
 2. **Who is the operator / which law.** The pages must name the operator and the governing law; that is the owner's decision.
 3. **Minors, and prohibited uses.** Decide whether to state an age limit and what may not be sent.

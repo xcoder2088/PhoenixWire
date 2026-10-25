@@ -14,7 +14,7 @@ function inspectOwner(doc, name, lang) {
  const shown=Object.fromEntries(fields.map(p=>[p.dataset.ownerField,p.lastElementChild.textContent]));
  assert.equal(shown.operator,'Xcoder');
  const contact=doc.querySelector('#owner-contact a');
- assert.equal(contact.textContent,'phoenixmail@proton.me');assert.equal(contact.getAttribute('href'),'mailto:phoenixmail@proton.me');
+ assert.equal(contact.textContent,'phoenixmails@proton.me');assert.equal(contact.getAttribute('href'),'mailto:phoenixmails@proton.me');
  if(name==='terms'){
   assert.equal(shown['minimum-age'],legalCopy[lang].values[3]);assert.match(shown['minimum-age'],/18/);
   assert.match(shown.law,/Qu[ée]bec|魁北克/);
@@ -96,7 +96,7 @@ test('sender and recipient footers link both pages; card notes have legal links 
   const dom=new JSDOM(read(path));const doc=dom.window.document;
   try{
    for(const name of publicPages)assert.ok(doc.querySelector('footer a[href="/'+name+'.html"]'),path+' footer '+name);
-   assert.ok(doc.querySelector('script[src="/legal.js?v=0.4.34"]'));
+   assert.ok(doc.querySelector('script[src="/legal.js?v=0.4.40"]'));
    assert.ok(doc.querySelector('link[href="/legal.css?v=0.4.34"]'));
    for(const lang of langs){
     paintLegalLinks(doc,lang);
@@ -128,4 +128,22 @@ test('legal links follow later language changes on existing payment pages',async
   assert.equal(card.querySelector('a').textContent,'Datenschutz');
   assert.equal(card.querySelector('a').getAttribute('href'),'/privacy.html?lang=de');
  }finally{dom.window.close();}
+});
+test('fee clarification keeps 6 percent, explains the network margin and names the actual estimate sources in five languages',()=>{
+ const marginWords={en:/margin/,fr:/marge/,es:/margen/,de:/Aufschlag/,zh:/余量/};
+ for(const lang of langs){
+  const dom=page('terms');try{
+   renderLegal(dom.window.document,'terms',lang);
+   const paragraphs=[...dom.window.document.querySelectorAll('#fees p')].map(p=>p.textContent);
+   assert.match(paragraphs[1],/6\s*%/);assert.match(paragraphs[1],marginWords[lang]);
+   assert.match(paragraphs[0],marginWords[lang]);assert.match(paragraphs[2],/Chainlink/);assert.match(paragraphs[2],/CoinGecko/);
+   assert.equal(legalCopy[lang].values[1],'phoenixmails@proton.me');
+  }finally{dom.window.close();}
+ }
+ const fallback=page('terms');try{
+  const paragraphs=[...fallback.window.document.querySelectorAll('#fees p')].map(p=>p.textContent);
+  assert.deepEqual(paragraphs,legalCopy.en.fees.slice(1));
+ }finally{fallback.window.close();}
+ for(const lang of langs){assert.match(legalCopy[lang].others[1].find(row=>row[0].includes('CoinGecko'))[0],/Chainlink/);}
+ assert.match(read('docs/LEGAL-FACTS.md'),/phoenixmails@proton\.me/);
 });

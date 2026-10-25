@@ -254,9 +254,10 @@ footer .wire-powered:focus-visible{outline:2px solid #ff8a18;outline-offset:3px}
 .wire-admin-relay-result{padding:10px;border:1px solid var(--accent);border-radius:8px}
 .wire-admin-relay-result a{color:var(--accent);overflow-wrap:anywhere}
 .wire-admin-earned h5{font-size:1rem;margin:14px 0 8px;overflow-wrap:anywhere}
-.wire-admin-maintenance-control{display:flex!important;align-items:center;gap:12px;min-height:48px;padding:10px 12px;margin-top:16px!important;border:1px solid var(--accent);border-radius:10px;background:var(--panel2);overflow-wrap:anywhere}
-.wire-admin-maintenance-control input[role=switch]{flex:0 0 40px;width:40px!important;min-height:40px;accent-color:var(--accent);margin:0}
-#wire-admin-maintenance-state{line-height:1.6;overflow-wrap:anywhere}
-.wire-admin-maintenance-control:focus-within{outline:2px solid var(--accent);outline-offset:3px}
-#wire-maintenance{position:static;box-sizing:border-box;width:100%;color:var(--text);background:var(--panel2);border:2px solid var(--accent);border-left-width:6px;overflow-wrap:anywhere}
+.wire-admin-maintenance-control,.wire-admin-switch{display:flex!important;align-items:center;gap:12px;min-height:48px;padding:10px 12px;margin-top:16px!important;border:1px solid var(--accent);border-radius:10px;background:var(--panel2);overflow-wrap:anywhere}
+.wire-admin-maintenance-control input[role=switch],.wire-admin-switch input[role=switch]{flex:0 0 40px;width:40px!important;min-height:40px;accent-color:var(--accent);margin:0}
+#wire-admin-maintenance-state,#wire-admin-access-state{line-height:1.6;overflow-wrap:anywhere}
+.wire-admin-maintenance-control:focus-within,.wire-admin-switch:focus-within{outline:2px solid var(--accent);outline-offset:3px}
+#wire-maintenance,#wire-invite-gate>p,#sender-invite-gate>p{margin:.8rem 0;padding:.8rem 1rem;border-radius:12px;font-weight:650;line-height:1.5}
+#wire-maintenance,#wire-invite-gate>p,#sender-invite-gate>p{position:static;box-sizing:border-box;width:100%;color:var(--text);background:var(--panel2);border:2px solid var(--accent);border-left-width:6px;overflow-wrap:anywhere}
 @media(min-width:600px){.wire-relay-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}

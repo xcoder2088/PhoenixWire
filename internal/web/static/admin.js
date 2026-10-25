@@ -276,7 +276,7 @@ export function mountAdmin({root=document.body,language=()=>document.documentEle
    const locked=view.locked_open===true;
    const label=node('label',t('invitationOnly')),toggle=node('input');toggle.type='checkbox';toggle.id='wire-admin-open';toggle.setAttribute('role','switch');toggle.checked=view.open===false;toggle.setAttribute('aria-checked',String(toggle.checked));toggle.disabled=busy||locked;
    toggle.addEventListener('change',()=>{if(busy||view.locked_open===true){render();return;}const open=!toggle.checked;if(open&&!window.confirm(t('confirmOpen'))){render();return;}void action('/api/admin/access',{open});});
-   label.prepend(toggle);
+   label.className='wire-admin-switch';label.htmlFor=toggle.id;label.prepend(toggle);
    const accessState=node('p',t(view.open?'open':'closed'));accessState.id='wire-admin-access-state';accessState.setAttribute('role','status');toggle.setAttribute('aria-describedby',accessState.id);panel.append(label,accessState);
    if(locked){const explanation=node('p',t('lockedOpen'));explanation.id='wire-admin-locked-open';explanation.setAttribute('role','status');panel.append(explanation);toggle.setAttribute('aria-describedby',accessState.id+' '+explanation.id);}
    const maintenanceLabel=node('label',t('maintenance')),maintenanceToggle=node('input');maintenanceToggle.type='checkbox';maintenanceToggle.id='wire-admin-maintenance';maintenanceToggle.setAttribute('role','switch');maintenanceToggle.checked=view.maintenance===true;maintenanceToggle.setAttribute('aria-checked',String(maintenanceToggle.checked));maintenanceToggle.disabled=busy;

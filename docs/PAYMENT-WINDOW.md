@@ -1,5 +1,27 @@
 # The payment window is PhoenixMail's
 
+## Legal-copy clarification and public contact (cache 0.4.40)
+
+The owner-confirmed public contact is `phoenixmails@proton.me`, with the same
+address in the visible label and mailto target, in terms and privacy for all five
+languages and in the static English fallbacks. Privacy now directs requests to
+that contact instead of saying the address is still missing. No response deadline
+is added. The operator, law, minimum age and prohibited-use decisions are retained.
+
+The fee explanation clarifies that the existing network-cost margin helps absorb
+network-cost changes. Refunds retain the complete relay fee: estimated network
+cost with its margin, plus the existing 6% service fee. The text names network
+nodes for network costs, Chainlink for prices and CoinGecko as the fallback. No
+amount, payment, refund or provider-selection logic is changed. LEGAL-FACTS.md
+records the owner's contact and margin clarification.
+
+All references to the changed legal.js module use 0.4.40. No new static file,
+Go change, mirrored-file change, push or deployment is included.
+
+Validation executed: `npm ci --ignore-scripts`, then
+`node --test --test-timeout=90000 tests/*.test.mjs engine/secureclaim/web/tests/*.cjs`.
+282 tests executed and passed, none failed or skipped.
+
 ## Relay and maintenance presentation review (cache 0.4.39)
 
 The server implementation from 8555bb2 is retained. The relay section still
@@ -37,7 +59,7 @@ discovered on another browser. The existing recording, volume and server wait
 countdown are retained. Changed module/style references use 0.4.39; the unchanged
 audio and translation assets keep their own versions. These are automated DOM
 and CSS contract checks, not a physical iPhone/Safari or real-payment validation.
-The pending legal-copy edits remain separate and are not included in this change.
+The legal-copy edits were kept separate and were not included in this review.
 
 Validation executed: `npm ci --ignore-scripts`, then
 `node --test --test-timeout=90000 tests/*.test.mjs engine/secureclaim/web/tests/*.cjs`.
@@ -87,7 +109,7 @@ panel tests.
 
 ## Public terms and privacy: owner details filled in (cache 0.4.34)
 
-The five owner fields are no longer placeholders: operator `operator` = Xcoder, `contact` = phoenixmail@proton.me, `law` = Québec (Canada) and the
+The five owner fields are no longer placeholders: operator `operator` = Xcoder, `contact` = phoenixmails@proton.me, `law` = Québec (Canada) and the
 federal laws of Canada that apply there, `minimum-age` = 18 years, `prohibited-uses` = any illegal use (fraud, money laundering, payments for goods or
 services that are themselves illegal; paying for lawful goods or services agreed between users is allowed). The values live in `legal.js`
 (`copy.values`, five languages); the static English fallbacks carry the same. The "last updated" line is `copy.notice`. Change a value in both places.

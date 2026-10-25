@@ -20,7 +20,7 @@ export const legalCopy = {
       "Minimum age",
       "Prohibited uses"
     ],
-    "values": ["Xcoder", "phoenixmail@proton.me", "The laws of Québec, Canada, and the federal laws of Canada that apply there.", "18 years", "Any illegal use: fraud, money laundering, or payments for goods or services that are themselves illegal. Paying for lawful goods or services agreed between the users is allowed."],
+    "values": ["Xcoder", "phoenixmails@proton.me", "The laws of Québec, Canada, and the federal laws of Canada that apply there.", "18 years", "Any illegal use: fraud, money laundering, or payments for goods or services that are themselves illegal. Paying for lawful goods or services agreed between the users is allowed."],
     "notice": "Last updated: 24 October 2026.",
     "identity": "Phoenix Wire is operated by the person named below. Questions and requests, including deletion requests, go to the contact address below.",
     "lifetime": [
@@ -31,9 +31,9 @@ export const legalCopy = {
     ],
     "fees": [
       "Fees and refunds",
-      "NIM has no Wire fee beyond the network fee. For USDC/USDT, the fee is the card’s network cost when created, with a margin, plus 6% of the amount. The sender sees one total amount to pay.",
-      "The relay sends the card’s payment and pays its network cost. A refund retains the relay fee: the card’s network cost plus 6% of the amount.",
-      "Fee estimates use third-party prices and network-cost data."
+      "NIM has no Wire fee beyond the network fee. For USDC/USDT, the fee is the card’s network cost when created, with a margin, plus 6% of the amount. The sender sees one total amount to pay. This margin helps absorb changes in network costs.",
+      "The relay sends the card’s payment and pays its network cost. A refund retains the full relay fee: the estimated network cost, including its margin, plus 6% of the amount.",
+      "Estimates use third-party data: network nodes for network costs, Chainlink for prices, and CoinGecko as a fallback."
     ],
     "risk": [
       "Final payments and risk",
@@ -124,7 +124,7 @@ export const legalCopy = {
     "deletion": [
       "Requesting deletion and its limits",
       "Wire erases a card’s email addresses and message by itself 60 days after the card ends, if the card holds nothing. A card that still holds money keeps its data, because its sender may need to recover it. You can ask for an earlier removal for a card that is over. Payments stay on the blockchain, and backups keep what they held on the day they were made.",
-      "The request contact is still to be supplied below. No response deadline is promised here.",
+      "Send requests to the contact address below. No response deadline is promised here.",
       "Wire cannot remove blockchain records, MailerSend delivery logs or Cloudflare data. Those providers’ own retention applies. Removing contact data cannot reverse a claimed payment."
     ]
   },
@@ -149,7 +149,7 @@ export const legalCopy = {
       "Âge minimum",
       "Usages interdits"
     ],
-    "values": ["Xcoder", "phoenixmail@proton.me", "Les lois du Québec (Canada) et les lois fédérales du Canada qui s’y appliquent.", "18 ans", "Tout usage illégal : fraude, blanchiment d’argent, ou paiement de biens ou de services eux-mêmes illégaux. Payer des biens ou des services légaux convenus entre les utilisateurs est permis."],
+    "values": ["Xcoder", "phoenixmails@proton.me", "Les lois du Québec (Canada) et les lois fédérales du Canada qui s’y appliquent.", "18 ans", "Tout usage illégal : fraude, blanchiment d’argent, ou paiement de biens ou de services eux-mêmes illégaux. Payer des biens ou des services légaux convenus entre les utilisateurs est permis."],
     "notice": "Dernière mise à jour : 24 octobre 2026.",
     "identity": "Phoenix Wire est exploité par la personne nommée ci-dessous. Les questions et les demandes, y compris de suppression, vont à l’adresse de contact ci-dessous.",
     "lifetime": [
@@ -160,9 +160,9 @@ export const legalCopy = {
     ],
     "fees": [
       "Frais et remboursements",
-      "Pour le NIM, Wire ne prend aucuns frais au-delà des frais du réseau. Pour l’USDC/USDT : le coût réseau de la carte à sa création, avec une marge, plus 6 % du montant. L’expéditeur voit un seul montant total à payer.",
-      "Le relais envoie le paiement de la carte et paie son coût réseau. Lors d’un remboursement, ses frais sont conservés : coût réseau de la carte plus 6 % du montant.",
-      "Les estimations utilisent les prix et les coûts réseau fournis par des tiers."
+      "Pour le NIM, Wire ne prend aucuns frais au-delà des frais du réseau. Pour l’USDC/USDT : le coût réseau de la carte à sa création, avec une marge, plus 6 % du montant. L’expéditeur voit un seul montant total à payer. Cette marge aide à absorber les variations des coûts réseau.",
+      "Le relais envoie le paiement de la carte et paie son coût réseau. Lors d’un remboursement, ses frais complets sont conservés : coût réseau estimé, avec sa marge, plus 6 % du montant.",
+      "Les estimations utilisent des données de tiers : les nœuds du réseau pour ses coûts, Chainlink pour les prix et CoinGecko en secours."
     ],
     "risk": [
       "Paiements définitifs et risques",
@@ -253,7 +253,7 @@ export const legalCopy = {
     "deletion": [
       "Demander une suppression et ses limites",
       "Wire efface lui-même les courriels et le message d’une carte 60 jours après sa fin, si elle ne contient rien. Une carte qui contient encore de l’argent garde ses données : son expéditeur peut avoir besoin de la récupérer. Tu peux demander un retrait plus tôt pour une carte terminée. Les paiements restent sur la blockchain, et les sauvegardes gardent ce qu’elles contenaient le jour où elles ont été faites.",
-      "Le contact pour les demandes reste à fournir ci-dessous. Aucun délai de réponse n’est promis ici.",
+      "Envoie tes demandes à l’adresse de contact ci-dessous. Aucun délai de réponse n’est promis ici.",
       "Wire ne peut pas retirer les données des chaînes, les journaux d’envoi de MailerSend ni les données de Cloudflare. Les durées de ces fournisseurs s’appliquent. Retirer les coordonnées ne peut pas annuler un paiement réclamé."
     ]
   },
@@ -278,7 +278,7 @@ export const legalCopy = {
       "Edad mínima",
       "Usos prohibidos"
     ],
-    "values": ["Xcoder", "phoenixmail@proton.me", "Las leyes de Quebec (Canadá) y las leyes federales de Canadá aplicables allí.", "18 años", "Cualquier uso ilegal: fraude, blanqueo de capitales o pago de bienes o servicios que sean en sí mismos ilegales. Pagar bienes o servicios legales acordados entre los usuarios está permitido."],
+    "values": ["Xcoder", "phoenixmails@proton.me", "Las leyes de Quebec (Canadá) y las leyes federales de Canadá aplicables allí.", "18 años", "Cualquier uso ilegal: fraude, blanqueo de capitales o pago de bienes o servicios que sean en sí mismos ilegales. Pagar bienes o servicios legales acordados entre los usuarios está permitido."],
     "notice": "Última actualización: 24 de octubre de 2026.",
     "identity": "Phoenix Wire lo opera la persona indicada abajo. Las preguntas y solicitudes, incluidas las de borrado, van a la dirección de contacto de abajo.",
     "lifetime": [
@@ -289,9 +289,9 @@ export const legalCopy = {
     ],
     "fees": [
       "Comisiones y devoluciones",
-      "NIM no tiene comisión de Wire aparte de la del propio sistema de pagos. Para USDC/USDT: el coste de red de la tarjeta al crearla, con un margen, más el 6 % del importe. El remitente ve un solo total a pagar.",
-      "El servicio de retransmisión envía el pago y paga el coste de red. En toda devolución conserva su comisión: coste de red de la tarjeta más el 6 % del importe.",
-      "Las estimaciones usan precios y costes de red de terceros."
+      "NIM no tiene comisión de Wire aparte de la del propio sistema de pagos. Para USDC/USDT: el coste de red de la tarjeta al crearla, con un margen, más el 6 % del importe. El remitente ve un solo total a pagar. Este margen ayuda a absorber las variaciones de los costes de red.",
+      "El servicio de retransmisión envía el pago y paga el coste de red. En una devolución conserva su comisión completa: coste de red estimado, incluido su margen, más el 6 % del importe.",
+      "Las estimaciones usan datos de terceros: nodos de la red para sus costes, Chainlink para los precios y CoinGecko como alternativa."
     ],
     "risk": [
       "Pagos definitivos y riesgos",
@@ -382,7 +382,7 @@ export const legalCopy = {
     "deletion": [
       "Solicitar borrado y sus límites",
       "Wire borra por sí mismo los correos y el mensaje de una tarjeta 60 días después de su fin, si no contiene nada. Una tarjeta que aún contiene dinero conserva sus datos: su remitente puede necesitar recuperarlo. Puedes pedir una retirada anterior para una tarjeta terminada. Los pagos permanecen en la blockchain, y las copias de seguridad conservan lo que tenían el día en que se hicieron.",
-      "El contacto para solicitudes sigue pendiente abajo. Aquí no se promete un plazo de respuesta.",
+      "Envía tus solicitudes a la dirección de contacto indicada abajo. Aquí no se promete un plazo de respuesta.",
       "Wire no puede borrar datos de las cadenas, registros de entrega de MailerSend ni datos de Cloudflare. Se aplican los plazos de esos proveedores. Borrar datos de contacto no revierte un pago reclamado."
     ]
   },
@@ -407,7 +407,7 @@ export const legalCopy = {
       "Mindestalter",
       "Verbotene Nutzungen"
     ],
-    "values": ["Xcoder", "phoenixmail@proton.me", "Das Recht von Québec (Kanada) und das dort geltende Bundesrecht Kanadas.", "18 Jahre", "Jede rechtswidrige Nutzung: Betrug, Geldwäsche oder Zahlungen für Waren oder Dienstleistungen, die selbst rechtswidrig sind. Die Bezahlung rechtmäßiger Waren oder Dienstleistungen, die zwischen den Nutzern vereinbart wurden, ist erlaubt."],
+    "values": ["Xcoder", "phoenixmails@proton.me", "Das Recht von Québec (Kanada) und das dort geltende Bundesrecht Kanadas.", "18 Jahre", "Jede rechtswidrige Nutzung: Betrug, Geldwäsche oder Zahlungen für Waren oder Dienstleistungen, die selbst rechtswidrig sind. Die Bezahlung rechtmäßiger Waren oder Dienstleistungen, die zwischen den Nutzern vereinbart wurden, ist erlaubt."],
     "notice": "Zuletzt aktualisiert: 24. Oktober 2026.",
     "identity": "Phoenix Wire wird von der unten genannten Person betrieben. Fragen und Anfragen, auch zur Löschung, gehen an die unten stehende Kontaktadresse.",
     "lifetime": [
@@ -418,9 +418,9 @@ export const legalCopy = {
     ],
     "fees": [
       "Gebühren und Rückzahlungen",
-      "Bei NIM verlangt Wire keine zusätzliche Gebühr neben der Netzwerkgebühr. Bei USDC/USDT: die Netzwerkkosten der Karte bei Erstellung mit einem Aufschlag plus 6 % des Betrags. Der Absender sieht einen Gesamtbetrag.",
-      "Der Weiterleitungsdienst sendet die Kartenzahlung und bezahlt die Netzwerkkosten. Bei jeder Rückzahlung behält er seine Gebühr: Netzwerkkosten der Karte plus 6 % des Betrags.",
-      "Die Schätzungen beruhen auf Preis- und Netzwerkkostendaten Dritter."
+      "Bei NIM verlangt Wire keine zusätzliche Gebühr neben der Netzwerkgebühr. Bei USDC/USDT: die Netzwerkkosten der Karte bei Erstellung mit einem Aufschlag plus 6 % des Betrags. Der Absender sieht einen Gesamtbetrag. Dieser Aufschlag hilft, Schwankungen der Netzwerkkosten aufzufangen.",
+      "Der Weiterleitungsdienst sendet die Kartenzahlung und bezahlt die Netzwerkkosten. Bei einer Rückzahlung behält er die gesamte Gebühr: geschätzte Netzwerkkosten einschließlich Aufschlag plus 6 % des Betrags.",
+      "Die Schätzungen nutzen Daten Dritter: Netzwerkknoten für die Netzwerkkosten, Chainlink für Preise und CoinGecko als Ersatz."
     ],
     "risk": [
       "Endgültige Zahlungen und Risiken",
@@ -511,7 +511,7 @@ export const legalCopy = {
     "deletion": [
       "Löschung anfragen und ihre Grenzen",
       "Wire löscht die E-Mail-Adressen und die Nachricht einer Karte 60 Tage nach ihrem Ende selbst, wenn sie nichts enthält. Eine Karte, die noch Geld enthält, behält ihre Daten, weil ihr Absender sie vielleicht zurückholen muss. Du kannst für eine beendete Karte eine frühere Entfernung verlangen. Zahlungen bleiben auf der Blockchain, und Sicherungen behalten, was sie am Tag ihrer Erstellung enthielten.",
-      "Der Kontakt für Anfragen fehlt unten noch. Hier wird weder ein automatischer Löschplan noch eine Antwortfrist zugesagt.",
+      "Sende Anfragen an die unten angegebene Kontaktadresse. Eine Antwortfrist wird hier nicht zugesagt.",
       "Wire kann weder Blockchain-Daten noch MailerSend-Zustellprotokolle oder Cloudflare-Daten entfernen. Die Fristen dieser Anbieter gelten. Das Entfernen von Kontaktdaten macht keine eingelöste Zahlung rückgängig."
     ]
   },
@@ -536,7 +536,7 @@ export const legalCopy = {
       "最低年龄",
       "禁止的用途"
     ],
-    "values": ["Xcoder", "phoenixmail@proton.me", "魁北克（加拿大）法律及在当地适用的加拿大联邦法律。", "18 岁", "任何非法用途：欺诈、洗钱，或为本身违法的商品或服务付款。为用户之间约定的合法商品或服务付款是允许的。"],
+    "values": ["Xcoder", "phoenixmails@proton.me", "魁北克（加拿大）法律及在当地适用的加拿大联邦法律。", "18 岁", "任何非法用途：欺诈、洗钱，或为本身违法的商品或服务付款。为用户之间约定的合法商品或服务付款是允许的。"],
     "notice": "最后更新：2026 年 10 月 24 日。",
     "identity": "Phoenix Wire 由下方所列的个人运营。问题和请求（包括删除请求）请发送至下方的联系地址。",
     "lifetime": [
@@ -547,9 +547,9 @@ export const legalCopy = {
     ],
     "fees": [
       "费用和退款",
-      "NIM 除网络费用外，不收取 Wire 费用。USDC/USDT 的费用为创建卡片时估算的网络费用（含余量），加上金额的 6%。发送者会看到一个应付总额。",
-      "转发服务发送卡片付款并支付网络费用。每次退款都会保留其费用：卡片的网络费用加上金额的 6%。",
-      "费用估算使用第三方的价格和网络费用数据。"
+      "NIM 除网络费用外，不收取 Wire 费用。USDC/USDT 的费用为创建卡片时估算的网络费用（含余量），加上金额的 6%。发送者会看到一个应付总额。 这部分余量有助于应对网络费用的波动。",
+      "转发服务发送卡片付款并支付网络费用。退款时会保留完整的转发费用：预估网络费用（含余量），加上金额的 6%。",
+      "估算使用第三方数据：网络节点提供网络费用数据，Chainlink 提供价格，CoinGecko 作为备用来源。"
     ],
     "risk": [
       "不可撤销的付款和风险",
@@ -640,7 +640,7 @@ export const legalCopy = {
     "deletion": [
       "请求删除及其限制",
       "若卡片中没有资金，Wire 会在卡片结束 60 天后自行删除其邮箱地址和留言。仍有资金的卡片会保留其数据，因为发送者可能需要取回。对于已结束的卡片，你可以要求更早删除。付款永久保留在区块链上，备份保留其制作当天的内容。",
-      "请求的联系方式仍待在下方填写。此处不承诺回复期限。",
+      "请向下方联系地址发送请求。此处不承诺回复期限。",
       "Wire 无法移除区块链记录、MailerSend 投递日志或 Cloudflare 数据。适用这些服务方自己的保存期限。移除联系数据不能撤销已领取的付款。"
     ]
   }
