@@ -244,6 +244,10 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 		}
 	case "/api/handoff/redeem":
 		if r.Method == "POST" {
+			if a.db.state.Access.Maintenance {
+				failure(w, 503, "maintenance")
+				return
+			}
 			a.handoffRedeem(w, r)
 			return
 		}
@@ -279,6 +283,10 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sessKey, s, ok := a.current(r)
+	if a.db.state.Access.Maintenance && r.Method != "GET" && !(ok && s.Verified && s.Scope == "" && a.isAdmin(s.Email)) {
+		failure(w, 503, "maintenance") // closed: an administrator alone changes anything (reading goes on, so a sender still sees his cards)
+		return
+	}
 	if ok && s.Scope != "" { // the other browser of a hand-over: one payment, nothing else
 		a.scoped(w, r, s)
 		return
@@ -483,6 +491,10 @@ func (a *API) requestSender(w http.ResponseWriter, r *http.Request) {
 		failure(w, 400, "invalid_email")
 		return
 	}
+	if a.inMaintenanceFor(to) { // closed for maintenance: nothing is sent to anyone but an administrator
+		failure(w, 503, "maintenance")
+		return
+	}
 	if !a.senderAllowed(to) { // sending is by invitation: nothing is sent to an address that is not registered here (senders.go)
 		failure(w, 403, "invite_only")
 		return
@@ -553,6 +565,10 @@ func (a *API) verifySender(w http.ResponseWriter, r *http.Request) {
 	if !ok || s.Verified {
 		log.Printf("sender code refused: %s", map[bool]string{true: "already verified", false: "no session (cookie missing, or older than 15 minutes)"}[ok]) // never the address or the code
 		failure(w, 403, "invalid_or_expired_code")
+		return
+	}
+	if a.inMaintenanceFor(s.Email) {
+		failure(w, 503, "maintenance")
 		return
 	}
 	var input struct {

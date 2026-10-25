@@ -78,7 +78,13 @@ Puis copier `~/wire-backup.enc` hors du portable (clé USB) et supprimer l'origi
 
 Wire garde un « relais » par chaîne : un portefeuille qui paie le gaz des paiements des cartes. Ses adresses sont écrites dans le journal au démarrage (`sudo journalctl -u phoenixwire | grep "relayer address"`). Il faut y mettre un peu de monnaie native (POL pour Polygon, ETH pour Ethereum) : le plancher exigé suit le prix du gaz (de 0,1 à 0,2 POL ; de 0,0005 à 0,01 ETH). Le gaz gratuit pour l'expéditeur est activé par `NIMIQ_CLAIM_USDTLINK_GAS=on` dans `/etc/phoenixwire/local.env`. Après un changement de ce fichier : `sudo systemctl restart phoenixwire`.
 
-Les retraits du relais ne sont possibles que vers les adresses listées dans `NIMIQ_CLAIM_USDTLINK_WITHDRAW_TO` ; sans cette variable, ils sont désactivés.
+Les retraits du relais ne sont possibles que vers les adresses listées dans `NIMIQ_CLAIM_USDTLINK_WITHDRAW_TO` (tes propres adresses, séparées par des virgules, dans `/etc/phoenixwire/local.env`) ; sans cette variable, ils sont désactivés. Une session volée ne peut donc jamais envoyer l'argent ailleurs que vers l'une de ces adresses.
+
+Dans le panneau d'administration (connecté en administrateur), la section « Portefeuilles de gaz et gains » montre pour chaque chaîne : la monnaie de gaz en caisse, ce qui est gardé en réserve (le minimum qui permet au service d'accepter de nouvelles cartes, plus le gaz des cartes en cours), ce qui est retirable, les frais gagnés en USDC / USDT, et ce que les versements ont rapporté ou coûté. Les boutons « Retirer » demandent confirmation et ne sortent que le surplus.
+
+## Mode maintenance
+
+L'interrupteur « Mode maintenance » du panneau ferme le site : seuls les administrateurs peuvent se connecter ou créer une carte, les autres voient « Phoenix Wire est en maintenance » (aucun courriel n'est envoyé). Les destinataires continuent d'ouvrir leurs cartes, et les remboursements automatiques continuent.
 
 ## Plus tard : vers un serveur Oracle
 

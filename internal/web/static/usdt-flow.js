@@ -1,4 +1,4 @@
-import { flowText } from './flow-text.js?v=0.4.37';
+import { flowText } from './flow-text.js?v=0.4.38';
 // The sender's side of a USDC / USDT card. The browser makes the card id and the link key and KEEPS them: they are what lets the sender
 // take the money back. Wire's server never stores the claim link; the browser hands it over once, to be e-mailed, after the card is funded.
 import { usdtText } from './usdt-text.js?v=0.4.21';

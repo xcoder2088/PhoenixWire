@@ -22,6 +22,9 @@ type accessPolicy struct {
 	Open    bool     `json:",omitempty"` // everyone may send (set in the app)
 	Allowed []string `json:",omitempty"` // lower-case addresses the administrator allowed
 	Blocked []string `json:",omitempty"` // lower-case addresses the administrator refused: they may not sign in even if they were registered
+	// Maintenance closes the site to every sender but the administrators, whoever was allowed: nobody signs in, nothing new is created or changed.
+	// Recipients still open their cards (claims never sign in) and the sweep still refunds the cards that ended.
+	Maintenance bool `json:",omitempty"`
 }
 
 func listHas(list []string, address string) bool {
@@ -83,4 +86,16 @@ func (a *API) InviteOnly() bool {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return !a.accessOpen()
+}
+
+// Maintenance says whether the administrator closed the site for a while (what the public configuration tells the page). It takes the lock.
+func (a *API) Maintenance() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.db.state.Access.Maintenance
+}
+
+// inMaintenanceFor says whether this address is turned away by the maintenance: everybody but an administrator. Called under a.mu.
+func (a *API) inMaintenanceFor(address string) bool {
+	return a.db.state.Access.Maintenance && !a.isAdmin(address)
 }

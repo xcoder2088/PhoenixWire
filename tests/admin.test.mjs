@@ -2,13 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import {mountAdmin,adminText} from '../internal/web/static/admin.js';
+import {relayText,amountText} from '../internal/web/static/admin-relay.js';
 const settle=async()=>{for(let i=0;i<6;i++)await new Promise(r=>setImmediate(r));};
-async function setup({authorized=true,language='en',confirm=true,error='',open=true,lockedOpen,initial={},holdPost=null,reply=null}={}){
+async function setup({authorized=true,language='en',confirm=true,error='',open=true,lockedOpen,initial={},holdPost=null,reply=null,relays=null,withdrawal=null}={}){
  const dom=new JSDOM('<main></main>'),d=dom.window.document,calls=[],confirmations=[];
  let view={open,...(lockedOpen===undefined?{}:{locked_open:lockedOpen}),registered_count:37,registered:[],allowed:['allowed@example.test'],blocked:['blocked@example.test'],admins:['admin@example.test'],...initial};
  dom.window.confirm=text=>{confirmations.push(text);return typeof confirm==='function'?confirm(text):confirm;};
  const request=async(path,data)=>{
-  calls.push([path,data]);if(data&&error)throw Object.assign(Error(error),{code:error});
+  calls.push([path,data]);if(data&&error&&!path.includes('relayers'))throw Object.assign(Error(error),{code:error});
+  if(path==='/api/admin/relayers'&&!data){if(!relays)throw Object.assign(Error('usdt_unavailable'),{code:'usdt_unavailable'});return JSON.parse(JSON.stringify(relays));}
+  if(path==='/api/admin/relayers/withdraw'){if(withdrawal instanceof Error)throw Object.assign(Error(withdrawal.message),{code:withdrawal.message});return withdrawal;}
+  if(path==='/api/admin/maintenance'&&data)view={...view,maintenance:data.on};
   if(data&&holdPost)await holdPost;
   if(path==='/api/admin/access'&&data)view={...view,open:data.open};
   if(path==='/api/admin/block'&&data)view={...view,allowed:view.allowed.filter(e=>e!==data.email),blocked:[...new Set([...view.blocked,data.email])]};
@@ -140,3 +144,54 @@ test('administrator errors are plain words in all five languages and controls re
  }
 });
 
+
+const relayView={relayers:[{chain:'polygon',chain_id:137,address:'0x6a24200f9ce9F10a68e2F901424e6F946919e8EE',native_symbol:'POL',native_wei:'10000000000000000000',tokens:[{asset:'usdc_polygon',symbol:'USDC',units:'3250000'},{asset:'usdt_polygon',symbol:'USDT',units:'0'}],pending_cards:2,live_cards:2,reserve_wei:'500000000000000000',withdrawable_wei:'9499000000000000000'}],
+ withdraw_to:['0x4444444444444444444444444444444444444444'],totals:[{asset:'usdc_polygon',payouts:12,earned:'3.000000',cost:'1.200000',net:'1.800000'}],last:[]};
+test('maintenance is a switch that asks first, posts the new state and says what it does',async()=>{
+ const app=await setup({confirm:false}),d=app.d,toggle=d.getElementById('wire-admin-maintenance');
+ assert.equal(toggle.checked,false);assert.equal(toggle.getAttribute('role'),'switch');assert.match(d.getElementById('wire-admin-maintenance-state').textContent,/not in maintenance/);
+ toggle.click();await settle();assert.equal(app.calls.filter(([p])=>p==='/api/admin/maintenance').length,0);assert.equal(app.confirmations.length,1);app.dom.window.close();
+ const on=await setup(),t2=on.d.getElementById('wire-admin-maintenance');t2.click();await settle();
+ assert.deepEqual(on.calls.at(-1),['/api/admin/maintenance',{on:true}]);assert.equal(on.d.getElementById('wire-admin-maintenance').checked,true);assert.match(on.d.getElementById('wire-admin-maintenance-state').textContent,/only administrators can sign in/);
+ on.d.getElementById('wire-admin-maintenance').click();await settle();assert.deepEqual(on.calls.at(-1),['/api/admin/maintenance',{on:false}]);assert.equal(on.confirmations.length,1);on.dom.window.close();
+ for(const language of ['fr','en','es','de','zh']){const t=await setup({language});assert.ok(t.d.getElementById('wire-admin-maintenance').parentElement.textContent.includes(adminText(language,'maintenance')));t.dom.window.close();}
+});
+test('the gas wallets load only when opened, show what stays, what can go and what the cards earned',async()=>{
+ const app=await setup({relays:relayView}),d=app.d,box=d.getElementById('wire-admin-relays');
+ assert.equal(app.calls.filter(([p])=>p==='/api/admin/relayers').length,0);
+ box.open=true;box.dispatchEvent(new app.dom.window.Event('toggle'));await settle();
+ assert.equal(app.calls.filter(([p])=>p==='/api/admin/relayers').length,1);
+ const text=box.textContent;
+ assert.match(text,/Polygon · 0x6a24…e8EE/);assert.match(text,/POL: 10\.0000/);assert.match(text,/0\.5000 kept in reserve/);assert.match(text,/9\.4990 can be withdrawn/);
+ assert.match(text,/Fees held USDC · Polygon: 3\.2500/);assert.match(text,/USDC · Polygon · 12 payouts · fees 3\.000000 · gas paid 1\.200000 · margin 1\.800000/);
+ assert.match(text,/To: 0x4444444444444444444444444444444444444444/);
+ const buttons=[...box.querySelectorAll('button[data-what]')];
+ assert.deepEqual(buttons.map(b=>[b.dataset.what,b.disabled]),[['native',false],['usdc_polygon',false],['usdt_polygon',true]]);app.dom.window.close();
+});
+test('withdrawing asks first, sends the chain, token and the authorized address, and reports the transaction',async()=>{
+ const tx='0x'+'ab'.repeat(32);
+ const refused=await setup({relays:relayView,confirm:false});refused.d.getElementById('wire-admin-relays').open=true;refused.d.getElementById('wire-admin-relays').dispatchEvent(new refused.dom.window.Event('toggle'));await settle();
+ refused.d.querySelector('button[data-what=usdc_polygon]').click();await settle();assert.equal(refused.calls.filter(([p])=>p.endsWith('/withdraw')).length,0);
+assert.match(refused.confirmations[0],/Withdraw 3\.2500 USDC from the Polygon wallet to 0x4444/);refused.dom.window.close();
+ const app=await setup({relays:relayView,withdrawal:{tx,amount:'3250000',explorer:'https://polygonscan.com/tx/',status:'sent'}}),d=app.d;
+ d.getElementById('wire-admin-relays').open=true;d.getElementById('wire-admin-relays').dispatchEvent(new app.dom.window.Event('toggle'));await settle();
+ d.querySelector('button[data-what=usdc_polygon]').click();await settle();
+ assert.deepEqual(app.calls.find(([p])=>p.endsWith('/withdraw')),['/api/admin/relayers/withdraw',{chain:'polygon',what:'usdc_polygon',to:'0x4444444444444444444444444444444444444444'}]);
+ const link=d.querySelector('.wire-admin-relay-result a');assert.equal(link.href,'https://polygonscan.com/tx/'+tx);assert.equal(link.rel,'noopener noreferrer');
+ assert.equal(app.calls.filter(([p])=>p==='/api/admin/relayers').length,2); // the balances are read again
+ app.dom.window.close();
+});
+test('withdrawal errors are plain words, an empty list of addresses switches withdrawals off, and no wallet is no section content',async()=>{
+ const none=await setup({relays:{...relayView,withdraw_to:[]}});none.d.getElementById('wire-admin-relays').open=true;none.d.getElementById('wire-admin-relays').dispatchEvent(new none.dom.window.Event('toggle'));await settle();
+ assert.match(none.d.getElementById('wire-admin-relays').textContent,/Withdrawals are off/);assert.ok([...none.d.querySelectorAll('button[data-what]')].every(b=>b.disabled));none.dom.window.close();
+ for(const code of ['nothing_to_withdraw','withdraw_destination_not_allowed','reserve_required']){
+  const app=await setup({relays:relayView,withdrawal:new Error(code)});app.d.getElementById('wire-admin-relays').open=true;app.d.getElementById('wire-admin-relays').dispatchEvent(new app.dom.window.Event('toggle'));await settle();
+  app.d.querySelector('button[data-what=native]').click();await settle();assert.equal(app.d.querySelector('.wire-admin-relay-status').textContent,relayText('en',code));app.dom.window.close();
+ }
+ const unavailable=await setup();unavailable.d.getElementById('wire-admin-relays').open=true;unavailable.d.getElementById('wire-admin-relays').dispatchEvent(new unavailable.dom.window.Event('toggle'));await settle();
+ assert.equal(unavailable.d.querySelector('.wire-admin-relay-status').textContent,relayText('en','usdt_unavailable'));unavailable.dom.window.close();
+ for(const language of ['fr','en','es','de','zh'])for(const key of ['relays','withdraw','confirmWithdraw','nothing_to_withdraw','withdraw_destination_not_allowed','reserve_required','help'])assert.ok(relayText(language,key).length>1);
+});
+test('amounts are cut, never rounded, and never go through a float',()=>{
+ assert.equal(amountText('9499999999999999999',18,4),'9.4999');assert.equal(amountText('3250000',6,4),'3.2500');assert.equal(amountText('0',18,4),'0.0000');assert.equal(amountText('oops',18,4),'—');
+});

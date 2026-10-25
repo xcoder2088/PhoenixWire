@@ -1,10 +1,10 @@
-import { mountAdmin,adminText } from './admin.js?v=0.4.35';
+import { mountAdmin,adminText } from './admin.js?v=0.4.38';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.30';
 // Phoenix Wire's page: PhoenixMail's own payment window (/pm/*), used as it is. This file is only what is Wire's: who the sender is, and
 // what happens to a card once the window has made it (watch the money, then e-mail the recipient the claim link, from this browser).
 import { resolveLanguage,renderCardPreview,assetMark } from './model.js?v=0.4.30';
-import { mountNimFlow } from './flow.js?v=0.4.37';
-import { flowText } from './flow-text.js?v=0.4.37';
+import { mountNimFlow } from './flow.js?v=0.4.38';
+import { flowText } from './flow-text.js?v=0.4.38';
 
 // CSS can reveal the page without scripts; clear the startup attribute so
 // visibility checks and keyboard focus traps see the rendered controls.
@@ -142,13 +142,23 @@ function save(key, value) { try { localStorage.setItem(key, value); } catch { /*
 try{for(const chain of ['polygon','ethereum','Polygon','Ethereum'])localStorage.removeItem('wire-refund-address:'+chain);}catch{}
 let preference = read('wire-language', 'auto'), lang = 'en', email = '', payments = null, usdtOn = false, nimOn = false, enabled = false, nimView = null, resumed = false;
 let nimCache=null;
-let adminPanel=null,inviteOnly=false,accessExpanded=false;
+// The sound PhoenixMail plays when a card is sent (the same recording, the same volume), once, when a card that was just made is seen sent.
+let sentSound=null;
+function playSentSound(created){
+ if(!(Date.now()-Date.parse(created||'')<30*60*1000))return; // an old card seen on a new device is not news
+ try{sentSound??=new Audio('/sounds/phoenix-notification.wav?v=0.4.38');sentSound.volume=.35;sentSound.currentTime=0;void sentSound.play().catch(()=>{});}catch{}
+}
+let adminPanel=null,inviteOnly=false,accessExpanded=false,maintenance=false,adminActive=false;
 const inviteGate=document.createElement('div'),inviteNotice=document.createElement('p'),accessLink=document.createElement('button');
 inviteGate.id='wire-invite-gate';inviteGate.hidden=true;inviteNotice.setAttribute('role','status');accessLink.id='wire-existing-access';accessLink.type='button';accessLink.className='secondary-btn wire-access-link';accessLink.setAttribute('aria-controls','wire-sender');
 inviteGate.append(inviteNotice,accessLink);$('wire-sender').before(inviteGate);
+// Maintenance: the administrator closed the site for a while. Visitors are told so; only an administrator signs in (the server refuses anybody else).
+const maintenanceBanner=document.createElement('p');maintenanceBanner.id='wire-maintenance';maintenanceBanner.hidden=true;maintenanceBanner.setAttribute('role','status');$('wire-sender').before(maintenanceBanner);
+let onMaintenance=()=>{maintenance=true;paintMaintenance();};
+function paintMaintenance(){maintenanceBanner.textContent=flowText(lang,'maintenance');maintenanceBanner.hidden=!maintenance||adminActive;}
 accessLink.addEventListener('click',()=>{accessExpanded=true;paintSenderAccess();$('wire-email').focus();});
-function paintSenderAccess(){inviteGate.hidden=Boolean(email)||!enabled||!inviteOnly;inviteNotice.textContent=flowText(lang,'inviteOnly');accessLink.textContent=adminText(lang,'already');accessLink.hidden=accessExpanded;accessLink.setAttribute('aria-expanded',String(accessExpanded));$('wire-sender').hidden=Boolean(email)||!enabled||inviteOnly&&!accessExpanded;}
-function configureAdmin(allowed){adminPanel?.destroy();adminPanel=mountAdmin({root:document.querySelector('.wire-shell'),language:()=>lang,request:api,authorized:allowed===true&&Boolean(email),onAccess:open=>{inviteOnly=!open;paintSenderAccess();}});}
+function paintSenderAccess(){paintMaintenance();inviteGate.hidden=Boolean(email)||!enabled||!inviteOnly;inviteNotice.textContent=flowText(lang,'inviteOnly');accessLink.textContent=adminText(lang,'already');accessLink.hidden=accessExpanded;accessLink.setAttribute('aria-expanded',String(accessExpanded));$('wire-sender').hidden=Boolean(email)||!enabled||inviteOnly&&!accessExpanded;}
+function configureAdmin(allowed){adminPanel?.destroy();adminPanel=mountAdmin({root:document.querySelector('.wire-shell'),language:()=>lang,request:api,authorized:allowed===true&&Boolean(email),onAccess:(open,view)=>{inviteOnly=!open;if(view)maintenance=view.maintenance===true;paintSenderAccess();}});adminActive=allowed===true&&Boolean(email);paintMaintenance();}
 
 let choosingCoin=false,codeSending=false,codeSentTo='',codeUntil=0,codeTimer=null,senderInviteOnly=false;
 const t = key => (words[lang] || words.en)[key];
@@ -171,6 +181,7 @@ async function api(path, data, signal) {
  if (data !== undefined) { options.method = 'POST'; options.headers = { 'Content-Type': 'application/json' }; options.body = JSON.stringify(data); }
  const response = await fetch(path, options);
  let body = {}; try { body = await response.json(); } catch { /* an answer without a body */ }
+ if (body.code === 'maintenance') onMaintenance();
  if (!response.ok) throw Object.assign(Error(body.code || body.error || 'unavailable'), { code: body.code || body.error, status: response.status, retryAfter: Number.isFinite(body.retry_after) ? body.retry_after : 0 });
  return body;
 }
@@ -351,7 +362,7 @@ function openNimWindow(payment=null) {
   nimCards.set(p.id,p);
   if(p.stage==='sent'){
    const notices=nimNotices();
-   if(!notices.some(n=>n.id===p.id&&n.sender===email)){notices.push({id:p.id,sender:email,noticePending:true});save('wire-nim-notices',JSON.stringify(notices));}
+   if(!notices.some(n=>n.id===p.id&&n.sender===email)){notices.push({id:p.id,sender:email,noticePending:true});save('wire-nim-notices',JSON.stringify(notices));playSentSound(p.created);}
   }
   renderCards();scheduleNimCards();
  },onClose:()=>{dismiss();if(!scopedID)renderCards();}});
@@ -526,7 +537,7 @@ function syncOwnedCards(){
    if(!c){c={id:server.id,invited:false};all.push(c);}
    const newlySent=known&&!c.invited&&server.invited===true;
    Object.assign(c,{sender:owner,amount:String(server.amount||''),asset:server.asset,recipient:String(server.recipient||''),created:Date.parse(server.created)||c.created||0,invited:c.invited===true||server.invited===true},serverDates(server));
-   if(newlySent)c.noticePending=true;
+   if(newlySent){c.noticePending=true;playSentSound(server.created);}
   }
   keep(all);renderCards();
  })();ownedPromise=promise;
@@ -768,7 +779,7 @@ $('wire-send-code').addEventListener('click', async () => {
  senderInviteOnly=false;codeSending=true;$('wire-email').disabled=true;$('wire-verify').disabled=true;paintCodeRequest();
  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),30000);
  try {const to=$('wire-email').value.trim();await api('/api/sender/request', { email: to, language: lang },controller.signal);codeSentTo=to;codeUntil=Date.now()+30000;$('wire-code-box').hidden = false;say(t('codeSent'));$('wire-code').focus();}
- catch(error){senderInviteOnly=error.code==='invite_only';codeSentTo='';codeUntil=0;$('wire-code-box').hidden=true;$('wire-code').value='';if(error.code==='wait_before_resend'&&error.retryAfter>0){waitUntil=Date.now()+error.retryAfter*1000;paintWait();}else say(senderInviteOnly?flowText(lang,'inviteOnly'):error.code==='wait_before_resend'?flowText(lang,'waitCode'):t('fail'));}
+ catch(error){senderInviteOnly=error.code==='invite_only';codeSentTo='';codeUntil=0;$('wire-code-box').hidden=true;$('wire-code').value='';if(error.code==='wait_before_resend'&&error.retryAfter>0){waitUntil=Date.now()+error.retryAfter*1000;paintWait();}else say(senderInviteOnly?flowText(lang,'inviteOnly'):error.code==='maintenance'?flowText(lang,'maintenance'):error.code==='wait_before_resend'?flowText(lang,'waitCode'):t('fail'));}
  finally{clearTimeout(timeout);codeSending=false;$('wire-email').disabled=false;$('wire-verify').disabled=false;paintCodeRequest();}
 });
 $('wire-verify').addEventListener('click', async () => {
@@ -813,7 +824,7 @@ setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
     }else handoffError='handoffExpired';
    }
   }
-  const config = await api('/api/config');inviteOnly=config.invite_only===true;
+  const config = await api('/api/config');inviteOnly=config.invite_only===true;maintenance=config.maintenance===true;paintMaintenance();
   usdtOn = config.mode === 'integrated' && (config.assets || []).some(a => /^USD[CT]_/.test(a));
   nimOn = config.mode === 'integrated' && config.payments_enabled === true && (config.assets || []).includes('NIM');
   enabled = usdtOn || nimOn;

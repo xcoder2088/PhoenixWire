@@ -1112,3 +1112,100 @@ func TestAskingForCodesTooOftenSaysToWaitAndIsNotAFailure(t *testing.T) {
 		t.Fatal("the wait must be said in seconds, for the countdown", answer.RetryAfter, second.Body)
 	}
 }
+
+func TestMaintenanceClosesTheSiteToEverybodyButTheAdministrators(t *testing.T) {
+	t.Setenv("PHOENIXWIRE_ADMINS", "owner@example.test, boss@example.test")
+	t.Setenv("PHOENIXWIRE_SENDERS", "open")
+	f := newFixture(t)
+	f.verifySender("regular@example.test")
+	regular := f.cookie
+	f.cookie = nil
+	f.verifySender("owner@example.test")
+	owner := f.cookie
+	if f.api.Maintenance() {
+		t.Fatal("maintenance must start off")
+	}
+	// only an administrator turns it on
+	f.cookie = regular
+	if w := f.call("POST", "/api/admin/maintenance", map[string]bool{"on": true}); w.Code != 403 {
+		t.Fatal("an ordinary sender closed the site", w.Code)
+	}
+	f.cookie = owner
+	if w := f.call("POST", "/api/admin/maintenance", map[string]string{"on": "yes"}); w.Code != 400 {
+		t.Fatal("a bad value was accepted", w.Code)
+	}
+	w := f.call("POST", "/api/admin/maintenance", map[string]bool{"on": true})
+	good(w, t)
+	if !f.api.Maintenance() || !strings.Contains(w.Body.String(), `"maintenance":true`) {
+		t.Fatal("the site was not closed", w.Body)
+	}
+	// a stranger gets no code and is told why
+	f.cookie = nil
+	if w := f.call("POST", "/api/sender/request", map[string]string{"email": "stranger@example.test"}); w.Code != 503 || !strings.Contains(w.Body.String(), "maintenance") {
+		t.Fatal("a visitor must be told the site is in maintenance", w.Code, w.Body)
+	}
+	if _, sent := f.mail.codes["stranger@example.test"]; sent {
+		t.Fatal("a code was sent during maintenance")
+	}
+	// someone already signed in cannot create or change anything, but still reads
+	f.cookie = regular
+	if w := f.call("POST", "/api/payments", paymentInput()); w.Code != 503 || !strings.Contains(w.Body.String(), "maintenance") {
+		t.Fatal("a sender created a card during maintenance", w.Code, w.Body)
+	}
+	if w := f.call("GET", "/api/payments", nil); w.Code != 200 {
+		t.Fatal("a sender must still see his cards", w.Code)
+	}
+	// the administrator keeps working, and can sign in again
+	f.cookie = owner
+	f.create()
+	f.cookie = nil
+	f.verifySender("boss@example.test") // an administrator signs in during maintenance
+	// out of maintenance: everything comes back
+	good(f.call("POST", "/api/admin/maintenance", map[string]bool{"on": false}), t)
+	f.cookie = nil
+	f.verifySender("stranger@example.test")
+}
+
+func TestRelayerWithdrawalIsAdministratorOnlyAndNeedsAnAuthorizedAddress(t *testing.T) {
+	node := &evmNode{balance: word(0), block: 5000, native: "0x4563918244f40000"} // 5 POL
+	rpc := node.serve()
+	defer rpc.Close()
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_CHAINS", "polygon-usdc")
+	t.Setenv("NIMIQ_CLAIM_USDTLINK_COINGECKO", "off")
+	t.Setenv("NIMIQ_CLAIM_EVM_RPC_POLYGON", rpc.URL)
+	t.Setenv("NIMIQ_CLAIM_ALLOWED_ORIGINS", "https://wire.example.test")
+	t.Setenv("PHOENIXWIRE_ADMINS", "owner@example.test")
+	f := newFixture(t)
+	f.verifySender("regular@example.test")
+	body := map[string]string{"chain": "polygon", "what": "native", "to": "0x4444444444444444444444444444444444444444"}
+	if w := f.call("POST", "/api/admin/relayers/withdraw", body); w.Code != 403 {
+		t.Fatal("an ordinary sender reached the withdrawal", w.Code)
+	}
+	if w := f.call("GET", "/api/admin/relayers", nil); w.Code != 403 {
+		t.Fatal("an ordinary sender read the relayers", w.Code)
+	}
+	f.cookie = nil
+	f.verifySender("owner@example.test")
+	for _, bad := range []map[string]string{{"chain": "polygon", "what": "native", "to": "0x12"}, {"chain": "../x", "what": "native", "to": body["to"]}, {"chain": "polygon", "what": "NATIVE/../", "to": body["to"]}} {
+		if w := f.call("POST", "/api/admin/relayers/withdraw", bad); w.Code != 400 {
+			t.Fatal("a bad request was forwarded", bad, w.Code, w.Body)
+		}
+	}
+	// no address is authorized in this configuration: the engine refuses, whoever asks
+	if w := f.call("POST", "/api/admin/relayers/withdraw", body); w.Code != 403 || !strings.Contains(w.Body.String(), "withdraw_not_configured") {
+		t.Fatal("a withdrawal needs an address of the operator's list", w.Code, w.Body)
+	}
+	// the owner reads the wallet: the coin that pays the gas, what stays, what the cards earned
+	w := f.call("GET", "/api/admin/relayers", nil)
+	var seen struct {
+		Relayers []struct {
+			NativeSymbol string `json:"native_symbol"`
+			Reserve      string `json:"reserve_wei"`
+			Withdrawable string `json:"withdrawable_wei"`
+		} `json:"relayers"`
+		Totals []any `json:"totals"`
+	}
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &seen) != nil || len(seen.Relayers) != 1 || seen.Relayers[0].Reserve == "" || seen.Relayers[0].Reserve == "0" {
+		t.Fatal("the relayer view must say what stays on the wallet", w.Code, w.Body)
+	}
+}

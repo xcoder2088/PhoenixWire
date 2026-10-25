@@ -64,7 +64,7 @@ function fakeClock(window){
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
 const handoffToken='Q'.repeat(43);
 const handoffDraft={recipient:'friend@example.test',amount:'2.5',message:'Bonjour 🐦',language:'fr'};
-async function start({inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
+async function start({maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
   const dom = new JSDOM(read(classic?'../internal/web/static/classic.html':'../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
@@ -146,7 +146,7 @@ async function start({inviteOnly=false,adminAccess=null,cancelCode="",cancelConf
       if(path==='/api/payments'&&options.method)return answer(403,{code:'handoff_scope'});
     }
     if(path.startsWith('/api/admin/'))return answer(200,adminAccess||{open:!inviteOnly,allowed:[],blocked:[],registered:['sender@example.test'],admins:['sender@example.test']});
-    if (path === '/api/config') return answer(200, { mode: 'integrated', payments_enabled: true, invite_only:inviteOnly, assets: nimOnly ? ['NIM'] : ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM'] });
+    if (path === '/api/config') return answer(200, { mode: 'integrated', payments_enabled: true, invite_only:inviteOnly, maintenance, assets: nimOnly ? ['NIM'] : ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM'] });
     if (path === '/api/session') return answer(200, currentSession);
     if(path==='/api/usdt/cards')return ownedUnavailable?answer(503,{code:'unavailable'}):answer(200,{cards:owned});
     if (path === '/api/payments' && !options.method) return readsFail?answer(503,{code:'chain_unavailable'}):answer(200, { payments: nimPayments });
@@ -207,7 +207,7 @@ async function start({inviteOnly=false,adminAccess=null,cancelCode="",cancelConf
     if (path === '/api/sender/verify') {currentSession={verified:true,email:'sender@example.test'};return answer(200,currentSession);}
     if(path==='/api/sender/request'){
      if(heldCode){const held=heldCode;heldCode=null;await new Promise((resolve,reject)=>{held.release=resolve;options.signal?.addEventListener('abort',()=>reject(Error('aborted')),{once:true});});}
-     return codeFails==='wait'?answer(429,{code:'wait_before_resend',retry_after:90}):codeFails==='invite_only'?answer(403,{code:'invite_only'}):codeFails?answer(503,{code:'mail_unavailable'}):answer(200,{email:'sender@example.test',ok:true});
+     return codeFails==='maintenance'?answer(503,{code:'maintenance'}):codeFails==='wait'?answer(429,{code:'wait_before_resend',retry_after:90}):codeFails==='invite_only'?answer(403,{code:'invite_only'}):codeFails?answer(503,{code:'mail_unavailable'}):answer(200,{email:'sender@example.test',ok:true});
     }
     if (path === '/api/logout') {if(logoutFails)return answer(503,{code:'unavailable'});currentSession={verified:false};return answer(200, {ok: true});}
     throw Error('unexpected API ' + path);
@@ -920,6 +920,17 @@ test('after too many codes the page counts the wait down, and the button comes b
  button.click();await settle();assert.equal(t.calls.filter(([p])=>p==='/api/sender/request').length,1);
  await t.clock.advance(60000);assert.equal(button.disabled,false);assert.equal(button.textContent,'Send me a code');assert.equal(t.$('wire-status').textContent,'');
  t.failCode('');button.click();await settle();assert.equal(t.calls.filter(([p])=>p==='/api/sender/request').length,2);
+});
+test('maintenance tells visitors the site is closed, in five languages, and shows nothing to an administrator',async()=>{
+ for(const language of ['fr','en','es','de','zh']){
+  const app=await start({maintenance:true,session:{verified:false},local:{'wire-language':language},clocked:true});
+  const banner=app.$('wire-maintenance');assert.equal(banner.hidden,false);assert.equal(banner.textContent,flowText(language,'maintenance'));
+  app.failCode('maintenance');app.$('wire-email').value='sender@example.test';app.$('wire-send-code').click();await settle();
+  assert.equal(app.$('wire-status').textContent,flowText(language,'maintenance'));
+ }
+ const open=await start({session:{verified:false},clocked:true});assert.equal(open.$('wire-maintenance').hidden,true);
+ const admin=await start({maintenance:true,session:{verified:true,email:'sender@example.test',admin:true},adminAccess:{open:true,allowed:[],blocked:[],admins:['sender@example.test'],maintenance:true,registered_count:1},clocked:true});await settle();
+ assert.equal(admin.$('wire-maintenance').hidden,true);assert.ok(admin.doc.getElementById('wire-admin-maintenance'));
 });
 test('code request visibly changes from sending to sent in five languages and blocks duplicate sends',async()=>{
  const labels={fr:['Envoi du code…','Code envoyé','Renvoyer un code'],en:['Sending code…','Code sent','Send another code'],es:['Enviando código…','Código enviado','Enviar otro código'],de:['Code wird gesendet…','Code gesendet','Weiteren Code senden'],zh:['正在发送验证码…','验证码已发送','重新发送验证码']};

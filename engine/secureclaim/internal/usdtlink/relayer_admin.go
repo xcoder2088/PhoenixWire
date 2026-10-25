@@ -51,12 +51,9 @@ func gasPerCard(chainID uint64) *big.Int {
 	return big.NewInt(1_000_000_000_000_000) // 0.001 ETH
 }
 
-// reserveFor is what a withdrawal of the native coin must leave on the relayer: nothing when no card can still need gas (the
-// owner may then empty it, and the service simply takes no new card), otherwise the minimum float plus gas for every live card.
+// reserveFor is what a withdrawal of the native coin must leave on the relayer: the minimum float the service needs to keep taking
+// cards (what it asks for a NEW card, which follows the price of gas), plus gas for every live card. The owner takes the rest.
 func reserveFor(chainID uint64, minFloat *big.Int, live int) *big.Int {
-	if live == 0 {
-		return new(big.Int)
-	}
 	r := new(big.Int).Mul(gasPerCard(chainID), big.NewInt(int64(live)))
 	if minFloat != nil {
 		r.Add(r, minFloat)
@@ -120,7 +117,7 @@ func (s *Service) RelayerInfos(ctx context.Context) ([]RelayerInfo, error) {
 		}
 		_ = s.refreshHeld(ctx, id) // for display; a withdrawal below checks it
 		info.PendingCards, info.LiveCards = s.cardsNeedingGas(id)
-		reserve := reserveFor(id, first.MinFloat, info.LiveCards)
+		reserve := reserveFor(id, s.minFloat(ctx, first), info.LiveCards)
 		info.ReserveWei = reserve.String()
 		if w := new(big.Int).Sub(native, reserve); w.Sign() > 0 {
 			info.WithdrawWei = w.String()
@@ -325,8 +322,8 @@ func (s *Service) RelayerWithdraw(ctx context.Context, chainName, what, to strin
 			return WithdrawResult{}, err
 		}
 		_, live := s.cardsNeedingGas(c.Network.ChainID)
-		reserve := reserveFor(c.Network.ChainID, c.MinFloat, live)
-		if reserve.Sign() == 0 { // no card can still need gas: everything may go
+		reserve := reserveFor(c.Network.ChainID, s.minFloat(ctx, c), live)
+		if reserve.Sign() == 0 { // no minimum float is configured and no card is live: everything may go
 			hash, wei, err := c.Relayer.SweepNative(ctx, dest, journal("native", "all"))
 			if errors.Is(err, relayer.ErrAmount) {
 				return WithdrawResult{}, ErrNothingToWithdraw
@@ -375,7 +372,7 @@ func (s *Service) RelayerWithdraw(ctx context.Context, chainName, what, to strin
 		return WithdrawResult{}, err
 	}
 	_, live := s.cardsNeedingGas(c.Network.ChainID)
-	reserve := reserveFor(c.Network.ChainID, c.MinFloat, live)
+	reserve := reserveFor(c.Network.ChainID, s.minFloat(ctx, c), live)
 	hash, err := cc.Relayer.SendToken(ctx, token, dest, units, reserve, journal(asset, units.String()))
 	if errors.Is(err, relayer.ErrFloorReached) {
 		return WithdrawResult{}, ErrReserveRequired

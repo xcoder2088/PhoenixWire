@@ -1,6 +1,11 @@
+import { mountRelays } from './admin-relay.js?v=0.4.38';
 // Wire access management. The server authorizes every action. Registered addresses are never listed.
 const words = {
   "fr": {
+    "maintenance": "Mode maintenance",
+    "maintenanceOn": "Le site est fermé : seuls les administrateurs peuvent se connecter. Les cartes déjà envoyées restent ouvertes.",
+    "maintenanceOff": "Le site est ouvert (hors maintenance).",
+    "confirmMaintenance": "Activer la maintenance ? Plus personne sauf les administrateurs ne pourra se connecter ni créer de carte.",
     "title": "Administration",
     "invitationOnly": "Accès sur invitation seulement",
     "open": "Tout le monde peut s'inscrire et envoyer.",
@@ -39,6 +44,10 @@ const words = {
     "registeredTotalOne": "{count} expéditeur inscrit"
   },
   "en": {
+    "maintenance": "Maintenance mode",
+    "maintenanceOn": "The site is closed: only administrators can sign in. Cards already sent stay open.",
+    "maintenanceOff": "The site is open (not in maintenance).",
+    "confirmMaintenance": "Turn maintenance on? Nobody but administrators will be able to sign in or create a card.",
     "title": "Administration",
     "invitationOnly": "Invitation-only access",
     "open": "Anyone can sign up and send.",
@@ -77,6 +86,10 @@ const words = {
     "registeredTotalOne": "{count} registered sender"
   },
   "es": {
+    "maintenance": "Modo mantenimiento",
+    "maintenanceOn": "El sitio está cerrado: solo los administradores pueden iniciar sesión. Las tarjetas ya enviadas siguen abiertas.",
+    "maintenanceOff": "El sitio está abierto (sin mantenimiento).",
+    "confirmMaintenance": "¿Activar el mantenimiento? Nadie salvo los administradores podrá iniciar sesión ni crear tarjetas.",
     "title": "Administración",
     "invitationOnly": "Acceso solo por invitación",
     "open": "Todo el mundo puede registrarse y enviar.",
@@ -115,6 +128,10 @@ const words = {
     "registeredTotalOne": "{count} remitente registrado"
   },
   "de": {
+    "maintenance": "Wartungsmodus",
+    "maintenanceOn": "Die Seite ist geschlossen: Nur Administratoren können sich anmelden. Bereits gesendete Karten bleiben offen.",
+    "maintenanceOff": "Die Seite ist offen (keine Wartung).",
+    "confirmMaintenance": "Wartung einschalten? Nur Administratoren können sich dann anmelden oder Karten erstellen.",
     "title": "Administration",
     "invitationOnly": "Zugang nur auf Einladung",
     "open": "Alle können sich registrieren und senden.",
@@ -153,6 +170,10 @@ const words = {
     "registeredTotalOne": "{count} registrierter Absender"
   },
   "zh": {
+    "maintenance": "维护模式",
+    "maintenanceOn": "网站已关闭：只有管理员可以登录。已发送的卡片仍可打开。",
+    "maintenanceOff": "网站已开放（未维护）。",
+    "confirmMaintenance": "开启维护？除管理员外，任何人都无法登录或创建卡片。",
     "title": "管理",
     "invitationOnly": "仅限受邀用户访问",
     "open": "任何人都可以注册并发送。",
@@ -200,6 +221,7 @@ export function mountAdmin({root=document.body,language=()=>document.documentEle
  const document=root.ownerDocument||root,window=document.defaultView;
  const panel=document.createElement('section');panel.id='wire-admin';panel.className='wire-card panel wire-admin-panel';root.append(panel);
  let view=null,busy=false,notice='',closed=false,epoch=0,query='';
+ const relays=mountRelays({document,language,request,confirm:text=>window.confirm(text)});
  const drafts={allow:'',block:''};
  const t=key=>adminText(language(),key);
  const node=(tag,text)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=text;return el;};
@@ -257,6 +279,9 @@ export function mountAdmin({root=document.body,language=()=>document.documentEle
    label.prepend(toggle);
    const accessState=node('p',t(view.open?'open':'closed'));accessState.id='wire-admin-access-state';accessState.setAttribute('role','status');toggle.setAttribute('aria-describedby',accessState.id);panel.append(label,accessState);
    if(locked){const explanation=node('p',t('lockedOpen'));explanation.id='wire-admin-locked-open';explanation.setAttribute('role','status');panel.append(explanation);toggle.setAttribute('aria-describedby',accessState.id+' '+explanation.id);}
+   const maintenanceLabel=node('label',t('maintenance')),maintenanceToggle=node('input');maintenanceToggle.type='checkbox';maintenanceToggle.id='wire-admin-maintenance';maintenanceToggle.setAttribute('role','switch');maintenanceToggle.checked=view.maintenance===true;maintenanceToggle.setAttribute('aria-checked',String(maintenanceToggle.checked));maintenanceToggle.disabled=busy;
+   maintenanceToggle.addEventListener('change',()=>{if(busy)return;const on=maintenanceToggle.checked;if(on&&!window.confirm(t('confirmMaintenance'))){render();return;}void action('/api/admin/maintenance',{on});});
+   maintenanceLabel.prepend(maintenanceToggle);const maintenanceState=node('p',t(view.maintenance?'maintenanceOn':'maintenanceOff'));maintenanceState.id='wire-admin-maintenance-state';maintenanceState.setAttribute('role','status');maintenanceToggle.setAttribute('aria-describedby',maintenanceState.id);panel.append(maintenanceLabel,maintenanceState);
    const summary=node('p',[count('invitedCount',view.allowed.length),count('blockedCount',view.blocked.length),count('registeredCount',view.registered_count)].join(' · '));
    summary.id='wire-admin-counts';summary.setAttribute('role','status');panel.append(summary);
    summary.setAttribute('aria-label',[count('invitedCount',view.allowed.length),count('blockedCount',view.blocked.length),count('registeredTotal',view.registered_count)].join(' · '));
@@ -272,6 +297,7 @@ export function mountAdmin({root=document.body,language=()=>document.documentEle
    const help=node('p',t('actionHelp'));help.id='wire-admin-action-help';help.className='wire-admin-help';panel.append(help);
    const refunds=node('p',t('refundHelp'));refunds.className='wire-admin-help';panel.append(refunds);
    renderLists();
+   panel.append(relays.node);relays.render();
   }
   panel.append(status);
  }
@@ -279,8 +305,8 @@ export function mountAdmin({root=document.body,language=()=>document.documentEle
   if(typeof result?.open!=='boolean'||!['allowed','blocked','admins'].every(key=>Array.isArray(result[key])&&result[key].every(value=>typeof value==='string')))throw Error('invalid_response');
   // Never derive a count from, retain, or render the deprecated registered array.
   view={open:result.open,locked_open:result.locked_open===true,allowed:result.allowed,blocked:result.blocked,admins:result.admins,
-   registered_count:Number.isSafeInteger(result.registered_count)&&result.registered_count>=0?result.registered_count:null};
-  onAccess(view.open);
+   registered_count:Number.isSafeInteger(result.registered_count)&&result.registered_count>=0?result.registered_count:null,maintenance:result.maintenance===true};
+  onAccess(view.open,view);
  }
  async function action(path,data,formKind){
   if(busy||closed)return;busy=true;notice='';const current=++epoch;render();
@@ -289,5 +315,5 @@ export function mountAdmin({root=document.body,language=()=>document.documentEle
   finally{if(!closed&&current===epoch){busy=false;render();}}
  }
  void action('/api/admin/access');
- return {render,destroy(){closed=true;epoch++;panel.remove();}};
+ return {render,destroy(){closed=true;epoch++;relays.destroy();panel.remove();}};
 }

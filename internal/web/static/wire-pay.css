@@ -230,3 +230,6 @@ footer .wire-powered strong span{color:#ff8a18}
 footer .wire-powered:hover{background:#242a33;color:#fff;text-decoration:none}
 footer .wire-powered:focus-visible{outline:2px solid #ff8a18;outline-offset:3px}
 
+#wire-maintenance{margin:.8rem 0;padding:.8rem 1rem;border:1px solid currentColor;border-radius:12px;font-weight:650;line-height:1.5}
+.wire-admin-relays summary{cursor:pointer;font-weight:650;margin:.9rem 0 .5rem}.wire-admin-relays-body{display:grid;gap:.6rem}.wire-admin-relays select{display:block;width:100%;max-width:32rem;font-size:16px}
+.wire-admin-relay h4,.wire-admin-earned h4{margin:.6rem 0 .3rem}.wire-admin-relays p{margin:.25rem 0;overflow-wrap:anywhere;line-height:1.5}

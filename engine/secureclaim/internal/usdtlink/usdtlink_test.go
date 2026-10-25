@@ -1295,15 +1295,15 @@ func TestTheOwnerSeesTheRelayerAndCanTakeOutWhatIsNotNeeded(t *testing.T) {
 	if _, err := s.RelayerWithdraw(ctx, "polygon", "native", to); !errors.Is(err, ErrNothingToWithdraw) {
 		t.Fatalf("below the reserve: %v", err)
 	}
-	// with no live card left the whole balance may go
+	// the cancelled card still holds money (recoverable), so it still keeps its gas back
 	node.native[s.chains[evm.AssetUSDTPolygon].Relayer.Address()] = big.NewInt(5_000_000_000_000_000_000)
 	if _, err := s.Cancel(c.ID, c.SenderToken); err != nil {
 		t.Fatal(err)
 	}
 	node.sent = 0
 	res, err = s.RelayerWithdraw(ctx, "polygon", "native", to)
-	if err != nil || node.sent != 1 || res.Amount == "" {
-		t.Fatalf("an empty relayer of live cards may be swept: %+v %v", res, err)
+	if err != nil || node.sent != 1 || res.Amount != "4647900000000000000" {
+		t.Fatalf("the surplus above the reserve goes: %+v %v", res, err)
 	}
 	// nothing of that token: refused with a clear error
 	node.balance = big.NewInt(0)
@@ -1314,6 +1314,22 @@ func TestTheOwnerSeesTheRelayerAndCanTakeOutWhatIsNotNeeded(t *testing.T) {
 	node.native[s.chains[evm.AssetUSDTPolygon].Relayer.Address()] = big.NewInt(0)
 	if _, err := s.RelayerWithdraw(ctx, "polygon", "native", to); !errors.Is(err, ErrNothingToWithdraw) {
 		t.Fatalf("an empty relayer: %v", err)
+	}
+}
+
+func TestTheOwnerAlwaysLeavesTheMinimumFloatEvenWithNoCard(t *testing.T) {
+	s, node := newService(t)
+	ctx := context.Background()
+	to := "0x4444444444444444444444444444444444444444"
+	s.SetWithdrawAddresses([]string{to})
+	infos, err := s.RelayerInfos(ctx)
+	if err != nil || infos[0].LiveCards != 0 || infos[0].ReserveWei != "200000000000000000" || infos[0].WithdrawWei != "4800000000000000000" {
+		t.Fatalf("no card: the reserve is the minimum float (0.2 POL): %+v %v", infos, err)
+	}
+	// 5 POL - the 0.2 POL minimum float - the gas of the transfer (21000 x 100 gwei)
+	res, err := s.RelayerWithdraw(ctx, "polygon", "native", to)
+	if err != nil || node.sent != 1 || res.Amount != "4797900000000000000" {
+		t.Fatalf("the minimum float stays and the rest goes: %+v %v", res, err)
 	}
 }
 
