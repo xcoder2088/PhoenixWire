@@ -86,6 +86,22 @@ Dans le panneau d'administration (connecté en administrateur), la section « Po
 
 L'interrupteur « Mode maintenance » du panneau ferme le site : seuls les administrateurs peuvent se connecter ou créer une carte, les autres voient « Phoenix Wire est en maintenance » (aucun courriel n'est envoyé). Les destinataires continuent d'ouvrir leurs cartes, et les remboursements automatiques continuent.
 
+## Sauvegarde du portable en une commande
+
+Pour sauvegarder tout ce que Wire et PhoenixMail gardent sur le portable (programmes, clés, données, services, Caddy, tunnel ; pas Ubuntu), disque de sauvegarde branché. Une seule fois, ajoute le dossier du disque dans `~/.config/phoenixwire/deploy.env` (le même fichier que pour déployer) :
+
+```bash
+printf 'WIRE_BACKUP_DIR="%s"\n' "/chemin/du/disque" >> ~/.config/phoenixwire/deploy.env
+```
+
+Ensuite, à chaque sauvegarde :
+
+```bash
+./scripts/backup-laptop.sh
+```
+
+Le script demande une phrase secrète deux fois (jamais affichée), copie, chiffre (AES-256, comme plus haut), relit la sauvegarde et vérifie que `master.key` et les clés des relais y sont. `--with-ai` inclut les données de PhoenixAI (plusieurs Go) ; `--check FICHIER` relit une ancienne sauvegarde. Garde la phrase dans un gestionnaire de mots de passe et copie le fichier à un deuxième endroit.
+
 ## Plus tard : vers un serveur Oracle
 
 Quand Wire déménagera sur Oracle : même programme, mêmes fichiers `/etc/phoenixwire` et `/var/lib/phoenixwire` (restaurés
