@@ -2225,8 +2225,9 @@ test('desktop sender pays directly with Nimiq Wallet without chooser or a new ha
  assert.equal(app.$('wire-nim-choice'),null);assert.equal(app.calls.filter(([p])=>p==='/api/handoff').length,0);
 });
 
-test('mobile external entry has only the Nimpay link and hides email, code and invitation in five languages',async()=>{
- const labels={fr:'Ouvrir dans Nimpay',en:'Open in Nimpay',es:'Abrir en Nimpay',de:'In Nimpay öffnen',zh:'在 Nimpay 中打开'};
+test('mobile external entry offers two equal choices before revealing web login in five languages',async()=>{
+ const labels={fr:'Utiliser Nimpay',en:'Use Nimpay',es:'Usar Nimpay',de:'Nimpay verwenden',zh:'使用 Nimpay'};
+ const browserLabels={fr:'Utiliser Nimiq Wallet (navigateur)',en:'Use Nimiq Wallet (browser)',es:'Usar Nimiq Wallet (navegador)',de:'Nimiq Wallet verwenden (Browser)',zh:'使用 Nimiq Wallet（浏览器）'};
  for(const [language,label]of Object.entries(labels))for(const inviteOnly of [false,true]){
   const app=await start({mobile:true,inviteOnly,session:{verified:false},url:'https://preview.example.test:8443/'});
   app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));await settle();
@@ -2235,6 +2236,16 @@ test('mobile external entry has only the Nimpay link and hides email, code and i
   assert.equal(app.$('wire-miniapp-help'),null);assert.equal(app.$('wire-sender').hidden,true);
   assert.equal(app.$('wire-invite-gate').hidden,true);
   assert.equal(app.opened.length,0);assert.ok(!app.calls.some(([p])=>p==='/api/sender/request'||p==='/api/handoff'));
+  assert.equal(app.$('wire-browser-open').tagName,'BUTTON');assert.equal(app.$('wire-browser-open').textContent,browserLabels[language]);
+  app.$('wire-browser-open').click();await settle();
+  assert.equal(app.$('wire-miniapp-suggestion').hidden,true);
+  assert.equal(app.$('wire-invite-gate').hidden,!inviteOnly);
+  if(inviteOnly){assert.equal(app.$('wire-sender').hidden,true);app.$('wire-existing-access').click();await settle();}
+  assert.equal(app.$('wire-sender').hidden,false);
+  app.$('wire-email').value='sender@example.test';app.$('wire-send-code').click();await settle();assert.equal(app.$('wire-code-box').hidden,false);
+  app.$('wire-code').value='123456';app.$('wire-verify').click();await settle();assert.equal(app.$('wire-ready').hidden,false);
+  assert.equal(app.window.sessionStorage.getItem('wire-mobile-browser'),'yes');
+
  }
  const maintenance=await start({mobile:true,maintenance:true,session:{verified:false}});assert.equal(maintenance.$('wire-maintenance').hidden,false);
  const signed=await start({mobile:true,session:{verified:true,email:'sender@example.test',admin:true}});
@@ -2266,4 +2277,30 @@ test('Wire display copy uses Nimpay while the injected provider identifier is un
  assert.ok(read('../internal/web/static/wire-pay.js').includes('window.nimiqPay'));
  assert.ok(!read('../internal/web/static/wire-pay.js').includes("api('/api/handoff',"));
  assert.ok(!read('../internal/web/static/index.html').includes('wire-nim-choice'));
+});
+
+
+test('mobile browser preference survives reload and pays through the existing mobile Wallet redirect',async()=>{
+ const app=await start({mobile:true,nimOnly:true,session:{verified:false},clocked:true});
+ app.$('wire-browser-open').click();await settle();const saved=app.snapshot();
+ const back=await start({mobile:true,nimOnly:true,session:{verified:false},saved,clocked:true});
+ assert.equal(back.$('wire-sender').hidden,false);assert.equal(back.$('wire-miniapp-suggestion').hidden,true);
+ back.$('wire-email').value='sender@example.test';back.$('wire-send-code').click();await settle();back.$('wire-code').value='123456';back.$('wire-verify').click();await settle();
+ await submitNim(back);assert.equal(back.checkouts.length,1);assert.equal(back.nativeCalls.length,0);
+ assert.equal(back.behaviors.at(-1).state.wirePayment,'a'.repeat(48));
+ assert.equal(back.$('wire-nim-choice'),null);assert.ok(!back.calls.some(([p])=>p==='/api/handoff'));
+ const restored=await start({mobile:true,nimOnly:true,returning:true,saved:back.snapshot(),clocked:true});
+ assert.ok(restored.doc.querySelector('.wire-nim-window'));assert.equal(restored.checkouts.length,0);
+ assert.ok(restored.calls.some(([p])=>p.endsWith('/confirm')));
+});
+
+test('the mobile browser choice works when session storage writes fail and the controls share theme styles',async()=>{
+ const app=await start({mobile:true,session:{verified:false}});
+ const storage=app.window.Storage.prototype.setItem;app.window.Storage.prototype.setItem=()=>{throw Error('storage unavailable');};
+ app.$('wire-browser-open').click();await settle();assert.equal(app.$('wire-sender').hidden,false);
+ app.window.Storage.prototype.setItem=storage;
+ const css=read('../internal/web/static/wire-pay.css');
+ assert.match(css,/\.wire-mobile-choices \.wire-miniapp-link\{[^}]*min-height:44px[^}]*border:1px solid var\(--accent\)/);
+ assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+ assert.match(css,/@media\(max-width:420px\)\{\.wire-mobile-choices\{grid-template-columns:minmax\(0,1fr\)/);
 });

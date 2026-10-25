@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="/pm/app.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/nimiq-payments.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/theme-light.css?v=0.4.0">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.50">
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.51">
 <link rel="stylesheet" href="/legal.css?v=0.4.34"><script type="module" src="/legal.js?v=0.4.50"></script>
 </head>
 <!-- The external stylesheet reveals the page without waiting for scripts. -->
@@ -30,8 +30,9 @@
       <h1 id="wire-title"></h1>
       <p id="wire-sub" class="wire-sub"></p>
       <p id="wire-gas" class="wire-gas" hidden><span class="wire-led" aria-hidden="true"></span><span id="wire-gas-text"></span></p>
-      <div id="wire-miniapp-suggestion" hidden>
+      <div id="wire-miniapp-suggestion" class="wire-mobile-choices" hidden>
         <a id="wire-miniapp-open" class="wire-miniapp-link"></a>
+        <button id="wire-browser-open" type="button" class="wire-miniapp-link"></button>
       </div>
       <div id="wire-sender" hidden>
         <label><span id="wire-email-label"></span><input id="wire-email" type="email" autocomplete="email" maxlength="254" aria-describedby="wire-session-help"></label>
@@ -118,7 +119,7 @@
   <script src="/usdt-refund-text.js?v=0.4.21"></script>
   <script src="/pm/usdt-payments.js?v=0.4.6"></script>
   <script src="/pm/nimiq-payments.js?v=0.4.0"></script>
-  <script type="module" src="/wire-pay.js?v=0.4.50"></script>
+  <script type="module" src="/wire-pay.js?v=0.4.51"></script>
 </body>
 </html>
 

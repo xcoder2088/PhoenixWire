@@ -22,7 +22,8 @@ const STORE = 'wire-usdt-cards', words = {
 
 const handoffWords={
   "fr": {
-    "miniAppOpen": "Ouvrir dans Nimpay",
+    "miniAppOpen": "Utiliser Nimpay",
+    "browserOpen": "Utiliser Nimiq Wallet (navigateur)",
     "handoffDone": "Terminé",
     "handoffCancelled": "Carte annulée.",
     "handoffExitHelp": "Tu peux revenir à ton navigateur avec la flèche ‹ en haut à gauche de l’iPhone, ou fermer cette fenêtre avec ✕.",
@@ -36,7 +37,8 @@ const handoffWords={
     "handoffUnavailable": "Impossible de reprendre cette carte. Rouvrez le lien depuis Safari."
   },
   "en": {
-    "miniAppOpen": "Open in Nimpay",
+    "miniAppOpen": "Use Nimpay",
+    "browserOpen": "Use Nimiq Wallet (browser)",
     "handoffDone": "Done",
     "handoffCancelled": "Card cancelled.",
     "handoffExitHelp": "You can return to your browser using the ‹ arrow at the top left of the iPhone, or close this window with ✕.",
@@ -50,7 +52,8 @@ const handoffWords={
     "handoffUnavailable": "Unable to resume this card. Reopen the link from Safari."
   },
   "es": {
-    "miniAppOpen": "Abrir en Nimpay",
+    "miniAppOpen": "Usar Nimpay",
+    "browserOpen": "Usar Nimiq Wallet (navegador)",
     "handoffDone": "Listo",
     "handoffCancelled": "Tarjeta cancelada.",
     "handoffExitHelp": "Puedes volver a tu navegador con la flecha ‹ de la esquina superior izquierda del iPhone, o cerrar esta ventana con ✕.",
@@ -64,7 +67,8 @@ const handoffWords={
     "handoffUnavailable": "No se pudo retomar esta tarjeta. Vuelve a abrir el enlace desde Safari."
   },
   "de": {
-    "miniAppOpen": "In Nimpay öffnen",
+    "miniAppOpen": "Nimpay verwenden",
+    "browserOpen": "Nimiq Wallet verwenden (Browser)",
     "handoffDone": "Fertig",
     "handoffCancelled": "Karte storniert.",
     "handoffExitHelp": "Du kannst mit dem Pfeil ‹ oben links auf dem iPhone zu deinem Browser zurückkehren oder dieses Fenster mit ✕ schließen.",
@@ -78,7 +82,8 @@ const handoffWords={
     "handoffUnavailable": "Diese Karte konnte nicht fortgesetzt werden. Öffne den Link erneut in Safari."
   },
   "zh": {
-    "miniAppOpen": "在 Nimpay 中打开",
+    "miniAppOpen": "使用 Nimpay",
+    "browserOpen": "使用 Nimiq Wallet（浏览器）",
     "handoffDone": "完成",
     "handoffCancelled": "卡片已取消。",
     "handoffExitHelp": "你可以点击 iPhone 左上角的 ‹ 箭头返回浏览器，或点击 ✕ 关闭此窗口。",
@@ -152,6 +157,8 @@ let choosingCoin=false,codeSending=false,codeSentTo='',codeUntil=0,codeTimer=nul
 const t = key => (words[lang] || words.en)[key];
 // Only an opaque, one-use credential crosses contexts. Remove it before any request.
 let incomingToken=null,handoffError='',handoffPayment=null,scopedID='',fundingBlocked=false;
+let browserEntry=false,senderAdmin=false;
+try{browserEntry=sessionStorage.getItem('wire-mobile-browser')==='yes';}catch{}
 if(location.hash.startsWith('#h=')){
  incomingToken=location.hash.slice(3);
  history.replaceState(null,'',location.pathname+location.search);
@@ -187,12 +194,12 @@ window.PhoenixViewport={center(win){
 
 // The flow's phone detector is private to its mounted view; use the same device rule here.
 function mobile(){return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
-function mobileEntryOnly(){return mobile()&&typeof window.nimiqPay==='undefined'&&!new URLSearchParams(location.search).has('claim')&&!scopedID;}
+function mobileEntryOnly(){return !browserEntry&&mobile()&&typeof window.nimiqPay==='undefined'&&!new URLSearchParams(location.search).has('claim')&&!scopedID;}
 function paintMiniAppSuggestion(){
  const box=$('wire-miniapp-suggestion');
  box.hidden=!(mobileEntryOnly()&&nimOn);
  const link=$('wire-miniapp-open');link.href='https://nimpay.app/miniapps/open/'+location.host;
- link.textContent=t('miniAppOpen');
+ link.textContent=t('miniAppOpen');$('wire-browser-open').textContent=t('browserOpen');
 }
 const cancelledHandoff=()=>Boolean(scopedID&&handoffPayment?.id===scopedID&&handoffPayment.stage==='cancelled');
 function paintHandoff(){
@@ -671,6 +678,7 @@ function mountPayments() {
 }
 
 function showSender(verified, who,admin=false) {
+ senderAdmin=verified&&admin===true;
  if(email&&(!verified||refundSender(email)!==refundSender(who)))forgetRefundAddress(email);
  if(!verified)accessExpanded=false;
  if(verified){codeSentTo='';codeUntil=0;paintCodeRequest();}
@@ -686,6 +694,12 @@ function showSender(verified, who,admin=false) {
  renderCards();
 }
 
+$('wire-browser-open').addEventListener('click',()=>{
+ browserEntry=true;
+ try{sessionStorage.setItem('wire-mobile-browser','yes');}catch{}
+ showSender(Boolean(email),email,senderAdmin);
+ if(!$('wire-sender').hidden)$('wire-email').focus();else if(!inviteGate.hidden)accessLink.focus();
+});
 $('wire-handoff-open').addEventListener('click',()=>{
  if(cancelledHandoff()){
   const button=$('wire-handoff-open');if(button.disabled)return;button.disabled=true;
