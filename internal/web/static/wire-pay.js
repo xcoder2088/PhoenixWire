@@ -107,13 +107,13 @@ const gasLightWords={
  zh:'USDC 和 USDT 的网络费用由 Phoenix Wire 承担'
 };
 for(const language of Object.keys(gasLightWords))words[language].gasLed=gasLightWords[language];
-// The Nimiq network light: people who cannot sign in or pay NIM must see that the node is the cause, not the app.
+// The RPC Mainnet light: people who cannot sign in or pay NIM must see that the Nimiq RPC node is the cause, not the app.
 const rpcLightWords={
- en:{ok:'Nimiq network connected',slow:'Nimiq network is slow: NIM payments may be delayed',down:'Nimiq network is down: NIM payments are paused (nothing is wrong on your side)'},
- fr:{ok:'Réseau Nimiq connecté',slow:'Réseau Nimiq lent : les paiements NIM peuvent être retardés',down:'Réseau Nimiq hors service : paiements NIM en pause (aucun problème de votre côté)'},
- es:{ok:'Red Nimiq conectada',slow:'La red Nimiq va lenta: los pagos NIM pueden retrasarse',down:'La red Nimiq no responde: los pagos NIM están en pausa (no es un problema de su lado)'},
- de:{ok:'Nimiq-Netzwerk verbunden',slow:'Das Nimiq-Netzwerk ist langsam: NIM-Zahlungen können sich verzögern',down:'Das Nimiq-Netzwerk ist nicht erreichbar: NIM-Zahlungen pausieren (kein Problem auf Ihrer Seite)'},
- zh:{ok:'Nimiq 网络已连接',slow:'Nimiq 网络较慢：NIM 付款可能延迟',down:'Nimiq 网络无法连接：NIM 付款已暂停（并非您这边的问题）'}
+ en:{ok:'RPC Mainnet online',slow:'RPC Mainnet is slow: NIM payments may be delayed',down:'RPC Mainnet offline: NIM payments are paused (nothing is wrong on your side)'},
+ fr:{ok:'RPC Mainnet en ligne',slow:'RPC Mainnet lent : les paiements NIM peuvent être retardés',down:'RPC Mainnet hors ligne : paiements NIM en pause (aucun problème de votre côté)'},
+ es:{ok:'RPC Mainnet en línea',slow:'RPC Mainnet lento: los pagos NIM pueden retrasarse',down:'RPC Mainnet fuera de línea: los pagos NIM están en pausa (no es un problema de su lado)'},
+ de:{ok:'RPC Mainnet online',slow:'RPC Mainnet ist langsam: NIM-Zahlungen können sich verzögern',down:'RPC Mainnet offline: NIM-Zahlungen pausieren (kein Problem auf Ihrer Seite)'},
+ zh:{ok:'RPC 主网在线',slow:'RPC 主网较慢：NIM 付款可能延迟',down:'RPC 主网离线：NIM 付款已暂停（并非您这边的问题）'}
 };
 for(const language of Object.keys(rpcLightWords))words[language].rpcLight=rpcLightWords[language];
 const cardWords={

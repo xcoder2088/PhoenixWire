@@ -59,7 +59,7 @@ type API struct {
 	// the public gas light: remembered for a short while, with its own lock (it asks the chain, so it never waits behind a.mu)
 	gasMu    sync.Mutex
 	gasCache map[string]gasEntry
-	// the public Nimiq network light ("ok", "slow", "down"): asked of the node at most every few seconds, with its own lock
+	// the public RPC Mainnet light ("ok", "slow", "down"): asked of the node at most every few seconds, with its own lock
 	rpcMu    sync.Mutex
 	rpcAt    time.Time
 	rpcState string

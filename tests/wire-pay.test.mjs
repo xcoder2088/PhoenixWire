@@ -2225,13 +2225,13 @@ test('desktop sender pays directly with Nimiq Wallet without chooser or a new ha
  assert.equal(app.$('wire-nim-choice'),null);assert.equal(app.calls.filter(([p])=>p==='/api/handoff').length,0);
 });
 
-test('the Nimiq network light is green, yellow or red in five languages and never hides the app',async()=>{
+test('the RPC Mainnet light is green, yellow or red in five languages and never hides the app',async()=>{
  const words={
-  en:{ok:'Nimiq network connected',slow:'Nimiq network is slow: NIM payments may be delayed',down:'Nimiq network is down: NIM payments are paused (nothing is wrong on your side)'},
-  fr:{ok:'Réseau Nimiq connecté',slow:'Réseau Nimiq lent : les paiements NIM peuvent être retardés',down:'Réseau Nimiq hors service : paiements NIM en pause (aucun problème de votre côté)'},
-  es:{ok:'Red Nimiq conectada',slow:'La red Nimiq va lenta: los pagos NIM pueden retrasarse',down:'La red Nimiq no responde: los pagos NIM están en pausa (no es un problema de su lado)'},
-  de:{ok:'Nimiq-Netzwerk verbunden',slow:'Das Nimiq-Netzwerk ist langsam: NIM-Zahlungen können sich verzögern',down:'Das Nimiq-Netzwerk ist nicht erreichbar: NIM-Zahlungen pausieren (kein Problem auf Ihrer Seite)'},
-  zh:{ok:'Nimiq 网络已连接',slow:'Nimiq 网络较慢：NIM 付款可能延迟',down:'Nimiq 网络无法连接：NIM 付款已暂停（并非您这边的问题）'}
+  en:{ok:'RPC Mainnet online',slow:'RPC Mainnet is slow: NIM payments may be delayed',down:'RPC Mainnet offline: NIM payments are paused (nothing is wrong on your side)'},
+  fr:{ok:'RPC Mainnet en ligne',slow:'RPC Mainnet lent : les paiements NIM peuvent être retardés',down:'RPC Mainnet hors ligne : paiements NIM en pause (aucun problème de votre côté)'},
+  es:{ok:'RPC Mainnet en línea',slow:'RPC Mainnet lento: los pagos NIM pueden retrasarse',down:'RPC Mainnet fuera de línea: los pagos NIM están en pausa (no es un problema de su lado)'},
+  de:{ok:'RPC Mainnet online',slow:'RPC Mainnet ist langsam: NIM-Zahlungen können sich verzögern',down:'RPC Mainnet offline: NIM-Zahlungen pausieren (kein Problem auf Ihrer Seite)'},
+  zh:{ok:'RPC 主网在线',slow:'RPC 主网较慢：NIM 付款可能延迟',down:'RPC 主网离线：NIM 付款已暂停（并非您这边的问题）'}
  };
  for(const state of ['ok','slow','down']){
   const app=await start({rpc:state,session:{verified:false}});await settle();

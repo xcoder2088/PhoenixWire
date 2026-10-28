@@ -365,7 +365,7 @@ func TestEveryShippedFileIsServed(t *testing.T) {
 	}
 }
 
-// The Nimiq network light: "ok" while the node answers, "down" when it does not, so people can see the app itself is fine.
+// The RPC Mainnet light: "ok" while the node answers, "down" when it does not, so people can see the app itself is fine.
 func TestConfigReportsTheNimiqNodeLight(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
