@@ -364,3 +364,56 @@ func TestEveryShippedFileIsServed(t *testing.T) {
 		}
 	}
 }
+
+// The Nimiq network light: "ok" while the node answers, "down" when it does not, so people can see the app itself is fine.
+func TestConfigReportsTheNimiqNodeLight(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		alive bool
+		want  string
+		pays  bool
+	}{{"node answers", true, "ok", true}, {"node is down", false, "down", false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			rpcURL := "http://127.0.0.1:1"
+			if tc.alive {
+				node := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					var call struct {
+						Method string `json:"method"`
+					}
+					_ = json.NewDecoder(r.Body).Decode(&call)
+					if call.Method == "getBlockNumber" {
+						_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"data":1000}}`))
+						return
+					}
+					_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{"data":{"network":"MainAlbatross"}}}`))
+				}))
+				defer node.Close()
+				rpcURL = node.URL
+			}
+			dir := t.TempDir()
+			mail := wire.MailerSend{APIKey: "fixture", From: "no-reply@example.test"}
+			engine, err := service.New(service.Config{Directory: filepath.Join(dir, "engine"), RPCURL: rpcURL, Master: bytes.Repeat([]byte{7}, 32), Sender: service.MailerSend{APIKey: mail.APIKey, From: mail.From}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer engine.Close()
+			api, err := wire.New(wire.Config{Directory: filepath.Join(dir, "gateway"), Origin: "https://wire.example.test", Master: bytes.Repeat([]byte{9}, 32), Engine: engine, Mail: mail})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer api.Close()
+			r := httptest.NewRecorder()
+			NewHandler(api).ServeHTTP(r, httptest.NewRequest("GET", "/api/config", nil))
+			var config struct {
+				Payments bool   `json:"payments_enabled"`
+				RPC      string `json:"rpc_status"`
+			}
+			if err := json.Unmarshal(r.Body.Bytes(), &config); err != nil {
+				t.Fatal(err)
+			}
+			if r.Code != 200 || config.RPC != tc.want || config.Payments != tc.pays {
+				t.Fatalf("want rpc_status %q payments %v, got %s", tc.want, tc.pays, r.Body.String())
+			}
+		})
+	}
+}

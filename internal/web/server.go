@@ -31,12 +31,12 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 		if api != nil {
 			ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
 			defer cancel()
-			ready := api.Ready(ctx)
+			ready, rpcState := api.Readiness(ctx)
 			assetList := []string{"NIM"}
 			if api.USDT() != nil {
 				assetList = append(assetList, "USDC_POLYGON", "USDT_POLYGON", "USDT_ETHEREUM")
 			}
-			writeJSON(w, 200, map[string]any{"mode": "integrated", "payments_enabled": ready, "email_enabled": true, "otp_enabled": true, "invite_only": api.InviteOnly(), "maintenance": api.Maintenance(), "assets": assetList})
+			writeJSON(w, 200, map[string]any{"mode": "integrated", "payments_enabled": ready, "rpc_status": rpcState, "email_enabled": true, "otp_enabled": true, "invite_only": api.InviteOnly(), "maintenance": api.Maintenance(), "assets": assetList})
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"mode": "preview", "payments_enabled": false, "email_enabled": false, "otp_enabled": false, "assets": []string{"NIM", "USDC_POLYGON", "USDT_POLYGON", "USDT_ETHEREUM"}})

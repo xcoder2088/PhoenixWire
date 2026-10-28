@@ -64,7 +64,7 @@ function fakeClock(window){
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
 const handoffToken='Q'.repeat(43);
 const handoffDraft={recipient:'friend@example.test',amount:'2.5',message:'Bonjour 🐦',language:'fr'};
-async function start({nimEnabled=true,confirmCode='',confirmStatus=409,audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
+async function start({rpc='ok',nimEnabled=true,confirmCode='',confirmStatus=409,audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
   const dom = new JSDOM(read(classic?'../internal/web/static/classic.html':'../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
@@ -147,7 +147,7 @@ async function start({nimEnabled=true,confirmCode='',confirmStatus=409,audioReje
       if(path==='/api/payments'&&options.method)return answer(403,{code:'handoff_scope'});
     }
     if(path.startsWith('/api/admin/'))return answer(200,adminAccess||{open:!inviteOnly,allowed:[],blocked:[],registered:['sender@example.test'],admins:['sender@example.test']});
-    if (path === '/api/config') return answer(200, { mode: 'integrated', payments_enabled: true, invite_only:inviteOnly, maintenance, assets: (nimOnly ? ['NIM'] : ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM']).filter(a=>a!=='NIM'||nimEnabled) });
+    if (path === '/api/config') return answer(200, { mode: 'integrated', payments_enabled: true, rpc_status: rpc, invite_only:inviteOnly, maintenance, assets: (nimOnly ? ['NIM'] : ['NIM', 'USDC_POLYGON', 'USDT_POLYGON', 'USDT_ETHEREUM']).filter(a=>a!=='NIM'||nimEnabled) });
     if (path === '/api/session') return answer(200, currentSession);
     if(path==='/api/usdt/cards')return ownedUnavailable?answer(503,{code:'unavailable'}):answer(200,{cards:owned});
     if (path === '/api/payments' && !options.method) return readsFail?answer(503,{code:'chain_unavailable'}):answer(200, { payments: nimPayments });
@@ -2223,6 +2223,25 @@ test('desktop sender pays directly with Nimiq Wallet without chooser or a new ha
  const app=await start({nimOnly:true});await submitNim(app);
  assert.equal(app.checkouts.length,1);assert.equal(app.nativeCalls.length,0);
  assert.equal(app.$('wire-nim-choice'),null);assert.equal(app.calls.filter(([p])=>p==='/api/handoff').length,0);
+});
+
+test('the Nimiq network light is green, yellow or red in five languages and never hides the app',async()=>{
+ const words={
+  en:{ok:'Nimiq network connected',slow:'Nimiq network is slow: NIM payments may be delayed',down:'Nimiq network is down: NIM payments are paused (nothing is wrong on your side)'},
+  fr:{ok:'Réseau Nimiq connecté',slow:'Réseau Nimiq lent : les paiements NIM peuvent être retardés',down:'Réseau Nimiq hors service : paiements NIM en pause (aucun problème de votre côté)'},
+  es:{ok:'Red Nimiq conectada',slow:'La red Nimiq va lenta: los pagos NIM pueden retrasarse',down:'La red Nimiq no responde: los pagos NIM están en pausa (no es un problema de su lado)'},
+  de:{ok:'Nimiq-Netzwerk verbunden',slow:'Das Nimiq-Netzwerk ist langsam: NIM-Zahlungen können sich verzögern',down:'Das Nimiq-Netzwerk ist nicht erreichbar: NIM-Zahlungen pausieren (kein Problem auf Ihrer Seite)'},
+  zh:{ok:'Nimiq 网络已连接',slow:'Nimiq 网络较慢：NIM 付款可能延迟',down:'Nimiq 网络无法连接：NIM 付款已暂停（并非您这边的问题）'}
+ };
+ for(const state of ['ok','slow','down']){
+  const app=await start({rpc:state,session:{verified:false}});await settle();
+  assert.equal(app.$('wire-rpc').hidden,false);assert.equal(app.$('wire-rpc-led').dataset.state,state);
+  for(const [language,table] of Object.entries(words)){
+   app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));await settle();
+   assert.equal(app.$('wire-rpc-text').textContent,table[state]);
+  }
+ }
+ const unknown=await start({rpc:'',session:{verified:false}});await settle();assert.equal(unknown.$('wire-rpc').hidden,true);
 });
 
 test('mobile external entry keeps the email login when NIM payments are unavailable',async()=>{

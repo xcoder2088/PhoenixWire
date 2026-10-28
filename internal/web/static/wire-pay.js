@@ -107,6 +107,15 @@ const gasLightWords={
  zh:'USDC 和 USDT 的网络费用由 Phoenix Wire 承担'
 };
 for(const language of Object.keys(gasLightWords))words[language].gasLed=gasLightWords[language];
+// The Nimiq network light: people who cannot sign in or pay NIM must see that the node is the cause, not the app.
+const rpcLightWords={
+ en:{ok:'Nimiq network connected',slow:'Nimiq network is slow: NIM payments may be delayed',down:'Nimiq network is down: NIM payments are paused (nothing is wrong on your side)'},
+ fr:{ok:'Réseau Nimiq connecté',slow:'Réseau Nimiq lent : les paiements NIM peuvent être retardés',down:'Réseau Nimiq hors service : paiements NIM en pause (aucun problème de votre côté)'},
+ es:{ok:'Red Nimiq conectada',slow:'La red Nimiq va lenta: los pagos NIM pueden retrasarse',down:'La red Nimiq no responde: los pagos NIM están en pausa (no es un problema de su lado)'},
+ de:{ok:'Nimiq-Netzwerk verbunden',slow:'Das Nimiq-Netzwerk ist langsam: NIM-Zahlungen können sich verzögern',down:'Das Nimiq-Netzwerk ist nicht erreichbar: NIM-Zahlungen pausieren (kein Problem auf Ihrer Seite)'},
+ zh:{ok:'Nimiq 网络已连接',slow:'Nimiq 网络较慢：NIM 付款可能延迟',down:'Nimiq 网络无法连接：NIM 付款已暂停（并非您这边的问题）'}
+};
+for(const language of Object.keys(rpcLightWords))words[language].rpcLight=rpcLightWords[language];
 const cardWords={
  fr:{myCards:'Mes cartes',emptyCards:'Aucune carte pour le moment.',waitingCard:'En attente de votre paiement',confirmingCard:'Paiement reçu, confirmation en cours',fundedCard:'Carte alimentée. Wire envoie la carte à {email}.',sentCard:'Carte envoyée à {email}',claimedCard:'Réclamée',refundedCard:'Remboursée',expiredCard:'Expirée',cancelledCard:'Annulée',otherCard:'Dépensée ailleurs',checkingCard:'Vérification de la carte en cours…',mailFailedCard:'Carte alimentée. Le courriel n’a pas pu être envoyé. Wire réessaiera.',missingLinkCard:'Carte alimentée. Le lien d’invitation est nécessaire : utilisez le navigateur où la carte a été créée.',staleCard:'Vue périmée : le service ne répond pas. Vérification automatique en cours.',bannerClaimed:'Paiement reçu par {email}.',bannerCard:'Carte alimentée. Courriel envoyé à {email}.',dismissCard:'Fermer cette notification',doneCard:'Terminé',createdCard:'Carte créée. Payez-la pour que Wire l’envoie au destinataire.'},
  en:{myCards:'My cards',emptyCards:'No cards yet.',waitingCard:'Waiting for your payment',confirmingCard:'Payment received, awaiting confirmation',fundedCard:'Card funded. Wire is sending the card to {email}.',sentCard:'Card sent to {email}',claimedCard:'Claimed',refundedCard:'Refunded',expiredCard:'Expired',cancelledCard:'Cancelled',otherCard:'Spent elsewhere',checkingCard:'Checking the card…',mailFailedCard:'Card funded. The email could not be sent. Wire will retry.',missingLinkCard:'Card funded. The invitation link is needed: use the browser where this card was created.',staleCard:'Stale view: the service is not responding. Checking again automatically.',bannerClaimed:'Payment received by {email}.',bannerCard:'Card funded. Email sent to {email}.',dismissCard:'Dismiss this notification',doneCard:'Done',createdCard:'Card created. Pay it so Wire can send it to the recipient.'},
@@ -132,6 +141,7 @@ function read(key, fallback) { try { return localStorage.getItem(key) || fallbac
 function save(key, value) { try { localStorage.setItem(key, value); } catch { /* storage may be unavailable */ } }
 // Legacy addresses were shared between senders. Delete them; never migrate them.
 try{for(const chain of ['polygon','ethereum','Polygon','Ethereum'])localStorage.removeItem('wire-refund-address:'+chain);}catch{}
+let rpcState='';
 let preference = read('wire-language', 'auto'), lang = 'en', email = '', payments = null, usdtOn = false, nimOn = false, enabled = false, nimView = null, resumed = false;
 let nimCache=null;
 // The sound PhoenixMail plays when a card is sent (the same recording, the same volume), once, when a card that was just made is seen sent.
@@ -196,6 +206,16 @@ window.PhoenixViewport={center(win){
 // The Nimpay/Wallet choice only exists for NIM: when NIM is unavailable the web login must stay reachable on phones.
 function mobile(){return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
 function mobileEntryOnly(){return nimOn&&!browserEntry&&mobile()&&typeof window.nimiqPay==='undefined'&&!new URLSearchParams(location.search).has('claim')&&!scopedID;}
+function paintRpc(){
+ const box=$('wire-rpc'),known=['ok','slow','down'].includes(rpcState);box.hidden=!known;if(!known)return;
+ $('wire-rpc-led').dataset.state=rpcState;$('wire-rpc-text').textContent=t('rpcLight')[rpcState];
+}
+// Keep the light honest while the page stays open (the rest of the page still needs a reload to pick up NIM again).
+let rpcTimer=null;
+function watchRpc(){
+ if(rpcTimer)return;
+ rpcTimer=setInterval(async()=>{if(document.hidden)return;try{const c=await api('/api/config');rpcState=String(c.rpc_status||'');paintRpc();}catch{/* keep the last light */}},30000);
+}
 function paintMiniAppSuggestion(){
  const box=$('wire-miniapp-suggestion');
  box.hidden=!(mobileEntryOnly()&&nimOn);
@@ -218,7 +238,7 @@ function paint() {
  $('wire-handoff-title').textContent=t('nimCard');$('wire-handoff-help').textContent=t('handoffLimited');
  paintHandoff();
  $('wire-handoff-logout').setAttribute('aria-label',t('out'));$('wire-handoff-logout').title=t('out');
- $('wire-title').textContent = t('title'); $('wire-sub').textContent = t('sub'); $('wire-gas-text').textContent = t('gasLed');
+ $('wire-title').textContent = t('title'); $('wire-sub').textContent = t('sub'); $('wire-gas-text').textContent = t('gasLed');paintRpc();
  $('wire-email-label').textContent = t('email');paintCodeRequest(); $('wire-code-label').textContent = t('code'); $('wire-verify').textContent = t('verify');
  $('wire-as').textContent = t('as'); $('wire-logout').setAttribute('aria-label',t('out'));$('wire-logout').title=t('out');
  $('wire-language').value = preference;
@@ -790,7 +810,7 @@ setInterval(() => { if (!document.hidden&&!scopedID) refreshGas(); }, 60000);
     }else handoffError='handoffExpired';
    }
   }
-  const config = await api('/api/config');inviteOnly=config.invite_only===true;maintenance=config.maintenance===true;paintMaintenance();
+  const config = await api('/api/config');inviteOnly=config.invite_only===true;maintenance=config.maintenance===true;paintMaintenance();rpcState=String(config.rpc_status||'');paintRpc();watchRpc();
   usdtOn = config.mode === 'integrated' && (config.assets || []).some(a => /^USD[CT]_/.test(a));
   nimOn = config.mode === 'integrated' && config.payments_enabled === true && (config.assets || []).includes('NIM');
   enabled = usdtOn || nimOn;

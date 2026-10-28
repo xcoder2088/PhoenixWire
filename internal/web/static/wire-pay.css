@@ -165,6 +165,10 @@ html[data-palette="phoenixfire"] .wire-body button:hover:not(:disabled){backgrou
 .wire-gas[hidden]{display:none}
 .wire-led{flex:none;width:8px;height:8px;border-radius:50%;background:#3ccf8e;box-shadow:0 0 0 0 #3ccf8e66;animation:wire-heartbeat 2.4s ease-in-out infinite}
 @keyframes wire-heartbeat{0%,56%,100%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}8%{transform:scale(1.35);box-shadow:0 0 0 5px #3ccf8e40}18%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}28%{transform:scale(1.25);box-shadow:0 0 0 4px #3ccf8e33}40%{transform:scale(1);box-shadow:0 0 0 0 #3ccf8e00}}
+/* The Nimiq network light: green = healthy, yellow = slow, red = down. Only the healthy light beats. */
+.wire-rpc{margin-top:-10px}
+.wire-led[data-state="slow"]{background:#f2c230;box-shadow:0 0 0 3px #f2c23033;animation:none}
+.wire-led[data-state="down"]{background:#ef5350;box-shadow:0 0 0 3px #ef535033;animation:none}
 @media (prefers-reduced-motion:reduce){.wire-led{animation:none}}
 
 

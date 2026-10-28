@@ -59,6 +59,10 @@ type API struct {
 	// the public gas light: remembered for a short while, with its own lock (it asks the chain, so it never waits behind a.mu)
 	gasMu    sync.Mutex
 	gasCache map[string]gasEntry
+	// the public Nimiq network light ("ok", "slow", "down"): asked of the node at most every few seconds, with its own lock
+	rpcMu    sync.Mutex
+	rpcAt    time.Time
+	rpcState string
 	// the hand-over to the Nimiq Pay app (handoff.go), under mu
 	handoffs    map[string]handoff
 	handoffAsks map[string][]time.Time
@@ -141,9 +145,38 @@ func (a *API) USDT() USDTEngine {
 }
 
 func (a *API) Ready(ctx context.Context) bool {
+	ready, _ := a.Readiness(ctx)
+	return ready
+}
+
+const (
+	rpcRemember = 8 * time.Second // how long the last answer of the node is reused
+	rpcSlowAt   = 2500 * time.Millisecond
+)
+
+// Readiness says whether payments can open, and the state of the Nimiq node for the public light:
+// "ok" (answers promptly), "slow" (answers, but late) or "down" (no valid answer). The node is asked
+// outside a.mu, so a dead node never makes the rest of the API wait behind it.
+func (a *API) Readiness(ctx context.Context) (bool, string) {
 	a.mu.Lock()
-	defer a.mu.Unlock()
-	return !a.db.failed && a.engine.Ready(ctx)
+	failed := a.db.failed
+	a.mu.Unlock()
+	a.rpcMu.Lock()
+	defer a.rpcMu.Unlock()
+	if a.rpcState == "" || a.now().Sub(a.rpcAt) >= rpcRemember {
+		started := time.Now()
+		ok := a.engine.Ready(ctx)
+		switch {
+		case !ok:
+			a.rpcState = "down"
+		case time.Since(started) >= rpcSlowAt:
+			a.rpcState = "slow"
+		default:
+			a.rpcState = "ok"
+		}
+		a.rpcAt = a.now()
+	}
+	return !failed && a.rpcState != "down", a.rpcState
 }
 func respond(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
