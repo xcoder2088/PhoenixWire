@@ -32,6 +32,8 @@ const payoutWords={
     "details": "{value} NIM · {to} · Confirmations : {confirmations} · {hash}",
     "wallet": "Recevoir dans Nimiq Wallet",
     "resend": "Renvoyer le code",
+    "sendCode": "Envoyer mon code",
+    "pressSend": "Appuyez sur « Envoyer mon code » : un code de vérification sera envoyé à votre adresse courriel.",
     "enterCode": "Entrez le code reçu par courriel, ou demandez-en un nouveau.",
     "openPay": "Continuez dans Nimpay. Si l’application ne s’ouvre pas, réessayez ou utilisez Nimiq Wallet."
   },
@@ -53,6 +55,8 @@ const payoutWords={
     "details": "{value} NIM · {to} · Confirmations: {confirmations} · {hash}",
     "wallet": "Receive in Nimiq Wallet",
     "resend": "Resend code",
+    "sendCode": "Send my code",
+    "pressSend": "Press “Send my code”: a verification code will be emailed to you.",
     "enterCode": "Enter the code received by email, or request a new one.",
     "openPay": "Continue in Nimpay. If the app does not open, try again or use Nimiq Wallet."
   },
@@ -74,6 +78,8 @@ const payoutWords={
     "details": "{value} NIM · {to} · Confirmaciones: {confirmations} · {hash}",
     "wallet": "Recibir en Nimiq Wallet",
     "resend": "Reenviar código",
+    "sendCode": "Enviar mi código",
+    "pressSend": "Pulsa «Enviar mi código»: te enviaremos un código de verificación por correo.",
     "enterCode": "Introduce el código recibido por correo o solicita uno nuevo.",
     "openPay": "Continúa en Nimpay. Si la aplicación no se abre, reintenta o usa Nimiq Wallet."
   },
@@ -95,6 +101,8 @@ const payoutWords={
     "details": "{value} NIM · {to} · Bestätigungen: {confirmations} · {hash}",
     "wallet": "In Nimiq Wallet empfangen",
     "resend": "Code erneut senden",
+    "sendCode": "Meinen Code senden",
+    "pressSend": "Tippe auf „Meinen Code senden“: Wir schicken dir einen Bestätigungscode per E-Mail.",
     "enterCode": "Gib den per E-Mail erhaltenen Code ein oder fordere einen neuen an.",
     "openPay": "Fahre in Nimpay fort. Öffnet sich die App nicht, versuche es erneut oder nutze Nimiq Wallet."
   },
@@ -116,6 +124,8 @@ const payoutWords={
     "details": "{value} NIM · {to} · 确认数：{confirmations} · {hash}",
     "wallet": "接收到 Nimiq Wallet",
     "resend": "重新发送验证码",
+    "sendCode": "发送我的验证码",
+    "pressSend": "请点击“发送我的验证码”，我们会把验证码发送到您的邮箱。",
     "enterCode": "请输入邮件中的验证码，或请求新的验证码。",
     "openPay": "请在 Nimpay 中继续。如果应用未打开，请重试或使用 Nimiq Wallet。"
   }

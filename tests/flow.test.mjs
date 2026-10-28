@@ -19,7 +19,7 @@ async function start({claim=false,verified=true,pending=false,mobile=false,retur
  if(mobile)Object.defineProperty(window.navigator,'userAgent',{value:'iPhone'});
  const calls=[],checkouts=[],behaviors=[],opened=[],referrers=[];
  let validOTP=false,deliveryVerified=verified,chainState=claimState;const timers=[];
- const realTimeout=window.setTimeout.bind(window);window.setTimeout=(fn,ms,...rest)=>{if(ms===5000){timers.push(fn);return timers.length;}return realTimeout(fn,ms,...rest);};
+ const realTimeout=window.setTimeout.bind(window);window.__fiveSecond=new Set();window.setTimeout=(fn,ms,...rest)=>{if(ms===5000){timers.push(fn);window.__fiveSecond.add(timers.length);return timers.length;}return realTimeout(fn,ms,...rest);};const realClear=window.clearTimeout.bind(window);window.clearTimeout=id=>{if(window.__fiveSecond.has(id)){if(id-1<timers.length)timers[id-1]=()=>{};return;}realClear(id);};
  const p={id,sender:'sender@example.test',recipient:'recipient@example.test',amount:'2.5',luna:250000,message:'Hi',address,stage:pending?'funding_started':'ready'};
  let payments=pending?[p]:[];
  const response=(status,body)=>({ok:status>=200&&status<300,status,json:async()=>body});
@@ -116,11 +116,17 @@ test('flow labels and safety feedback exist in every supported language',()=>{
  assert.equal(addressValid(address),true);assert.equal(addressValid(address.slice(0,-1)+'0'),false);
 });
 
-test('claim code request gives immediate feedback and a 20-second resend countdown',async()=>{
- const s=await start({claim:true});
+test('the claim code is sent only when the person asks for it, then a 20-second resend countdown shows',async()=>{
+ const s=await start({claim:true});await settle();
+ assert.equal(s.calls.filter(([p])=>p.endsWith('/request')).length,0,'nothing is sent on arrival');
+ assert.match(s.$('claim-status').textContent,/Press “Send my code”/);
+ assert.equal(s.$('request-claim-code').textContent,'Send my code');assert.equal(s.$('request-claim-code').disabled,false);
+ assert.equal(s.$('claim-code').closest('label').hidden,true,'no code field before a code was asked for');
+ s.$('request-claim-code').click();await settle();
+ assert.equal(s.calls.filter(([p])=>p.endsWith('/request')).length,1);
  assert.match(s.$('claim-status').textContent,/Code sent/);
- assert.match(s.$('request-claim-code').textContent,/20 s/);
- assert.equal(s.$('request-claim-code').disabled,true);
+ assert.match(s.$('request-claim-code').textContent,/Resend code/);assert.match(s.$('request-claim-code').textContent,/20 s/);
+ assert.equal(s.$('request-claim-code').disabled,true);assert.equal(s.$('claim-code').closest('label').hidden,false);
  assert.equal(s.$('request-claim-code').nextElementSibling,s.$('claim-choices'));
  s.dom.window.close();
 });
@@ -164,8 +170,12 @@ test('opening a card that is already emptied shows the payment as received, in f
 });
 
 test('opening a card that was already emptied asks for no code and says the payment was received',async()=>{
- const s=await start({claim:true,alreadyClaimed:true});await settle();
- assert.equal(s.calls.filter(([p])=>p.endsWith('/request')).length,1,'the page asked once, as it always does');
+ const s=await start({claim:true,claimState:'claimed'});await settle();
+ assert.equal(s.calls.filter(([p])=>p.endsWith('/request')).length,0,'nothing is sent on arrival');
  assert.equal(s.$('claim-status').textContent,'Payment received');assert.equal(s.$('claim-status').className,'ok');assert.equal(s.$('claim-choices').hidden,true);
  s.dom.window.close();
+ // Even if the chain read was not ready on arrival, asking for a code on an emptied card sends nothing and says it was received.
+ const late=await start({claim:true,alreadyClaimed:true});await settle();late.$('request-claim-code').click();await settle();
+ assert.equal(late.$('claim-status').textContent,'Payment received');assert.equal(late.$('claim-choices').hidden,true);
+ late.dom.window.close();
 });

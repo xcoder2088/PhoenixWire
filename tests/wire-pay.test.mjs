@@ -1690,6 +1690,9 @@ test('recipient has exactly two wallet choices after code and resend, disabled u
  const gate={},app=await recipientPage({holdStatus:gate});
  assert.equal(app.calls.length,1);assert.ok(app.calls[0][0].endsWith('/payout_status'));
  assert.equal(app.$('claim-choices').disabled,true);gate.release();await settle();
+ assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,0,'nothing is sent on arrival');
+ assert.equal(app.$('request-claim-code').textContent,'Send my code');
+ app.$('request-claim-code').click();await settle();
  assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,1);
  assert.match(app.$('claim-status').textContent,/Code sent/);
  const choices=[...app.$('claim-choices').querySelectorAll('button')];
@@ -1889,11 +1892,11 @@ test('duplicate wallet taps send one payout; Enter does not silently choose a wa
 });
 
 test('two-choice recipient labels and narrow layout cover five languages with no technical wallet name',async()=>{
- const labels={fr:['Recevoir dans Nimpay','Recevoir dans Nimiq Wallet','Renvoyer le code'],en:['Receive in Nimpay','Receive in Nimiq Wallet','Resend code'],es:['Recibir en Nimpay','Recibir en Nimiq Wallet','Reenviar código'],de:['In Nimpay empfangen','In Nimiq Wallet empfangen','Code erneut senden'],zh:['接收到 Nimpay','接收到 Nimiq Wallet','重新发送验证码']};
+ const labels={fr:['Recevoir dans Nimpay','Recevoir dans Nimiq Wallet','Envoyer mon code'],en:['Receive in Nimpay','Receive in Nimiq Wallet','Send my code'],es:['Recibir en Nimpay','Recibir en Nimiq Wallet','Enviar mi código'],de:['In Nimpay empfangen','In Nimiq Wallet empfangen','Meinen Code senden'],zh:['接收到 Nimpay','接收到 Nimiq Wallet','发送我的验证码']};
  for(const [language,expected]of Object.entries(labels)){
   const app=await recipientPage({language,accounts:[receivingAddress]});
   assert.deepEqual([app.$('claim-pay').textContent,app.$('claim-wallet').textContent,app.$('request-claim-code').textContent],expected);
-  for(const key of ['choose','pay','wallet','resend','enterCode','openPay','retry','checkingPayout','payout_pending','payout_confirmed','payout_failed','invalid_destination','cashlink_not_confirmed_or_invalid','payout_already_started','payoutUnavailable','accountsUnavailable','accountsCancelled','details']){
+  for(const key of ['choose','pay','wallet','resend','sendCode','pressSend','enterCode','openPay','retry','checkingPayout','payout_pending','payout_confirmed','payout_failed','invalid_destination','cashlink_not_confirmed_or_invalid','payout_already_started','payoutUnavailable','accountsUnavailable','accountsCancelled','details']){
    assert.notEqual(flowText(language,'claim_'+key),'claim_'+key);assert.ok(!/Mainnet|OTP|\bHub\b/.test(flowText(language,'claim_'+key)));
   }
   app.enterCode();await app.choose('pay');

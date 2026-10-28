@@ -1,6 +1,6 @@
 import { mountAdmin,adminText } from './admin.js?v=0.4.41';
 import { nimFunded,unpaidCard,recoverableCard,historyEntries,historyPending,senderHistoryText,nimHistoryLabel,cancelUnpaidCard } from './model.js?v=0.4.30';
-import { flowText } from './flow-text.js?v=0.4.50';
+import { flowText } from './flow-text.js?v=0.4.51';
 import { addressValid,cardPresentation,paintCard,renderCardPreview } from './model.js?v=0.4.30';
 
 // A provider error is not evidence of funding; the server check still decides.
@@ -749,8 +749,8 @@ function updateClaimControls(){
  $('claim-wallet').disabled=busy||!available||(!validCode&&!receiveURL);
  $('request-claim-code').hidden=!available||Boolean(receiveURL);
  $('request-claim-code').disabled=busy||cooling>0;
- $('request-claim-code').textContent=cooling?ct('resend')+' · '+cooling+' s':ct('resend');
- $('claim-code').closest('label').hidden=!available||Boolean(receiveURL)||Boolean(reception.code);
+ const codeAsked=reception.asked===true;$('request-claim-code').textContent=codeAsked?(cooling?ct('resend')+' · '+cooling+' s':ct('resend')):ct('sendCode');
+ $('claim-code').closest('label').hidden=!available||Boolean(receiveURL)||Boolean(reception.code)||!(codeAsked||window.nimiq||reception.handoff===true);
  $('claim-code').disabled=busy||!available||Boolean(receiveURL);
  $('claim-code').required=available&&!receiveURL;
  $('claim-retry').hidden=!reception.retry;$('claim-retry').disabled=busy||Boolean(reception.read);
@@ -804,8 +804,8 @@ async function claimTask(run,button){
 }
 async function requestClaimCode(){
  if(!reception.known||reception.locked||reception.expired||receiveURL||cooling>0)return;
- try{await api('/api/claims/'+claimID()+'/request',{},{timeout:true});reception.code='';$('claim-code').value='';reception.message='codeSent';cooldown();}
- catch(error){if(error.status===429){cooldown();reception.message='waitCode';return;}throw error;}
+ try{await api('/api/claims/'+claimID()+'/request',{},{timeout:true});reception.asked=true;reception.code='';$('claim-code').value='';reception.message='codeSent';cooldown();}
+ catch(error){if(error.status===429){reception.asked=true;cooldown();reception.message='waitCode';return;}throw error;}
 }
 // The wallet opens in another window or app and the card cannot know what happens there: it asks the chain (through Wire) until the card is emptied.
 let receivedTimer=0;
@@ -880,7 +880,7 @@ function claimID(){const id=new URLSearchParams(location.search).get('claim');if
 async function boot(){
  refreshText();claimMode=!embedded&&new URLSearchParams(location.search).has('claim');
  if(claimMode){
-  const parameters=new URLSearchParams(location.search),hasHandoff=parameters.has('h');
+  const parameters=new URLSearchParams(location.search),hasHandoff=parameters.has('h');reception.handoff=hasHandoff;
   let handoffToken=parameters.get('h')||'';
   if(hasHandoff){
    // Erase before any network request, including failed/used-token recovery and reloads.
@@ -904,7 +904,7 @@ async function boot(){
     // Redeeming is a one-shot continuation of the explicit browser choice.
     if(reception.code&&window.nimiq)await chooseReception('pay');
     else if(window.nimiq||hasHandoff)reception.message='claim_enterCode';
-    else await claimTask(requestClaimCode,$('request-claim-code'));
+    else{reception.message='claim_pressSend';watchReceived();}   // the code is sent only when the person asks for it; meanwhile the page notices an emptied card by itself
    }
    updateClaimControls();
   }catch(error){if(!reception.payout){reception.expired=true;reception.message=['claim_unavailable','claim_expired','card_expired'].includes(error.message)?'ended':'failed';updateClaimControls();}}return;
