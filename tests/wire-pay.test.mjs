@@ -2225,6 +2225,12 @@ test('desktop sender pays directly with Nimiq Wallet without chooser or a new ha
  assert.equal(app.$('wire-nim-choice'),null);assert.equal(app.calls.filter(([p])=>p==='/api/handoff').length,0);
 });
 
+test('mobile external entry keeps the email login when NIM payments are unavailable',async()=>{
+ const app=await start({mobile:true,nimEnabled:false,session:{verified:false},url:'https://preview.example.test:8443/'});await settle();
+ assert.equal(app.$('wire-miniapp-suggestion').hidden,true);assert.equal(app.$('wire-sender').hidden,false);
+ app.$('wire-email').value='sender@example.test';app.$('wire-send-code').click();await settle();assert.equal(app.$('wire-code-box').hidden,false);
+});
+
 test('mobile external entry offers two equal choices before revealing web login in five languages',async()=>{
  const labels={fr:'Utiliser Nimpay',en:'Use Nimpay',es:'Usar Nimpay',de:'Nimpay verwenden',zh:'使用 Nimpay'};
  const browserLabels={fr:'Utiliser Nimiq Wallet (navigateur)',en:'Use Nimiq Wallet (browser)',es:'Usar Nimiq Wallet (navegador)',de:'Nimiq Wallet verwenden (Browser)',zh:'使用 Nimiq Wallet（浏览器）'};

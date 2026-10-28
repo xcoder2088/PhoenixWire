@@ -193,8 +193,9 @@ window.PhoenixViewport={center(win){
 }};
 
 // The flow's phone detector is private to its mounted view; use the same device rule here.
+// The Nimpay/Wallet choice only exists for NIM: when NIM is unavailable the web login must stay reachable on phones.
 function mobile(){return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
-function mobileEntryOnly(){return !browserEntry&&mobile()&&typeof window.nimiqPay==='undefined'&&!new URLSearchParams(location.search).has('claim')&&!scopedID;}
+function mobileEntryOnly(){return nimOn&&!browserEntry&&mobile()&&typeof window.nimiqPay==='undefined'&&!new URLSearchParams(location.search).has('claim')&&!scopedID;}
 function paintMiniAppSuggestion(){
  const box=$('wire-miniapp-suggestion');
  box.hidden=!(mobileEntryOnly()&&nimOn);
