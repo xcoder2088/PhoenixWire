@@ -10,3 +10,10 @@
 .howto-cards .howto-fig img{width:100%;max-width:260px}
 .howto-tip{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:12px 16px;margin:16px 0}
 .howto-list{padding-left:22px;margin:12px 0}.howto-list li{margin:8px 0}
+
+.howto-video{margin:18px 0}
+.howto-video-btn{font:inherit;padding:10px 18px;border-radius:999px;border:1px solid var(--accent);background:transparent;color:inherit;cursor:pointer;min-height:44px}
+.howto-video-btn:focus-visible,.howto-video-dl:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.howto-video-player{margin-top:14px}
+.howto-video-player video{display:block;width:100%;max-width:720px;margin:0 auto;border-radius:14px;background:#000}
+.howto-video-dl{display:block;text-align:center;margin-top:10px;font-size:15px}

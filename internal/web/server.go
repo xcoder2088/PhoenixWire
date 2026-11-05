@@ -123,6 +123,7 @@ var howtoImages = func() map[string]bool {
 		for _, n := range []string{"entry", "form", "card-nim", "card-usdc", "card-usdt"} {
 			m[n+"-"+l+".webp"] = true
 		}
+		m["phoenix-wire-howto-"+l+".mp4"] = true
 	}
 	return m
 }()

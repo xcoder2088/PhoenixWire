@@ -6,8 +6,7 @@ const copy = {
   lead: 'Send NIM, USDC or USDT to anyone who has an email address. They receive a card by email and only they can claim it, after a code sent to that address.',
   steps: [
    {h: 'Confirm your email', p: ['Open Phoenix Wire, type your email and tap “Send me a code”. Enter the six-digit code you receive. You only do this once: your email stays confirmed for 24 hours on this device.'],
-    img: ['entry', 'The first screen: your email, then a six-digit code.'],
-    tip: 'Sending is by invitation unless an administrator has opened access. If sending is not available for you yet, ask the person who runs the service.'},
+    img: ['entry', 'The first screen: your email, then a six-digit code.'],},
    {h: 'Make the card', p: ['Fill in the card: the recipient’s email, the coin (NIM, USDC or USDT) and the amount, and a short note if you like (up to 160 characters). The card appears as you type, so you can check it before paying.', 'USDC and USDT amounts are between 1 and 1000.'],
     img: ['form', 'The card form: recipient, coin, amount and note.']},
    {h: 'Pay', p: ['For NIM, pay with Nimpay or the Nimiq Wallet in your browser.', 'For USDC or USDT, make one payment from any wallet: tap “Open in my wallet” or copy the card address. The amount shown already includes the fees, so the recipient pays nothing. Your wallet adds its own network fee. The network needs about 2 minutes to confirm.'],
@@ -20,15 +19,15 @@ const copy = {
    'A card is valid for 24 hours. If nobody claims it, an unclaimed NIM card is refunded automatically to the address that paid it. For USDC/USDT, open Phoenix Wire in the same browser and tap “Take my money back”: the relay keeps its fees.',
    'Once a payment is claimed, nobody, including Wire, can reverse it. Check the recipient’s email carefully before you pay.',
    'NIM has no Wire fee beyond the network fee. For USDC/USDT the total you see includes the fees. The details are in the Terms of use.']],
-  terms: 'Terms of use'
+  terms: 'Terms of use',
+  video: ['Watch the video (1 min)', 'Hide the video', 'Download the video']
  },
  fr: {
   title: 'Comment ça marche', back: 'Retour à Phoenix Wire', lang: 'Langue', auto: 'Automatique', theme: 'Changer l’apparence', powered: 'Propulsé par',
   lead: 'Envoyez des NIM, des USDC ou des USDT à toute personne qui a une adresse courriel. Elle reçoit une carte par courriel et elle seule peut l’encaisser, après un code envoyé à cette adresse.',
   steps: [
    {h: 'Confirmez votre courriel', p: ['Ouvrez Phoenix Wire, tapez votre courriel et touchez « M’envoyer un code ». Entrez le code à six chiffres que vous recevez. Vous ne le faites qu’une fois : votre courriel reste confirmé 24 heures sur cet appareil.'],
-    img: ['entry', 'Le premier écran : votre courriel, puis un code à six chiffres.'],
-    tip: 'L’envoi se fait sur invitation, sauf si un administrateur a ouvert l’accès. Si l’envoi n’est pas encore disponible pour vous, demandez à la personne qui gère le service.'},
+    img: ['entry', 'Le premier écran : votre courriel, puis un code à six chiffres.'],},
    {h: 'Créez la carte', p: ['Remplissez la carte : le courriel du destinataire, la monnaie (NIM, USDC ou USDT), le montant, et un petit mot si vous le souhaitez (160 caractères au plus). La carte se dessine pendant que vous écrivez : vous pouvez la vérifier avant de payer.', 'Pour l’USDC et l’USDT, le montant se situe entre 1 et 1000.'],
     img: ['form', 'Le formulaire de la carte : destinataire, monnaie, montant et petit mot.']},
    {h: 'Payez', p: ['Pour le NIM, payez avec Nimpay ou avec Nimiq Wallet dans votre navigateur.', 'Pour l’USDC ou l’USDT, faites un seul paiement depuis n’importe quel portefeuille : touchez « Ouvrir dans mon portefeuille » ou copiez l’adresse de la carte. Le montant affiché inclut déjà les frais : le destinataire ne paie rien. Votre portefeuille ajoute ses propres frais de réseau. Le réseau met environ 2 minutes à confirmer.'],
@@ -41,7 +40,8 @@ const copy = {
    'Une carte est valable 24 heures. Si personne ne la réclame, une carte NIM est remboursée automatiquement à l’adresse qui l’a payée. Pour l’USDC/USDT, ouvrez Phoenix Wire dans le même navigateur et touchez « Reprendre mon argent » : le relais garde ses frais.',
    'Une fois un paiement réclamé, personne, Wire compris, ne peut l’annuler. Vérifiez bien le courriel du destinataire avant de payer.',
    'Le NIM n’a aucun frais Wire en plus des frais de réseau. Pour l’USDC/USDT, le total affiché inclut les frais. Le détail est dans les Conditions d’utilisation.']],
-  terms: 'Conditions d’utilisation'
+  terms: 'Conditions d’utilisation',
+  video: ['Voir la vidéo (1 min)', 'Masquer la vidéo', 'Télécharger la vidéo']
  }
 };
 function pick(value, preferences) {
@@ -56,6 +56,25 @@ function figure(doc, src, alt, caption) {
  if (caption) f.append(el(doc, 'figcaption', caption));
  return f;
 }
+// The video is only fetched when the visitor asks for it.
+function renderVideo(doc, lang, c) {
+ const old = doc.getElementById('howto-video');if (old) old.remove();
+ const box = el(doc, 'div', undefined, 'howto-video');box.id = 'howto-video';
+ const button = el(doc, 'button', '▶ ' + c.video[0], 'howto-video-btn');button.type = 'button';button.setAttribute('aria-expanded', 'false');
+ const player = el(doc, 'div', undefined, 'howto-video-player');player.hidden = true;
+ const src = '/howto/phoenix-wire-howto-' + lang + '.mp4';
+ button.addEventListener('click', () => {
+  const open = player.hidden;player.hidden = !open;button.setAttribute('aria-expanded', String(open));
+  button.textContent = open ? '✕ ' + c.video[1] : '▶ ' + c.video[0];
+  if (open && !player.firstChild) {
+   const video = el(doc, 'video');video.controls = true;video.playsInline = true;video.preload = 'metadata';video.src = src;video.setAttribute('aria-label', c.video[0]);
+   const link = el(doc, 'a', c.video[2], 'howto-video-dl');link.href = src;link.download = 'phoenix-wire-howto-' + lang + '.mp4';
+   player.append(video, link);
+  } else if (!open) player.querySelector('video')?.pause();
+ });
+ box.append(button, player);
+ doc.getElementById('howto-lead').after(box);
+}
 export function renderHowto(doc, lang) {
  const c = copy[lang];
  doc.documentElement.lang = lang;
@@ -68,6 +87,7 @@ export function renderHowto(doc, lang) {
  const theme = doc.getElementById('legal-theme');if (theme) theme.textContent = c.theme;
  const powered = doc.querySelector('[data-legal-powered]');if (powered) powered.textContent = c.powered + ' ';
  const blocks = [];
+ renderVideo(doc, lang, c);
  c.steps.forEach((s, i) => {
   const sec = el(doc, 'section', undefined, 'howto-step'), h = el(doc, 'h2');
   h.append(el(doc, 'span', String(i + 1), 'howto-num'), el(doc, 'span', s.h));
