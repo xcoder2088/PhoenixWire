@@ -268,3 +268,21 @@ footer .wire-powered:focus-visible{outline:2px solid #ff8a18;outline-offset:3px}
 
 .wire-mobile-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:1fr;align-items:stretch;gap:12px;margin:1rem 0;}
 @media(max-width:420px){.wire-mobile-choices{grid-template-columns:minmax(0,1fr);}}
+
+/* Language, colour and light/dark choices sit quietly in the footer: they have nothing to do with sending a payment. */
+.wire-prefs{position:relative;flex-basis:100%;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:10px 14px;margin-top:14px;opacity:.85}
+.wire-flags{display:flex;gap:2px}
+.wire-flag,.wire-body .wire-flag{min-height:36px;min-width:36px;padding:0;border:1px solid transparent;border-radius:10px;background:transparent;font-size:20px;line-height:1;cursor:pointer}
+.wire-flag[aria-pressed="true"]{border-color:var(--accent);background:var(--panel2)}
+.wire-prefs #wire-theme{min-height:36px;min-width:36px;padding:0 8px;font-size:18px}
+.wire-color{position:static}.wire-color summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;border-radius:10px}
+.wire-color summary::-webkit-details-marker{display:none}
+.wire-color summary:focus-visible,.wire-flag:focus-visible,.wire-swatch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wire-swatches{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);z-index:5;display:flex;gap:12px;padding:10px 14px;width:max-content;border:1px solid var(--line);border-radius:14px;background:var(--panel2)}
+.wire-swatch,.wire-body .wire-swatch{display:inline-block;width:24px;height:24px;min-height:0;padding:0;border-radius:50%;border:2px solid var(--line);cursor:pointer}
+.wire-swatches .wire-swatch{width:30px;height:30px}
+.wire-swatch[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--panel),0 0 0 4px var(--accent)}
+html .wire-body .wire-swatch[data-swatch="live"]{background:conic-gradient(#ffb16b,#b6a0ff,#6dd8e6,#ffb16b) !important}
+html .wire-body .wire-swatch[data-swatch="phoenixfire"]{background:#ffb16b !important}html .wire-body .wire-swatch[data-swatch="aurora"]{background:#b6a0ff !important}html .wire-body .wire-swatch[data-swatch="ocean"]{background:#6dd8e6 !important}
+html .wire-body .wire-flag{background:transparent !important}html .wire-body .wire-flag[aria-pressed="true"]{background:var(--panel2) !important}
+.wire-head{margin-bottom:14px}

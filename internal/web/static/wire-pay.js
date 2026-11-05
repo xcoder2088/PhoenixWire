@@ -241,7 +241,9 @@ function paint() {
  $('wire-title').textContent = t('title'); $('wire-sub').textContent = t('sub'); $('wire-gas-text').textContent = t('gasLed');paintRpc();
  $('wire-email-label').textContent = t('email');paintCodeRequest(); $('wire-code-label').textContent = t('code'); $('wire-verify').textContent = t('verify');
  $('wire-as').textContent = t('as'); $('wire-logout').setAttribute('aria-label',t('out'));$('wire-logout').title=t('out');
- $('wire-language').value = preference;
+ $('wire-language').value = preference;paintPrefs();
+ const howto = document.querySelector('[data-howto-link]');
+ if (howto) { howto.textContent = {fr:'Comment ça marche',en:'How-to',es:'Cómo funciona',de:'Anleitung',zh:'使用指南'}[lang] || 'How-to'; howto.href = '/howto.html?lang=' + (['fr','en'].includes(lang) ? lang : 'en'); }
  $('wire-palette').setAttribute('aria-label',t('palette'));$('wire-palette').querySelector('[value="ocean"]').textContent=t('ocean');
  $('wire-palette').querySelector('[value="live"]').textContent=t('livePalette');
  $('wire-pay-label').textContent = t('pay');
@@ -253,9 +255,22 @@ function paint() {
  document.querySelectorAll('.wire-coin-picker .nimiq-payment-head h3').forEach(title=>{title.textContent=t('chooseCoin');});
  renderCards();paintSenderAccess();adminPanel?.render();document.querySelectorAll('.nimiq-payment-window:not(.wire-nim-window)').forEach(enhanceStableWindow);
 }
+function paintPrefs() {
+ for (const b of document.querySelectorAll('[data-wire-lang]')) {
+  const on = b.dataset.wireLang === (preference === 'auto' ? lang : preference); b.setAttribute('aria-pressed', String(on));
+  b.title = b.ariaLabel = $('wire-language').querySelector(`[value="${b.dataset.wireLang}"]`)?.textContent || '';
+ }
+ const mode = typeof paletteMode === 'undefined' ? 'live' : paletteMode;
+ for (const b of document.querySelectorAll('.wire-swatches [data-wire-palette]')) {
+  b.setAttribute('aria-pressed', String(b.dataset.wirePalette === mode));
+  b.title = b.ariaLabel = $('wire-palette').querySelector(`[value="${b.dataset.wirePalette}"]`)?.textContent || '';
+ }
+ $('wire-color-current').dataset.swatch = mode;
+ $('wire-color-current').closest('summary').title = $('wire-palette').getAttribute('aria-label') || '';
+}
 function paintTheme() {
  const light = document.documentElement.dataset.theme === 'light-paper';
- const button = $('wire-theme'); button.textContent = light ? '☾' : '☀';
+ const button = $('wire-theme'); button.textContent = light ? '\u{1F319}' : '\u2600\uFE0F'; // moon in light mode, sun in dark mode (emoji forms, so the sun is never drawn as a white star)
  button.setAttribute('aria-label', t(light ? 'darkTheme' : 'lightTheme'));
  button.title = button.getAttribute('aria-label'); button.setAttribute('aria-pressed', String(light));
 }
@@ -277,7 +292,7 @@ function schedulePalette(){
 }
 function applyPalette(value){
  paletteMode=value==='live'||palettes.includes(value)?value:'phoenixfire';
- document.documentElement.dataset.paletteMode=paletteMode;$('wire-palette').value=paletteMode;
+ document.documentElement.dataset.paletteMode=paletteMode;$('wire-palette').value=paletteMode;paintPrefs();
  setPaletteColour(paletteMode==='live'?(palettes.includes(document.documentElement.dataset.palette)?document.documentElement.dataset.palette:'phoenixfire'):paletteMode);
  schedulePalette();
 }
@@ -736,6 +751,8 @@ $('wire-handoff-logout').addEventListener('click',async()=>{
 });
 $('wire-language').addEventListener('change', e => setLanguage(e.target.value));
 $('wire-theme').addEventListener('click', () => { const v = document.documentElement.dataset.theme === 'light-paper' ? 'dark' : 'light'; applyTheme(v); save('wire-theme', v); });
+document.querySelectorAll('[data-wire-lang]').forEach(b => b.addEventListener('click', () => setLanguage(b.dataset.wireLang)));
+document.querySelectorAll('.wire-swatches [data-wire-palette]').forEach(b => b.addEventListener('click', () => { applyPalette(b.dataset.wirePalette); save('wire-palette', paletteMode); b.closest('details').open = false; }));
 $('wire-palette').addEventListener('change',event=>{applyPalette(event.target.value);save('wire-palette',paletteMode);});
 // The server says how long to wait after "too many codes": the page counts it down (m:ss) and re-enables the button by itself.
 let waitUntil=0,waitTimer=0;

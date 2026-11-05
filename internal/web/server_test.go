@@ -346,7 +346,7 @@ func TestEveryFileAPageNamesIsServed(t *testing.T) {
 // whatever loads it, including the files a script loads by itself, which no page names.
 func TestEveryShippedFileIsServed(t *testing.T) {
 	h := NewHandler()
-	for _, dir := range []string{"static", "static/brand"} {
+	for _, dir := range []string{"static", "static/brand", "static/howto"} {
 		entries, err := assets.ReadDir(dir)
 		if err != nil {
 			t.Fatal(err)

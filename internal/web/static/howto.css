@@ -1,0 +1,12 @@
+/* How-to page: steps with example cards. Built on the legal page styles. */
+.howto-step{margin:34px 0}
+.howto-step h2{display:flex;align-items:center;gap:12px}
+.howto-num{flex:none;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:var(--accent);color:#14161a;font-weight:750;font-size:17px}
+.howto-fig{margin:16px 0;text-align:center}
+.howto-fig img{max-width:100%;width:300px;height:auto;border-radius:20px}
+.howto-fig figcaption{margin-top:8px;font-size:14px;opacity:.8}
+.howto-cards{display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
+.howto-cards .howto-fig{margin:0;flex:1 1 220px}
+.howto-cards .howto-fig img{width:100%;max-width:260px}
+.howto-tip{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:12px 16px;margin:16px 0}
+.howto-list{padding-left:22px;margin:12px 0}.howto-list li{margin:8px 0}

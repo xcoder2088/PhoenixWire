@@ -15,16 +15,13 @@
   <link rel="stylesheet" href="/pm/app.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/nimiq-payments.css?v=0.4.0">
   <link rel="stylesheet" href="/pm/theme-light.css?v=0.4.0">
-  <link rel="stylesheet" href="/wire-pay.css?v=0.4.52">
+  <link rel="stylesheet" href="/wire-pay.css?v=0.4.54">
 <link rel="stylesheet" href="/legal.css?v=0.4.34"><script type="module" src="/legal.js?v=0.4.50"></script>
 </head>
 <!-- The external stylesheet reveals the page without waiting for scripts. -->
 <body class="wire-body" hidden>
   <main class="wire-shell">
     <header class="wire-head"><img src="/brand/phoenix-wire.webp?v=0.3.0" width="215" height="57" alt="Phoenix Wire">
-      <select id="wire-language" aria-label="Language"><option value="auto">Automatic</option><option value="fr">Français</option><option value="en">English</option><option value="es">Español</option><option value="de">Deutsch</option><option value="zh">中文</option></select>
-      <select id="wire-palette" aria-label="Theme"><option value="live">Live shuffle</option><option value="phoenixfire">PhoenixFire</option><option value="aurora">Aurora</option><option value="ocean">Ocean</option></select>
-      <button id="wire-theme" type="button" class="secondary-btn">☾ / ☀</button>
     </header>
     <section id="wire-entry" class="wire-card">
       <h1 id="wire-title"></h1>
@@ -63,7 +60,7 @@
       <p id="wire-cards-empty"></p>
       <div id="wire-cards-list"></div>
     </section>
-    <footer class="wire-foot"><a class="wire-powered" href="https://phoenixmail.ca" target="_blank" rel="noopener noreferrer"><span data-legal-powered>Powered by </span><strong>Phoenix<span>Mail</span></strong></a><nav class="wire-legal-links" aria-label="Legal"><a href="/terms.html" data-legal-link="terms">Terms of use</a><a href="/privacy.html" data-legal-link="privacy">Privacy</a></nav></footer>
+    <footer class="wire-foot"><a class="wire-powered" href="https://phoenixmail.ca" target="_blank" rel="noopener noreferrer"><span data-legal-powered>Powered by </span><strong>Phoenix<span>Mail</span></strong></a><nav class="wire-legal-links" aria-label="Legal"><a href="/howto.html" data-howto-link>How-to</a><a href="/terms.html" data-legal-link="terms">Terms of use</a><a href="/privacy.html" data-legal-link="privacy">Privacy</a></nav><div class="wire-prefs"><select id="wire-language" hidden aria-label="Language"><option value="auto">Automatic</option><option value="fr">Français</option><option value="en">English</option><option value="es">Español</option><option value="de">Deutsch</option><option value="zh">中文</option></select><select id="wire-palette" hidden aria-label="Theme"><option value="live">Live shuffle</option><option value="phoenixfire">PhoenixFire</option><option value="aurora">Aurora</option><option value="ocean">Ocean</option></select><div class="wire-flags" role="group" aria-label="Language"><button type="button" class="wire-flag" data-wire-lang="en">🇺🇸</button><button type="button" class="wire-flag" data-wire-lang="fr">🇫🇷</button><button type="button" class="wire-flag" data-wire-lang="es">🇪🇸</button><button type="button" class="wire-flag" data-wire-lang="de">🇩🇪</button><button type="button" class="wire-flag" data-wire-lang="zh">🇨🇳</button></div><details class="wire-color"><summary aria-label="Theme"><span class="wire-swatch" id="wire-color-current" data-swatch="live"></span></summary><div class="wire-swatches"><button type="button" class="wire-swatch" data-wire-palette="live" data-swatch="live"></button><button type="button" class="wire-swatch" data-wire-palette="phoenixfire" data-swatch="phoenixfire"></button><button type="button" class="wire-swatch" data-wire-palette="aurora" data-swatch="aurora"></button><button type="button" class="wire-swatch" data-wire-palette="ocean" data-swatch="ocean"></button></div></details><button id="wire-theme" type="button" class="secondary-btn">☀️</button></div></footer>
   </main>
   <template id="wire-close-icon"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"></path></svg></template>
   <template id="wire-nim-template">
@@ -120,7 +117,7 @@
   <script src="/usdt-refund-text.js?v=0.4.21"></script>
   <script src="/pm/usdt-payments.js?v=0.4.6"></script>
   <script src="/pm/nimiq-payments.js?v=0.4.0"></script>
-  <script type="module" src="/wire-pay.js?v=0.4.56"></script>
+  <script type="module" src="/wire-pay.js?v=0.4.60"></script>
 </body>
 </html>
 

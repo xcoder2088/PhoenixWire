@@ -90,11 +90,15 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 			static.ServeHTTP(w, r)
 			return
 		}
+		if strings.HasPrefix(r.URL.Path, "/howto/") && howtoImages[strings.TrimPrefix(r.URL.Path, "/howto/")] {
+			static.ServeHTTP(w, r)
+			return
+		}
 		switch r.URL.Path {
 		case "/site.webmanifest":
 			w.Header().Set("Content-Type", "application/manifest+json")
 			static.ServeHTTP(w, r)
-		case "/favicon.ico", "/brand/wire-icon-32.png", "/brand/wire-icon-180.png", "/brand/wire-icon-192.png", "/brand/wire-icon-512.png", "/", "/classic.html", "/wire-pay.js", "/wire-pay.css", "/brand/usdt-coin.png", "/brand/usdt-polygon.png", "/brand/usdt-ethereum.png", "/brand/usdc-polygon.png", "/brand/phoenixmail-approved-icon-transparent.webp", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/card-mirror.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/design.css", "/usdt-flow.js", "/usdt-text.js", "/usdt-refund-text.js", "/admin.js", "/admin-relay.js", "/sounds/phoenix-notification.wav", "/terms.html", "/privacy.html", "/legal.css", "/legal.js", "/qrcode.js", "/brand/phoenix-wire.webp", "/brand/phoenix-emblem.webp", "/brand/nimiq-logo.svg", "/brand/usdt.svg", "/brand/usdc-coin.png":
+		case "/favicon.ico", "/brand/wire-icon-32.png", "/brand/wire-icon-180.png", "/brand/wire-icon-192.png", "/brand/wire-icon-512.png", "/", "/classic.html", "/wire-pay.js", "/wire-pay.css", "/brand/usdt-coin.png", "/brand/usdt-polygon.png", "/brand/usdt-ethereum.png", "/brand/usdc-polygon.png", "/brand/phoenixmail-approved-icon-transparent.webp", "/app.js", "/flow.js", "/flow-text.js", "/model.js", "/card-mirror.js", "/hub.js", "/iqons.js", "/style.css", "/flow.css", "/design.css", "/usdt-flow.js", "/usdt-text.js", "/usdt-refund-text.js", "/admin.js", "/admin-relay.js", "/sounds/phoenix-notification.wav", "/terms.html", "/privacy.html", "/howto.html", "/howto.js", "/howto.css", "/legal.css", "/legal.js", "/qrcode.js", "/brand/phoenix-wire.webp", "/brand/phoenix-emblem.webp", "/brand/nimiq-logo.svg", "/brand/usdt.svg", "/brand/usdc-coin.png":
 			static.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
@@ -111,6 +115,17 @@ func NewHandler(gateway ...*wire.API) http.Handler {
 		mux.ServeHTTP(w, r)
 	})
 }
+
+// howtoImages are the screenshots and example cards of the how-to page (/howto.html), in French and English.
+var howtoImages = func() map[string]bool {
+	m := map[string]bool{}
+	for _, l := range []string{"en", "fr"} {
+		for _, n := range []string{"entry", "form", "card-nim", "card-usdc", "card-usdt"} {
+			m[n+"-"+l+".webp"] = true
+		}
+	}
+	return m
+}()
 
 // payFiles are PhoenixMail's payment window, mirrored unchanged under /pm/.
 var payFiles = map[string]bool{"app.css": true, "nimiq-payments.css": true, "theme-light.css": true, "nimiq-hub.js": true, "phoenix-nimiq.js": true, "nimiq-iqons.js": true, "usdt-cashlink.js": true, "usdt-payments.js": true, "nimiq-payments.js": true}
