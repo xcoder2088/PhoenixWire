@@ -374,6 +374,17 @@ const assetNames={usdc_polygon:'USDC · Polygon',usdt_polygon:'USDT · Polygon',
 let cardEpoch=0,ownedPromise=null,nimPromise=null,nimTimer=null;
 const ht=key=>senderHistoryText(lang,key);
 const nimActions=new Map();
+const recoveryWords={
+ fr:{pay:'Nimiq Pay',wallet:'Nimiq Wallet',confirm:'Renvoyer les {amount} NIM de cette carte sur ton compte Nimiq Pay ?',open:'Continue dans Nimiq Pay pour confirmer la récupération.',sent:'Récupération envoyée à ton compte Nimiq Pay.',failed:'Impossible d’envoyer la récupération. Réessaie sur cette ligne.',released:'Le destinataire a déjà le lien : ces fonds sont à lui.',started:'Le paiement du destinataire a déjà commencé.',empty:'Cette carte est déjà vide.',noAccount:'Nimiq Pay n’a donné aucun compte. Réessaie.'},
+ en:{pay:'Nimiq Pay',wallet:'Nimiq Wallet',confirm:'Send this card’s {amount} NIM back to your Nimiq Pay account?',open:'Continue in Nimiq Pay to confirm the recovery.',sent:'Recovery sent to your Nimiq Pay account.',failed:'The recovery could not be sent. Try again on this row.',released:'The recipient already has the link: these funds are theirs.',started:'The recipient’s payment has already started.',empty:'This card is already empty.',noAccount:'Nimiq Pay gave no account. Try again.'},
+ es:{pay:'Nimiq Pay',wallet:'Nimiq Wallet',confirm:'¿Devolver los {amount} NIM de esta tarjeta a tu cuenta de Nimiq Pay?',open:'Continúa en Nimiq Pay para confirmar la recuperación.',sent:'Recuperación enviada a tu cuenta de Nimiq Pay.',failed:'No se pudo enviar la recuperación. Reintenta en esta fila.',released:'El destinatario ya tiene el enlace: estos fondos son suyos.',started:'El pago del destinatario ya ha comenzado.',empty:'Esta tarjeta ya está vacía.',noAccount:'Nimiq Pay no dio ninguna cuenta. Reintenta.'},
+ de:{pay:'Nimiq Pay',wallet:'Nimiq Wallet',confirm:'Die {amount} NIM dieser Karte auf dein Nimiq-Pay-Konto zurückschicken?',open:'Mach in Nimiq Pay weiter, um die Rückholung zu bestätigen.',sent:'Rückholung an dein Nimiq-Pay-Konto gesendet.',failed:'Die Rückholung konnte nicht gesendet werden. Versuche es in dieser Zeile erneut.',released:'Der Empfänger hat den Link bereits: dieses Guthaben gehört ihm.',started:'Die Auszahlung an den Empfänger hat bereits begonnen.',empty:'Diese Karte ist bereits leer.',noAccount:'Nimiq Pay hat kein Konto geliefert. Versuche es erneut.'},
+ zh:{pay:'Nimiq Pay',wallet:'Nimiq Wallet',confirm:'把这张卡的 {amount} NIM 退回到你的 Nimiq Pay 账户吗？',open:'请在 Nimiq Pay 中继续，以确认取回。',sent:'取回已发送到你的 Nimiq Pay 账户。',failed:'无法发送取回。请在此行重试。',released:'收款人已有该链接：这些资金归对方所有。',started:'收款人的付款已经开始。',empty:'这张卡已经是空的。',noAccount:'Nimiq Pay 未提供账户。请重试。'}
+};
+const rw=key=>(recoveryWords[lang]||recoveryWords.en)[key];
+const recoverErrors={recipient_has_link:'released',claim_started:'started',already_empty:'empty'};
+let pendingRecover=(()=>{try{const id=new URLSearchParams(location.search).get('recover')||'';return /^[A-Za-z0-9_-]{10,80}$/.test(id)?id:'';}catch{return '';}})();
+
 const stableActions=new Map(),autoRefunds=new Set();
 const life=key=>flowText(lang,key);
 const validRefundAddress=value=>typeof value==='string'&&/^0x[0-9a-fA-F]{40}$/.test(value)&&!/^0x0{40}$/i.test(value);
@@ -477,7 +488,11 @@ function appendNimActions(row,p){
  }
  if(recoverableCard(p)){
   if(state.href){const link=document.createElement('a');link.href=state.href;link.target='_blank';link.rel='noopener noreferrer';link.textContent=ht('open');actions.append(link);}
-  else button(ht('recover'),()=>void dashboardRecover(p));
+  else if(state.choose&&!state.loading){
+   button(rw('pay'),()=>void dashboardRecoverPay(p)).classList.add('nim-row-recover-pay');
+   button(rw('wallet'),()=>void dashboardRecover(p)).classList.add('nim-row-recover-wallet');
+  }
+  else button(ht('recover'),()=>{nimActions.set(p.id,{choose:true});renderCards();}).classList.add('nim-row-recover');
  }
  row.append(actions);
  if(state.notice){const note=document.createElement('p');note.className='nim-row-notice';note.setAttribute('role','status');note.textContent=state.notice;row.append(note);}
@@ -493,6 +508,27 @@ async function dashboardCancel(p){
   await syncNimCards();
  }catch(error){if(epoch!==cardEpoch)return;nimActions.set(p.id,{notice:ht(error.message==='cannot_cancel'?'cannot':'failed')});await syncNimCards();}
  finally{if(epoch===cardEpoch){const state=nimActions.get(p.id);if(state)state.loading=false;renderCards();}}
+}
+async function dashboardRecoverPay(p){
+ if(nimActions.get(p.id)?.loading||!recoverableCard(p))return;
+ if(!window.nimiq){
+  // Outside the app: open it on this page; the sender confirms there, with the account the app gives.
+  nimActions.set(p.id,{notice:rw('open')});renderCards();
+  try{window.open('nimiqpay://miniapp?url='+encodeURIComponent(location.origin+'/?recover='+encodeURIComponent(p.id)),'_self','noopener,noreferrer');}catch{}
+  return;
+ }
+ if(!window.confirm(rw('confirm').replace('{amount}',p.amount)))return;
+ const epoch=cardEpoch;nimActions.set(p.id,{loading:true});renderCards();
+ try{
+  const accounts=await window.nimiq.listAccounts();
+  if(accounts?.error)throw accounts.error;
+  const first=Array.isArray(accounts)?accounts[0]:null;
+  if(typeof first!=='string'||!/^NQ[0-9]{2}[0-9A-Z]{32}$/.test(first.replace(/\s/g,'').toUpperCase())){if(epoch===cardEpoch)nimActions.set(p.id,{choose:true,notice:rw('noAccount')});return;}
+  await cardCall('/api/payments/'+p.id+'/recoverto',{to:first});if(epoch!==cardEpoch)return;
+  nimActions.set(p.id,{notice:rw('sent')});
+  await syncNimCards();
+ }catch(error){if(epoch===cardEpoch)nimActions.set(p.id,{notice:rw(recoverErrors[error?.code||error?.message]||'failed')});}
+ finally{if(epoch===cardEpoch)renderCards();}
 }
 async function dashboardRecover(p){
  if(nimActions.get(p.id)?.loading||!recoverableCard(p))return;
@@ -587,7 +623,7 @@ function scheduleNimCards(){
 }
 function syncNimCards(){
  if(nimPromise)return nimPromise;if(!email||!nimOn)return Promise.resolve();const epoch=cardEpoch,owner=email;
- const promise=(async()=>{try{const result=await cardCall('/api/payments');if(epoch!==cardEpoch||owner!==email)return;for(const p of result.payments||[])if(p.sender===owner)nimCards.set(p.id,p);renderCards();}catch{}finally{if(epoch===cardEpoch)scheduleNimCards();}})();
+ const promise=(async()=>{try{const result=await cardCall('/api/payments');if(epoch!==cardEpoch||owner!==email)return;for(const p of result.payments||[])if(p.sender===owner)nimCards.set(p.id,p);if(pendingRecover&&nimCards.has(pendingRecover)&&recoverableCard(nimCards.get(pendingRecover))){nimActions.set(pendingRecover,{choose:true});pendingRecover='';}renderCards();}catch{}finally{if(epoch===cardEpoch)scheduleNimCards();}})();
  nimPromise=promise;promise.finally(()=>{if(nimPromise===promise)nimPromise=null;}).catch(()=>{});return promise;
 }
 function stopCards(){

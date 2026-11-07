@@ -2409,3 +2409,61 @@ test('opening the app from the recovery link shows the Nimiq Pay / Nimiq Wallet 
   assert.equal(other.doc.querySelector('.history-row').querySelector('.nim-row-recover-pay').hidden, true);
   other.window.close();
 });
+
+async function dashboardWithUnclaimedCard(options = {}) {
+  const app = await start({ nimStage: 'sent', clocked: true, nimOnly: true, ...options });
+  app.setClaimState('unclaimed'); await app.clock.advance(6000); await settle();
+  return app;
+}
+const dashboardRow = app => app.$('wire-cards-list').children[0];
+
+test('dashboard: Recover funds asks Nimiq Pay or Nimiq Wallet; Nimiq Wallet still gives the Hub link', async () => {
+  const app = await dashboardWithUnclaimedCard();
+  const row = dashboardRow(app);
+  assert.equal(row.querySelector('.nim-row-recover-pay'), null);
+  row.querySelector('.nim-row-recover').click();
+  const choice = dashboardRow(app);
+  assert.equal(choice.querySelector('.nim-row-recover-pay').textContent, 'Nimiq Pay');
+  assert.equal(choice.querySelector('.nim-row-recover-wallet').textContent, 'Nimiq Wallet');
+  assert.equal(choice.querySelector('.nim-row-recover'), null);
+  assert.ok(!app.calls.some(([p]) => p.endsWith('/recovery')), 'asking for the choice never asks for the Hub link');
+  choice.querySelector('.nim-row-recover-wallet').click(); await settle();
+  assert.match(dashboardRow(app).querySelector('a').href, /^https:\/\/hub\.nimiq\.com\/cashlink\/#/);
+  app.window.close();
+});
+
+test('dashboard: inside Nimiq Pay the recovery goes to the app account after a confirmation, and refusals are explained', async () => {
+  const app = await dashboardWithUnclaimedCard({ nativeMode: 'success' });
+  const id = dashboardRow(app).dataset.cardId;
+  dashboardRow(app).querySelector('.nim-row-recover').click();
+  app.window.confirm = () => false;
+  dashboardRow(app).querySelector('.nim-row-recover-pay').click(); await settle();
+  assert.ok(!app.calls.some(([p]) => p.endsWith('/recoverto')), 'nothing is sent without the confirmation');
+  app.window.confirm = () => true;
+  dashboardRow(app).querySelector('.nim-row-recover-pay').click(); await settle();
+  const sent = app.calls.filter(([p]) => p === '/api/payments/' + id + '/recoverto');
+  assert.equal(sent.length, 1);
+  assert.deepEqual(sent[0][1], { to: 'NQ28 CQ7G QEBT 10UK R9LG 83C7 YAMY JD8Q K8S4' });
+  assert.match(app.$('wire-cards-list').textContent, /Recovery sent to your Nimiq Pay account/);
+  app.window.close();
+  const refused = await dashboardWithUnclaimedCard({ nativeMode: 'success', recoverToStatus: 409, recoverToCode: 'recipient_has_link' });
+  refused.window.confirm = () => true;
+  dashboardRow(refused).querySelector('.nim-row-recover').click();
+  dashboardRow(refused).querySelector('.nim-row-recover-pay').click(); await settle();
+  assert.match(refused.$('wire-cards-list').textContent, /already has the link/);
+  refused.window.close();
+});
+
+test('dashboard: outside Nimiq Pay the choice opens the app on this card and sends nothing; the link then shows the choice', async () => {
+  const app = await dashboardWithUnclaimedCard();
+  const id = dashboardRow(app).dataset.cardId;
+  dashboardRow(app).querySelector('.nim-row-recover').click();
+  dashboardRow(app).querySelector('.nim-row-recover-pay').click(); await settle();
+  assert.ok(app.opened.some(w => /^nimiqpay:\/\/miniapp\?url=/.test(w.args[0]) && decodeURIComponent(w.args[0]).endsWith('/?recover=' + id)));
+  assert.ok(!app.calls.some(([p]) => p.endsWith('/recoverto')));
+  app.window.close();
+  const arriving = await dashboardWithUnclaimedCard({ url: 'https://wire.example.test/?recover=' + id });
+  assert.ok(dashboardRow(arriving).querySelector('.nim-row-recover-pay'), 'the recovery link opens on the choice');
+  assert.ok(!arriving.calls.some(([p]) => p.endsWith('/recoverto') || p.endsWith('/recovery')));
+  arriving.window.close();
+});
