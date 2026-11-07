@@ -68,11 +68,12 @@ type API struct {
 	handoffs    map[string]handoff
 	handoffAsks map[string][]time.Time
 	// where each NIM card's coins are, asked of the chain in the background (nimstate.go)
-	stop       chan struct{}        // closed by Close: ends the expiry sweep (expiry.go)
-	refundSkip map[string]time.Time // cards the engine would not refund, asked about again later (under mu)
-	stateMu    sync.Mutex
-	looks      sync.WaitGroup // the background looks: Close waits for them before the engine goes
-	cardStates map[string]cardState
+	stop          chan struct{}        // closed by Close: ends the expiry sweep (expiry.go)
+	refundSkip    map[string]time.Time // cards the engine would not refund, asked about again later (under mu)
+	stateMu       sync.Mutex
+	looks         sync.WaitGroup // the background looks: Close waits for them before the engine goes
+	recoveryEvery time.Duration  // how often a recovery just sent is looked at (zero: three seconds)
+	cardStates    map[string]cardState
 	// the same for a recipient's code (claimhandoff.go), under mu
 	claimHandoffs map[string]claimHandoff
 	claimAsks     map[string][]time.Time
@@ -543,6 +544,9 @@ func (a *API) paymentAction(w http.ResponseWriter, r *http.Request, s session, p
 		}
 		if !a.savePayment(w, p) {
 			return
+		}
+		if state == "pending" {
+			a.watchRecovery(p.ID)
 		}
 		respond(w, 200, map[string]any{"payment": p, "state": state})
 	case "recovery":

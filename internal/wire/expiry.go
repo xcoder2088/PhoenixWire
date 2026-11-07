@@ -53,6 +53,36 @@ func (a *API) sweepLoop() {
 	}
 }
 
+// watchRecovery follows a recovery the sender just asked for, every few seconds for a couple of minutes, so the card leaves "refunding" as soon
+// as the payout is in a block instead of waiting for the next sweep. It uses the sweep's own step, so nothing is decided twice.
+func (a *API) watchRecovery(id string) {
+	every := a.recoveryEvery
+	if every <= 0 {
+		every = 3 * time.Second
+	}
+	a.looks.Add(1)
+	go func() {
+		defer a.looks.Done()
+		for i := 0; i < 60; i++ {
+			select {
+			case <-a.stop:
+				return
+			case <-time.After(every):
+			}
+			a.mu.Lock()
+			saved, ok := a.db.state.Payments[id]
+			p := saved.Payment
+			a.mu.Unlock()
+			if !ok || p.Stage != "refunding" {
+				return
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+			a.sweepNIM(ctx, p, a.now())
+			cancel()
+		}
+	}()
+}
+
 // noticeSent says whether a notice of this kind was sent for this card. Called under a.mu.
 func (a *API) noticeSent(id, kind string) bool {
 	_, ok := a.db.state.Notices[id][kind]

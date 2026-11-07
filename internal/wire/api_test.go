@@ -1256,6 +1256,7 @@ func TestRecoverToSendsTheCoinsToTheSendersAddressOnceAndOnlyForTheSender(t *tes
 		t.Fatal("a refused destination moved coins")
 	}
 
+	f.api.recoveryEvery = 10 * time.Millisecond
 	first := f.call("POST", "/api/payments/"+p.ID+"/recoverto", map[string]string{"to": mine})
 	good(first, t)
 	var out struct {
@@ -1270,6 +1271,23 @@ func TestRecoverToSendsTheCoinsToTheSendersAddressOnceAndOnlyForTheSender(t *tes
 	good(f.call("POST", "/api/payments/"+p.ID+"/recoverto", map[string]string{"to": "NQ07 0000 0000 0000 0000 0000 0000 0000 0000"}), t)
 	if len(f.sent) != 1 {
 		t.Fatalf("a second recovery sent another transaction: %d", len(f.sent))
+	}
+	// the card leaves "refunding" by itself as soon as the payout is in a block, without waiting for the next sweep
+	f.rpcMu.Lock()
+	f.mined = 1
+	f.rpcMu.Unlock()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		f.api.mu.Lock()
+		stage := f.api.db.state.Payments[p.ID].Payment.Stage
+		f.api.mu.Unlock()
+		if stage == "refunded" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the card stayed %q after the payout was mined", stage)
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }
 
