@@ -857,7 +857,7 @@ func (a *API) claim(w http.ResponseWriter, r *http.Request) {
 const checkoutRetryAfter = 3 * time.Minute
 
 func checkoutOf(p payment) map[string]any {
-	return map[string]any{"appName": "Phoenix Wire", "recipient": p.Address, "value": p.Luna, "recipientData": []int{0, 130, 128, 146, 135}}
+	return map[string]any{"appName": "Phoenix Wire", "recipient": p.Address, "value": p.Luna, "recipientData": []int{80, 104, 111, 101, 110, 105, 120, 87, 105, 114, 101}}
 }
 
 // clientIP is the visitor's address. Behind the tunnel every request comes from the machine itself, so the address the tunnel's edge saw

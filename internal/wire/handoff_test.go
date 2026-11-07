@@ -126,7 +126,7 @@ func TestHandoffFundsOnePaymentInTheOtherBrowser(t *testing.T) {
 			RecipientData []int
 		}
 	}
-	if start.Code != 200 || json.Unmarshal(start.Body.Bytes(), &started) != nil || started.Checkout.Recipient != p.Address || started.Checkout.Value != 250000 || len(started.Checkout.RecipientData) != 5 {
+	if start.Code != 200 || json.Unmarshal(start.Body.Bytes(), &started) != nil || started.Checkout.Recipient != p.Address || started.Checkout.Value != 250000 || len(started.Checkout.RecipientData) != 11 {
 		t.Fatalf("start in the app: %d %s", start.Code, start.Body)
 	}
 	if w := b.appCall("POST", "/api/payments/"+p.ID+"/start", map[string]string{}); w.Code != 409 {
@@ -441,7 +441,7 @@ func TestHandoffCheckoutRetryIsSafe(t *testing.T) {
 			RecipientData []int
 		}
 	}
-	if again.Code != 200 || json.Unmarshal(again.Body.Bytes(), &out) != nil || out.Checkout.Recipient != p.Address || out.Checkout.Value != 250000 || len(out.Checkout.RecipientData) != 5 {
+	if again.Code != 200 || json.Unmarshal(again.Body.Bytes(), &out) != nil || out.Checkout.Recipient != p.Address || out.Checkout.Value != 250000 || len(out.Checkout.RecipientData) != 11 {
 		t.Fatalf("the same checkout again: %d %s", again.Code, again.Body)
 	}
 	if w := b.appCall("POST", "/api/payments/"+p.ID+"/start", map[string]string{}); w.Code != 409 {

@@ -133,3 +133,17 @@ func TestRPCRejectsRedirectAndPublicHTTP(t *testing.T) {
 		t.Fatal("redirect accepted")
 	}
 }
+
+func TestFundingMarkerAcceptsOnlyTheKnownMarks(t *testing.T) {
+	for _, ok := range []string{"0082809287", "00c282c280c292c287", "50686f656e697857697265", "50686F656E697857697265"} {
+		if !fundingMarker(ok) {
+			t.Fatalf("known funding mark %q refused", ok)
+		}
+	}
+	// the readable mark: not the text itself, not another case or length, not with anything added
+	for _, bad := range []string{"", "PhoenixWire", "50686f656e69785769726", "50686f656e6978576972650", "50686f656e697857697265 ", "70686f656e697857697265", "50686f656e697857697266", "5068", "50686f656e69785769726500"} {
+		if fundingMarker(bad) {
+			t.Fatalf("funding mark %q accepted", bad)
+		}
+	}
+}

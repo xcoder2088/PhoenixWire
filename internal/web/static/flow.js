@@ -621,14 +621,15 @@ async function requestWallet(p,started,forceHub=false){
   const checkout={appName:started.checkout.appName,recipient:started.checkout.recipient,value:started.checkout.value,extraData:new Uint8Array(started.checkout.recipientData)};
   if(native){
    // The host API accepts text, not bytes. Its UTF-8 encoding is 00c282c280c292c287.
-   // The server must accept that exact marker as well as the Hub's original 0082809287.
-   const marker=[0,130,128,146,135];
-   if(!Number.isSafeInteger(checkout.value)||checkout.value<=0||!addressValid(checkout.recipient)||started.checkout.recipientData?.length!==marker.length||!marker.every((b,i)=>started.checkout.recipientData[i]===b))throw Error('invalid_checkout');
+   // Only these two funding marks are ever signed, whatever the server sends: the readable one, and the Hub's original 0082809287 for cards started before it.
+   const marks=[{bytes:[80,104,111,101,110,105,120,87,105,114,101],text:'PhoenixWire'},{bytes:[0,130,128,146,135],text:'\u0000\u0082\u0080\u0092\u0087'}];
+   const sent=started.checkout.recipientData,mark=marks.find(m=>sent?.length===m.bytes.length&&m.bytes.every((b,i)=>sent[i]===b));
+   if(!Number.isSafeInteger(checkout.value)||checkout.value<=0||!addressValid(checkout.recipient)||!mark)throw Error('invalid_checkout');
    rememberPayment(p,'pay');
    let failure;
    nativeRequestInFlight=true;renderProgress();
    try{
-    const result=await window.nimiq.sendBasicTransactionWithData({recipient:checkout.recipient,value:checkout.value,data:'\u0000\u0082\u0080\u0092\u0087'});
+    const result=await window.nimiq.sendBasicTransactionWithData({recipient:checkout.recipient,value:checkout.value,data:mark.text});
     // Direct providers can return the older { error } envelope instead of rejecting.
     if(result?.error)throw result.error;
    }catch(error){failure=error||{};}finally{nativeRequestInFlight=false;}

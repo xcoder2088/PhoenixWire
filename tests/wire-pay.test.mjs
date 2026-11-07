@@ -64,7 +64,7 @@ function fakeClock(window){
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
 const handoffToken='Q'.repeat(43);
 const handoffDraft={recipient:'friend@example.test',amount:'2.5',message:'Bonjour 🐦',language:'fr'};
-async function start({rpc='ok',nimEnabled=true,confirmCode='',confirmStatus=409,audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [0,130,128,146,135], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
+async function start({rpc='ok',nimEnabled=true,confirmCode='',confirmStatus=409,audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [80,104,111,101,110,105,120,87,105,114,101], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
   const dom = new JSDOM(read(classic?'../internal/web/static/classic.html':'../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
@@ -92,8 +92,8 @@ async function start({rpc='ok',nimEnabled=true,confirmCode='',confirmStatus=409,
       // Model the native host: String(data), then BufferUtils.fromUtf8(message).
       const encoded = new TextEncoder().encode(String(request.data ?? ''));
       nativeCalls.push({request,hex:Buffer.from(encoded).toString('hex')});
-      assert.equal(request.data, '\u0000\u0082\u0080\u0092\u0087');
-      assert.equal(Buffer.from(encoded).toString('hex'), '00c282c280c292c287');
+      assert.ok(['PhoenixWire', '\u0000\u0082\u0080\u0092\u0087'].includes(request.data));
+      assert.equal(Buffer.from(encoded).toString('hex'), request.data === 'PhoenixWire' ? '50686f656e697857697265' : '00c282c280c292c287');
       const outcome=nativeResults[nativeCalls.length-1]||nativeMode;
       nativeActive++;maxNativeActive=Math.max(maxNativeActive,nativeActive);
       try{
@@ -401,7 +401,7 @@ test('NIM uses the common sender session and existing protected checkout in the 
   await settle();
   assert.equal(t.checkouts.length, 1);
   assert.equal(t.checkouts[0].recipient, 'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');
-  assert.deepEqual(Array.from(t.checkouts[0].extraData), [0,130,128,146,135]);
+  assert.deepEqual(Array.from(t.checkouts[0].extraData), [80,104,111,101,110,105,120,87,105,114,101]);
   assert.equal(t.checkouts[0].value, 250000); assert.equal(t.checkouts[0].seed, undefined);
   assert.ok(t.calls.some(([path]) => path.endsWith('/art')));
   assert.equal(t.$('feedback').textContent.split('\n')[0], 'Card sent to friend@example.test. It stays yours until it is claimed.');
@@ -477,14 +477,14 @@ async function submitNim(t){
   t.$('card-form').dispatchEvent(new t.window.Event('submit',{cancelable:true}));await settle();
 }
 
-test('native NIM funding preserves the exact text including NUL and its UTF-8 bytes, recipient and Luna',async()=>{
+test('native NIM funding sends the readable PhoenixWire mark as exact text, with the recipient and Luna',async()=>{
   const t=await start({nimOnly:true,nativeMode:'success',mobile:true});await submitNim(t);
   assert.equal(t.$('wire-nim-choice'),null);assert.equal(t.nativeCalls.length,1);
   const {request,hex}=t.nativeCalls[0];
   assert.equal(request.recipient,'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');assert.equal(request.value,250000);
-  assert.equal(request.data,'\u0000\u0082\u0080\u0092\u0087');
-  assert.equal(typeof request.data,'string');assert.equal(request.data.charCodeAt(0),0);
-  assert.equal(hex,'00c282c280c292c287');assert.notEqual(hex,'0082809287');
+  assert.equal(request.data,'PhoenixWire');
+  assert.equal(typeof request.data,'string');
+  assert.equal(hex,'50686f656e697857697265');assert.notEqual(hex,'0082809287');
   assert.deepEqual(Object.keys(request).sort(),['data','recipient','value']);
   assert.ok(t.calls.some(([p])=>p.endsWith('/confirm')));assert.equal(t.$('feedback').textContent.split('\n')[0],'Card sent to friend@example.test. It stays yours until it is claimed.');
   assert.equal(t.checkouts.length,0);assert.equal(t.window.sessionStorage.getItem('wire-pending-payment'),'');
@@ -501,7 +501,7 @@ test('a returned native hash alone is never shown as a successful card payment',
 test('an app without an injected NIM provider uses the existing Hub checkout',async()=>{
   const t=await start({nimOnly:true,nativeMode:'missing',mobile:true});await submitNim(t);
   assert.equal(t.$('wire-nim-choice'),null);assert.equal(t.nativeCalls.length,0);assert.equal(t.checkouts.length,1);
-  assert.deepEqual(Array.from(t.checkouts[0].extraData),[0,130,128,146,135]);
+  assert.deepEqual(Array.from(t.checkouts[0].extraData),[80,104,111,101,110,105,120,87,105,114,101]);
   assert.equal(t.checkouts[0].value,250000);
 });
 
@@ -525,7 +525,7 @@ test('native errors check funding before offering Hub, then reuse the same card 
   assert.equal(t.confirmations.length,1);assert.equal(t.checkouts.length,1);
   assert.equal(t.checkouts[0].recipient,t.nativeCalls[0].request.recipient);
   assert.equal(t.checkouts[0].value,t.nativeCalls[0].request.value);
-  assert.deepEqual(Array.from(t.checkouts[0].extraData),[0,130,128,146,135]);
+  assert.deepEqual(Array.from(t.checkouts[0].extraData),[80,104,111,101,110,105,120,87,105,114,101]);
   assert.equal(t.calls.filter(([p])=>p.endsWith('/start')).length,1);
   assert.equal(t.calls.filter(([p,b])=>p==='/api/payments'&&b).length,1);
   assert.equal(t.$('feedback').textContent.split('\n')[0],'Card sent to friend@example.test. It stays yours until it is claimed.');
@@ -1168,7 +1168,7 @@ test('redeem clears the token before the request, opens only the prepared card w
  app.$('nim-handoff-pay').click();await settle();
  assert.equal(app.nativeCalls.length,1);assert.equal(app.nativeCalls[0].request.value,250000);
  assert.equal(app.nativeCalls[0].request.recipient,'NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY');
- assert.equal(app.nativeCalls[0].hex,'00c282c280c292c287');
+ assert.equal(app.nativeCalls[0].hex,'50686f656e697857697265');
  const reloaded=await start({nimOnly:true,clocked:true,url:app.window.location.href,saved:app.snapshot(),local:app.snapshotLocal()});
  assert.equal(reloaded.calls.filter(([p])=>p==='/api/handoff/redeem').length,0);
  for(const data of [app.snapshot(),app.snapshotLocal(),app.consoleMessages])assert.ok(!JSON.stringify(data).includes(handoffToken));
@@ -1293,7 +1293,7 @@ test('native diagnostic exposes type/code/message as copyable text and logs only
  app.$('nim-wallet-copy').click();await settle();assert.deepEqual(copies,[detail]);
  assert.equal(app.$('nim-wallet-failure').hidden,false);assert.equal(app.$('nim-wallet-retry').hidden,false);
  assert.equal(app.$('nim-progress-close').hidden,true);
- assert.equal(app.nativeCalls[0].request.data,'\u0000\u0082\u0080\u0092\u0087');
+ assert.equal(app.nativeCalls[0].request.data,'PhoenixWire');
  for(const store of [app.snapshot(),app.snapshotLocal()])assert.ok(!JSON.stringify(store).includes('INVALID_DATA'));
  const css=read('../internal/web/static/wire-pay.css');assert.match(css,/#nim-wallet-detail\{[^}]*white-space:pre-wrap[^}]*overflow-wrap:anywhere/);
 });
@@ -1308,7 +1308,7 @@ test('native retry waits from server started_at, counts down, and only pays on a
  await app.clock.advance(1000);assert.match(app.$('nim-wallet-wait').textContent,/2:29/);
  await app.clock.advance(149000);assert.equal(app.$('nim-wallet-retry').disabled,false);assert.equal(app.nativeCalls.length,1,'the timer must never pay');
  app.$('nim-wallet-retry').click();await settle();
- assert.equal(app.nativeCalls.length,2);assert.equal(app.nativeCalls[1].hex,'00c282c280c292c287');
+ assert.equal(app.nativeCalls.length,2);assert.equal(app.nativeCalls[1].hex,'50686f656e697857697265');
  assert.equal(app.calls.filter(([p])=>p.endsWith('/start')).length,1);
  assert.equal(app.calls.filter(([p])=>p.endsWith('/checkout')).length,2);
  assert.equal(app.$('nim-progress-close').hidden,false);assert.match(app.$('nim-progress-message').textContent,/Carte envoyée/);
@@ -2339,5 +2339,14 @@ test('Confirm with an empty or short code asks for the six digits and never call
     assert.equal(t.$('wire-status').textContent, 'Enter the 6-digit code.');
   }
   assert.equal(t.calls.filter(([path]) => path === '/api/sender/verify').length, 0);
+  t.window.close();
+});
+
+test('a card started with the older funding mark is still paid with that exact mark, native and Hub', async () => {
+  const legacy = [0, 130, 128, 146, 135];
+  const t = await start({ nimOnly: true, nativeMode: 'success', mobile: true, rawMarker: legacy }); await submitNim(t);
+  assert.equal(t.nativeCalls.length, 1);
+  assert.equal(t.nativeCalls[0].request.data, '\u0000\u0082\u0080\u0092\u0087');
+  assert.equal(t.nativeCalls[0].hex, '00c282c280c292c287');
   t.window.close();
 });

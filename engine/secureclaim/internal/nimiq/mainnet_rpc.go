@@ -20,8 +20,12 @@ const cashlinkFundingMarker = "0082809287"
 // U+0087) reach the chain as these nine bytes. It is the same funding mark from another sender, accepted only as exactly this and nothing else.
 const cashlinkFundingMarkerNimiqPay = "00c282c280c292c287"
 
+// cashlinkFundingMarkerText is the same funding mark written as readable text, "PhoenixWire" (11 ASCII bytes): the wallet shows it as a message
+// instead of empty boxes. Nimiq Pay sends ASCII unchanged, so one value covers both senders. The two older values stay accepted for cards already in flight.
+const cashlinkFundingMarkerText = "50686f656e697857697265"
+
 func fundingMarker(recipientData string) bool {
-	return strings.EqualFold(recipientData, cashlinkFundingMarker) || strings.EqualFold(recipientData, cashlinkFundingMarkerNimiqPay)
+	return strings.EqualFold(recipientData, cashlinkFundingMarkerText) || strings.EqualFold(recipientData, cashlinkFundingMarker) || strings.EqualFold(recipientData, cashlinkFundingMarkerNimiqPay)
 }
 
 var ErrRPC = errors.New("nimiq_mainnet_rpc_unavailable")
