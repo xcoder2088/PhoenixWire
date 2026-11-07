@@ -287,6 +287,84 @@ func (e *Engine) RefundExpired(ctx context.Context, id string, luna uint64) (str
 	return "pending", nil
 }
 
+// RecoverTo sends the coins of a card back to an address the SENDER chose (the account of their Nimiq Pay app), at any time while the card still
+// holds them. The gateway only calls it for the verified sender of this very card. It answers like RefundExpired:
+//
+//	"pending"  a payout was sent (or is being followed) and is not in a block yet
+//	"done"     the payout is in a block
+//	"claimed"  nothing to send: the card is empty
+//	"released" the recipient already has the Hub link (their e-mail was verified): the coins are theirs to take, nothing is sent
+//	"started"  the recipient's own payout to an address began: it is not touched
+//
+// The destination is journaled BEFORE anything is broadcast and is never changed afterwards: asking again, with the same or another address,
+// can only follow that first payout. It is written as a refund, so the expiry refund and the page both follow it instead of starting another.
+func (e *Engine) RecoverTo(ctx context.Context, id, to string) (string, error) {
+	s := e.server
+	if s.chain == nil || s.cashlinkVault == nil || s.payoutDir == "" || !s.cashlinkVault.Has(id) {
+		return "", errors.New("recovery_unavailable")
+	}
+	if !nimiq.ValidAddress(to) {
+		return "", errors.New("invalid_destination")
+	}
+	s.payoutMu.Lock()
+	defer s.payoutMu.Unlock()
+	rec, err := s.loadPayout(id)
+	if err != nil {
+		return "", err
+	}
+	if rec != nil {
+		if rec.Kind != "refund" {
+			return "started", nil
+		}
+		answer, status := s.followPayout(ctx, id, rec)
+		if status != 200 {
+			return "pending", nil
+		}
+		if answer["status"] == "payout_refunded" {
+			if found, confirmations, executed := s.chain.TxState(ctx, rec.Hash); found && executed && confirmations >= 1 {
+				return "done", nil
+			}
+		}
+		return "pending", nil
+	}
+	view, err := s.claims.Peek(id)
+	if err != nil {
+		return "", err
+	}
+	if view.EmailVerified {
+		return "released", nil
+	}
+	seed, own, err := s.cashlinkKey(id)
+	if err != nil {
+		return "", err
+	}
+	clear(seed)
+	if strings.EqualFold(strings.ReplaceAll(to, " ", ""), strings.ReplaceAll(own, " ", "")) {
+		return "", errors.New("invalid_destination") // never back onto the card itself
+	}
+	balance, err := s.chain.Balance(ctx, own)
+	if err != nil {
+		return "", err
+	}
+	if balance == 0 {
+		return "claimed", nil
+	}
+	height, err := s.chain.Height(ctx)
+	if err != nil {
+		return "", err
+	}
+	fresh, err := s.signPayout(ctx, id, to, balance, height)
+	if err != nil {
+		return "", err
+	}
+	fresh.Kind = "refund"
+	if err := s.savePayout(id, fresh); err != nil { // journal first, broadcast second
+		return "", err
+	}
+	_, _ = s.chain.Broadcast(ctx, fresh.Raw)
+	return "pending", nil
+}
+
 // ForgetNIM ends the retention of a NIM card: its claim (with the recipient's e-mail address) is erased, but only when the card holds nothing and no payout
 // or refund is under way. The card's key stays sealed in the vault: a payment that someone sends to its address later could still be recovered.
 // It answers "forgotten" or "keep".

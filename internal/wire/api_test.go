@@ -1220,3 +1220,87 @@ func TestRelayerWithdrawalIsAdministratorOnlyAndNeedsAnAuthorizedAddress(t *test
 		t.Fatal("the relayer view must say what stays on the wallet", w.Code, w.Body)
 	}
 }
+
+// signedFundedCard walks a card to "sent": signed in, prepared, started, paid on the (fake) chain, delivered.
+func signedFundedCard(t *testing.T, f *fixture) payment {
+	t.Helper()
+	good(f.call("POST", "/api/sender/request", map[string]string{"email": "sender@example.test"}), t)
+	good(f.call("POST", "/api/sender/verify", map[string]string{"code": f.mail.codes["sender@example.test"]}), t)
+	p := f.create()
+	good(f.call("POST", "/api/payments/"+p.ID+"/art", map[string]string{"png": testNimicon(t)}), t)
+	good(f.call("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t)
+	f.rpcMu.Lock()
+	f.funded = true
+	f.rpcMu.Unlock()
+	good(f.call("POST", "/api/payments/"+p.ID+"/confirm", map[string]string{}), t)
+	return p
+}
+
+func TestRecoverToSendsTheCoinsToTheSendersAddressOnceAndOnlyForTheSender(t *testing.T) {
+	f := newFixture(t)
+	p := signedFundedCard(t, f)
+	mine := "NQ28 CQ7G QEBT 10UK R9LG 83C7 YAMY JD8Q K8S4"
+	owner := f.cookie
+
+	f.cookie = nil
+	if w := f.call("POST", "/api/payments/"+p.ID+"/recoverto", map[string]string{"to": mine}); w.Code != 401 {
+		t.Fatalf("anonymous recovery to an address: %d", w.Code)
+	}
+	f.cookie = owner
+	for _, bad := range []string{"", "NQ00", "not an address", p.Address} {
+		if w := f.call("POST", "/api/payments/"+p.ID+"/recoverto", map[string]string{"to": bad}); w.Code != 400 {
+			t.Fatalf("destination %q accepted: %d %s", bad, w.Code, w.Body)
+		}
+	}
+	if len(f.sent) != 0 {
+		t.Fatal("a refused destination moved coins")
+	}
+
+	first := f.call("POST", "/api/payments/"+p.ID+"/recoverto", map[string]string{"to": mine})
+	good(first, t)
+	var out struct {
+		State   string
+		Payment payment
+	}
+	json.Unmarshal(first.Body.Bytes(), &out)
+	if out.State != "pending" || out.Payment.Stage != "refunding" || len(f.sent) != 1 {
+		t.Fatalf("first recovery: %s, %d transactions", first.Body, len(f.sent))
+	}
+	// asking again, even for another address, only follows the journaled payout: never a second payment, never a new destination
+	good(f.call("POST", "/api/payments/"+p.ID+"/recoverto", map[string]string{"to": "NQ07 0000 0000 0000 0000 0000 0000 0000 0000"}), t)
+	if len(f.sent) != 1 {
+		t.Fatalf("a second recovery sent another transaction: %d", len(f.sent))
+	}
+}
+
+func TestRecoverToRefusesWhatIsNotTheSendersToTake(t *testing.T) {
+	f := newFixture(t)
+	good(f.call("POST", "/api/sender/request", map[string]string{"email": "sender@example.test"}), t)
+	good(f.call("POST", "/api/sender/verify", map[string]string{"code": f.mail.codes["sender@example.test"]}), t)
+	p := f.create()
+	mine := "NQ28 CQ7G QEBT 10UK R9LG 83C7 YAMY JD8Q K8S4"
+	// a card that is not paid yet has nothing to recover
+	if w := f.call("POST", "/api/payments/"+p.ID+"/recoverto", map[string]string{"to": mine}); w.Code != 409 {
+		t.Fatalf("recovery of an unpaid card: %d %s", w.Code, w.Body)
+	}
+	good(f.call("POST", "/api/payments/"+p.ID+"/art", map[string]string{"png": testNimicon(t)}), t)
+	good(f.call("POST", "/api/payments/"+p.ID+"/start", map[string]string{}), t)
+	f.rpcMu.Lock()
+	f.funded = true
+	f.rpcMu.Unlock()
+	good(f.call("POST", "/api/payments/"+p.ID+"/confirm", map[string]string{}), t)
+	// the recipient already holds the Hub link: the coins are theirs to take
+	good(f.call("POST", "/api/claims/"+p.ID+"/request", map[string]string{}), t)
+	good(f.call("POST", "/api/claims/"+p.ID+"/release", map[string]string{"code": f.mail.codes["recipient@example.test"]}), t)
+	w := f.call("POST", "/api/payments/"+p.ID+"/recoverto", map[string]string{"to": mine})
+	if w.Code != 409 || !strings.Contains(w.Body.String(), "recipient_has_link") || len(f.sent) != 0 {
+		t.Fatalf("recovery after the recipient released the link: %d %s, %d transactions", w.Code, w.Body, len(f.sent))
+	}
+	// another sender cannot reach this card
+	f.cookie = nil
+	good(f.call("POST", "/api/sender/request", map[string]string{"email": "other@example.test"}), t)
+	good(f.call("POST", "/api/sender/verify", map[string]string{"code": f.mail.codes["other@example.test"]}), t)
+	if w := f.call("POST", "/api/payments/"+p.ID+"/recoverto", map[string]string{"to": mine}); w.Code != 404 {
+		t.Fatalf("another sender recovered this card: %d", w.Code)
+	}
+}

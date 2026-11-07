@@ -34,6 +34,7 @@ type Engine interface {
 	Recovery(string) (string, error)
 	CardState(context.Context, string) (string, error)
 	RefundExpired(context.Context, string, uint64) (string, error)
+	RecoverTo(context.Context, string, string) (string, error)
 	ForgetNIM(context.Context, string) (string, error)
 }
 type senderOTP interface {
@@ -494,6 +495,56 @@ func (a *API) paymentAction(w http.ResponseWriter, r *http.Request, s session, p
 		a.confirm(w, r, p, false)
 	case "resend":
 		a.confirm(w, r, p, true)
+	case "recoverto":
+		// The sender takes the coins of an unclaimed card back to the account of their Nimiq Pay app: the server sends them, the destination is
+		// journaled once and never changes. Only the verified sender (a hand-over session is refused before reaching here).
+		var in struct {
+			To string `json:"to"`
+		}
+		if decode(w, r, &in) != nil {
+			failure(w, 400, "invalid_destination")
+			return
+		}
+		switch p.Stage {
+		case "funded", "delivery_pending", "delivery_failed", "sent", "refunding":
+		default:
+			failure(w, 409, "cannot_recover")
+			return
+		}
+		to := strings.ToUpper(strings.ReplaceAll(in.To, " ", ""))
+		ctx, cancel := context.WithTimeout(r.Context(), 40*time.Second)
+		defer cancel()
+		state, err := a.engine.RecoverTo(ctx, p.ID, to)
+		if err != nil {
+			if err.Error() == "invalid_destination" {
+				failure(w, 400, "invalid_destination")
+				return
+			}
+			failure(w, 503, "recovery_unavailable")
+			return
+		}
+		switch state {
+		case "pending":
+			p.Stage = "refunding"
+		case "done":
+			p.Stage = "refunded"
+		case "claimed":
+			failure(w, 409, "already_empty")
+			return
+		case "released":
+			failure(w, 409, "recipient_has_link")
+			return
+		case "started":
+			failure(w, 409, "claim_started")
+			return
+		default:
+			failure(w, 503, "recovery_unavailable")
+			return
+		}
+		if !a.savePayment(w, p) {
+			return
+		}
+		respond(w, 200, map[string]any{"payment": p, "state": state})
 	case "recovery":
 		seed, err := a.engine.Recovery(p.ID)
 		if err != nil {

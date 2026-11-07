@@ -64,7 +64,7 @@ function fakeClock(window){
 // Wire's page with PhoenixMail's own payment window (/pm/*) and a fake Wire server.
 const handoffToken='Q'.repeat(43);
 const handoffDraft={recipient:'friend@example.test',amount:'2.5',message:'Bonjour 🐦',language:'fr'};
-async function start({rpc='ok',nimEnabled=true,confirmCode='',confirmStatus=409,audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [80,104,111,101,110,105,120,87,105,114,101], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
+async function start({rpc='ok',nimEnabled=true,confirmCode='',confirmStatus=409,audioReject=false,maintenance=false,inviteOnly=false,adminAccess=null,cancelCode="",cancelConfirm=true,classic=false,extraNim=[],recoveryStatus=200,recoverToStatus=200,recoverToCode='',holdRecovery=null,nativeError=null,nativeResults=[],holdNative=null,holdNativeAt=2,checkoutCode='',checkoutError=409,startedAgo=0, handoffStatus=200,redeemStatus=200,redeemDraft=handoffDraft,redeemCode='',alreadySignedIn=false,redeemStage='ready',startRace=false,holdRedeem=null,holdHandoff=null,popupBlocked=false, session = { verified: true, email: 'sender@example.test' }, state = () => ({ state: 'awaiting_funds', balanceUnits: 0 }), invite = () => ({ invited: true }), theme = 'dark', nimPending = false, mobile = false, returning = false, nimOnly = false, nativeMode = '', network = 'mainnet', rawMarker = [80,104,111,101,110,105,120,87,105,114,101], android = false, clocked=false, manualNim=false, nimStage='', saved={}, createdAgo=0,local={},serverCards=[],inviteMode='',ownedUnavailable=false,url='https://wire.example.test/',width=1024,gas={polygon:{available:false,reason:'off'},ethereum:{available:false,reason:'off'}} } = {}) {
   const dom = new JSDOM(read(classic?'../internal/web/static/classic.html':'../internal/web/static/index.html'), { url, runScripts: 'outside-only', pretendToBeVisual: true });
   doms.push(dom);
   const { window } = dom, ctx = dom.getInternalVMContext();
@@ -88,7 +88,7 @@ async function start({rpc='ok',nimEnabled=true,confirmCode='',confirmStatus=409,
   let fundingVisible = !nativeMode && Boolean(nimPending || returning || nimStage && nimStage!=='ready');
   if(nativeMode){
     window.nimiqPay={network,language:'en'};
-    if(nativeMode!=='missing')window.nimiq={async sendBasicTransactionWithData(request){
+    if(nativeMode!=='missing')window.nimiq={async listAccounts(){return ['NQ28 CQ7G QEBT 10UK R9LG 83C7 YAMY JD8Q K8S4'];},async sendBasicTransactionWithData(request){
       // Model the native host: String(data), then BufferUtils.fromUtf8(message).
       const encoded = new TextEncoder().encode(String(request.data ?? ''));
       nativeCalls.push({request,hex:Buffer.from(encoded).toString('hex')});
@@ -184,6 +184,7 @@ async function start({rpc='ok',nimEnabled=true,confirmCode='',confirmStatus=409,
       }finally{activeConfirms--;}
     }
     if(path.endsWith('/resend')){nim.stage=mailFails?'delivery_failed':'sent';return mailFails?answer(502,{code:'email_delivery_unavailable'}):answer(200,{payment:nim});}
+    if (path.endsWith('/recoverto')) return recoverToStatus===200?answer(200,{payment:{...nim,stage:'refunding'},state:'pending'}):answer(recoverToStatus,{code:recoverToCode});
     if (path.endsWith('/recovery')) {
       if(holdRecovery)await new Promise((resolve,reject)=>{holdRecovery.release=resolve;options.signal?.addEventListener('abort',()=>reject(Error('aborted')),{once:true});});
       return answer(recoveryStatus,recoveryStatus===200?{cashlink:'https://hub.nimiq.com/cashlink/#'+Buffer.alloc(40,5).toString('base64url')}:{code:'recovery_unavailable'});
@@ -1433,14 +1434,16 @@ test('late funding of a folded card updates My cards without replacing or cleari
  assert.equal(app.nativeCalls.length,0);assert.equal(app.checkouts.length,0);
 });
 
+const viaWallet=row=>{row.querySelector('.nim-row-recover').click();row.querySelector('.nim-row-recover-wallet').click();};
+
 test('funded recovery errors and the ready link live on the same history row and survive refreshes',async()=>{
  const app=await tracked({nimStage:'funded',recoveryStatus:503});
  const row=app.doc.querySelector('.history-row'),recover=row.querySelector('.nim-row-recover');assert.equal(recover.hidden,false);
- recover.click();await settle();assert.equal(app.calls.filter(([p])=>p.endsWith('/recovery')).length,1);
+ viaWallet(row);await settle();assert.equal(app.calls.filter(([p])=>p.endsWith('/recovery')).length,1);
  assert.match(row.querySelector('.nim-row-notice').textContent,/could not be prepared/);assert.equal(recover.disabled,false);
  app.$('new-card').click();await app.clock.advance(30000);
  assert.equal(app.doc.querySelector('.history-row'),row);assert.match(row.querySelector('.nim-row-notice').textContent,/could not be prepared/);
- app.setRecoveryStatus(200);recover.click();await settle();
+ app.setRecoveryStatus(200);viaWallet(row);await settle();
  const link=row.querySelector('.nim-row-recovery-link');assert.equal(link.hidden,false);assert.match(link.href,/^https:\/\/hub\.nimiq\.com\/cashlink\/#/);
  assert.match(row.querySelector('.nim-row-notice').textContent,/Link ready/);
  assert.equal(app.calls.filter(([p])=>p.endsWith('/recovery')).length,2);
@@ -1451,7 +1454,7 @@ test('recovery never silently drops behind the wallet busy lock; folding while t
  const app=await start({nimOnly:true,nativeMode:'success',nimStage:'ready',clocked:true,extraNim:[paid],holdNative:gate,holdNativeAt:1});
  await submitNim(app);assert.equal(app.nativeCalls.length,1);
  const row=app.doc.querySelector('[data-payment-id="'+paid.id+'"]'),recover=row.querySelector('.nim-row-recover');
- assert.equal(recover.disabled,false);recover.click();await settle();
+ assert.equal(recover.disabled,false);viaWallet(row);await settle();
  assert.ok(app.calls.some(([p])=>p==='/api/payments/'+paid.id+'/recovery'));assert.match(row.querySelector('.nim-row-notice').textContent,/Link ready/);
  app.$('new-card').click();assert.equal(app.$('recipient').value,'');assert.equal(app.$('preview-submit').disabled,true);
  gate.release();await settle();
@@ -1462,7 +1465,7 @@ test('recovery never silently drops behind the wallet busy lock; folding while t
 test('a stalled recovery has visible progress, times out on its row and never locks New card',async()=>{
  const gate={},app=await tracked({nimStage:'funded',holdRecovery:gate});
  const row=app.doc.querySelector('.history-row'),recover=row.querySelector('.nim-row-recover');
- recover.click();recover.click();await settle();assert.equal(recover.disabled,true);assert.match(row.querySelector('.nim-row-notice').textContent,/Working/);
+ recover.click();const wallet=row.querySelector('.nim-row-recover-wallet');wallet.click();wallet.click();await settle();assert.equal(recover.disabled,true);assert.match(row.querySelector('.nim-row-notice').textContent,/Working/);
  assert.equal(app.$('new-card').hidden,false);app.$('new-card').click();
  await app.clock.advance(30000);assert.equal(app.doc.querySelector('.history-row'),row);
  assert.match(row.querySelector('.nim-row-notice').textContent,/could not be prepared/);assert.equal(recover.disabled,false);
@@ -1990,7 +1993,7 @@ test('cancelled late-funded cards remain recoverable while other cancellations a
 });
 test('NIM history revokes an already prepared recovery link as claiming and claimed arrive',async()=>{
  const app=await tracked({nimStage:'sent'});
- let row=app.doc.querySelector('.history-row');row.querySelector('.nim-row-recover').click();await settle();assert.equal(row.querySelector('.nim-row-recovery-link').hidden,false);
+ let row=app.doc.querySelector('.history-row');viaWallet(row);await settle();assert.equal(row.querySelector('.nim-row-recovery-link').hidden,false);
  for(const state of ['claiming','claimed']){
   app.setClaimState(state);await app.clock.advance(6000);row=app.doc.querySelector('.history-row');
   for(const selector of ['.nim-row-recover','.nim-row-recovery-link','.nim-row-retry','.nim-row-cancel'])assert.equal(row.querySelector(selector).hidden,true);
@@ -2349,4 +2352,60 @@ test('a card started with the older funding mark is still paid with that exact m
   assert.equal(t.nativeCalls[0].request.data, '\u0000\u0082\u0080\u0092\u0087');
   assert.equal(t.nativeCalls[0].hex, '00c282c280c292c287');
   t.window.close();
+});
+
+test('Recover funds offers Nimiq Pay and Nimiq Wallet; Nimiq Pay sends the coins to the account the app gives, after a confirmation', async () => {
+  const app = await tracked({ nimStage: 'funded', nativeMode: 'success' });
+  const row = app.doc.querySelector('.history-row'), id = row.dataset.paymentId;
+  assert.equal(row.querySelector('.nim-row-recover-pay').hidden, true);
+  row.querySelector('.nim-row-recover').click();
+  const pay = row.querySelector('.nim-row-recover-pay'), wallet = row.querySelector('.nim-row-recover-wallet');
+  assert.equal(pay.hidden, false); assert.equal(wallet.hidden, false);
+  assert.equal(pay.textContent, 'Nimiq Pay'); assert.equal(wallet.textContent, 'Nimiq Wallet');
+  assert.equal(row.querySelector('.nim-row-recover').hidden, true);
+  app.window.confirm = () => false;
+  pay.click(); await settle();
+  assert.ok(!app.calls.some(([p]) => p.endsWith('/recoverto')), 'nothing is sent without the confirmation');
+  app.window.confirm = () => true;
+  pay.click(); await settle();
+  const sent = app.calls.filter(([p]) => p === '/api/payments/' + id + '/recoverto');
+  assert.equal(sent.length, 1);
+  assert.deepEqual(sent[0][1], { to: 'NQ28 CQ7G QEBT 10UK R9LG 83C7 YAMY JD8Q K8S4' });
+  assert.match(row.querySelector('.nim-row-notice').textContent, /Recovery sent to your Nimiq Pay account/);
+  assert.ok(!app.calls.some(([p]) => p.endsWith('/recovery')), 'no Hub link was asked for');
+  app.window.close();
+});
+
+test('a recovery the service refuses is explained on the row, in the sender\'s words', async () => {
+  for (const [code, text] of [['recipient_has_link', /already has the link/], ['claim_started', /already started/], ['already_empty', /already empty/], ['recovery_unavailable', /could not be sent/]]) {
+    const app = await tracked({ nimStage: 'funded', nativeMode: 'success', recoverToStatus: 409, recoverToCode: code });
+    app.window.confirm = () => true;
+    const row = app.doc.querySelector('.history-row');
+    row.querySelector('.nim-row-recover').click(); row.querySelector('.nim-row-recover-pay').click(); await settle();
+    assert.match(row.querySelector('.nim-row-notice').textContent, text, code);
+    app.window.close();
+  }
+});
+
+test('outside Nimiq Pay, the Nimiq Pay choice opens the app on this card and sends nothing yet', async () => {
+  const app = await tracked({ nimStage: 'funded' });
+  const row = app.doc.querySelector('.history-row'), id = row.dataset.paymentId;
+  row.querySelector('.nim-row-recover').click(); row.querySelector('.nim-row-recover-pay').click(); await settle();
+  assert.ok(app.opened.some(w => /^nimiqpay:\/\/miniapp\?url=/.test(w.args[0]) && decodeURIComponent(w.args[0]).endsWith('/?recover=' + id)));
+  assert.ok(!app.calls.some(([p]) => p.endsWith('/recoverto')));
+  assert.match(row.querySelector('.nim-row-notice').textContent, /Continue in Nimiq Pay/);
+  app.window.close();
+});
+
+test('opening the app from the recovery link shows the Nimiq Pay / Nimiq Wallet choice on that card, and ignores anything else', async () => {
+  const id = 'a'.repeat(48);
+  const app = await tracked({ nimStage: 'funded', nativeMode: 'success', url: 'https://wire.example.test/?recover=' + id });
+  const row = app.doc.querySelector('.history-row');
+  assert.equal(row.dataset.paymentId, id);
+  assert.equal(row.querySelector('.nim-row-recover-pay').hidden, false);
+  assert.ok(!app.calls.some(([p]) => p.endsWith('/recoverto') || p.endsWith('/recovery')), 'the link alone sends nothing');
+  app.window.close();
+  const other = await tracked({ nimStage: 'funded', nativeMode: 'success', url: 'https://wire.example.test/?recover=%3Cscript%3E' });
+  assert.equal(other.doc.querySelector('.history-row').querySelector('.nim-row-recover-pay').hidden, true);
+  other.window.close();
 });

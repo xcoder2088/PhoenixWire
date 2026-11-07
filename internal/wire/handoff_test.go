@@ -179,6 +179,7 @@ func TestHandoffSessionReachesNothingBeyondItsPayment(t *testing.T) {
 		"another payment's resend": {"POST", "/api/payments/" + other.ID + "/resend"},
 		"another payment's cancel": {"POST", "/api/payments/" + other.ID + "/cancel"},
 		"the recovery key":         {"POST", "/api/payments/" + p.ID + "/recovery"},
+		"recovery to an address":   {"POST", "/api/payments/" + p.ID + "/recoverto"},
 		"prepare":                  {"POST", "/api/payments/" + p.ID + "/prepare"},
 		"USDC / USDT cards":        {"GET", "/api/usdt/cards"},
 		"a USDC card":              {"POST", "/api/usdt/cashlink/create"},

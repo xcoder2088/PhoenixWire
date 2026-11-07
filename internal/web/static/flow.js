@@ -128,6 +128,16 @@ const rowWords={
     "busy": "Une demande de portefeuille est déjà en cours. Termine-la dans ton portefeuille ; le nouveau formulaire reste disponible.",
     "recoveryReady": "Lien prêt. Ouvre-le pour récupérer les fonds.",
     "openRecovery": "Ouvrir la récupération",
+    "recoverPay": "Nimiq Pay",
+    "recoverWallet": "Nimiq Wallet",
+    "recoverPayConfirm": "Renvoyer les {amount} NIM de cette carte sur ton compte Nimiq Pay ?",
+    "recoverPayOpen": "Continue dans Nimiq Pay pour confirmer la récupération.",
+    "recoverPaySent": "Récupération envoyée à ton compte Nimiq Pay.",
+    "recoverPayFailed": "Impossible d’envoyer la récupération. Réessaie sur cette ligne.",
+    "recoverReleased": "Le destinataire a déjà le lien : ces fonds sont à lui.",
+    "recoverStarted": "Le paiement du destinataire a déjà commencé.",
+    "recoverEmpty": "Cette carte est déjà vide.",
+    "recoverNoAccount": "Nimiq Pay n’a donné aucun compte. Réessaie.",
     "recoveryFailed": "Impossible de préparer la récupération. Réessaie sur cette ligne."
   },
   "en": {
@@ -136,6 +146,16 @@ const rowWords={
     "busy": "A wallet request is already in progress. Finish it in your wallet; the new form remains available.",
     "recoveryReady": "Link ready. Open it to recover the funds.",
     "openRecovery": "Open recovery",
+    "recoverPay": "Nimiq Pay",
+    "recoverWallet": "Nimiq Wallet",
+    "recoverPayConfirm": "Send this card’s {amount} NIM back to your Nimiq Pay account?",
+    "recoverPayOpen": "Continue in Nimiq Pay to confirm the recovery.",
+    "recoverPaySent": "Recovery sent to your Nimiq Pay account.",
+    "recoverPayFailed": "The recovery could not be sent. Try again on this row.",
+    "recoverReleased": "The recipient already has the link: these funds are theirs.",
+    "recoverStarted": "The recipient’s payment has already started.",
+    "recoverEmpty": "This card is already empty.",
+    "recoverNoAccount": "Nimiq Pay gave no account. Try again.",
     "recoveryFailed": "Recovery could not be prepared. Try again on this row."
   },
   "es": {
@@ -144,6 +164,16 @@ const rowWords={
     "busy": "Ya hay una solicitud en la cartera. Termínala allí; el nuevo formulario sigue disponible.",
     "recoveryReady": "Enlace listo. Ábrelo para recuperar los fondos.",
     "openRecovery": "Abrir recuperación",
+    "recoverPay": "Nimiq Pay",
+    "recoverWallet": "Nimiq Wallet",
+    "recoverPayConfirm": "¿Devolver los {amount} NIM de esta tarjeta a tu cuenta de Nimiq Pay?",
+    "recoverPayOpen": "Continúa en Nimiq Pay para confirmar la recuperación.",
+    "recoverPaySent": "Recuperación enviada a tu cuenta de Nimiq Pay.",
+    "recoverPayFailed": "No se pudo enviar la recuperación. Reintenta en esta fila.",
+    "recoverReleased": "El destinatario ya tiene el enlace: estos fondos son suyos.",
+    "recoverStarted": "El pago del destinatario ya ha comenzado.",
+    "recoverEmpty": "Esta tarjeta ya está vacía.",
+    "recoverNoAccount": "Nimiq Pay no dio ninguna cuenta. Reintenta.",
     "recoveryFailed": "No se pudo preparar la recuperación. Reintenta en esta fila."
   },
   "de": {
@@ -152,6 +182,16 @@ const rowWords={
     "busy": "Eine Wallet-Anfrage läuft bereits. Beende sie in deiner Wallet; das neue Formular bleibt verfügbar.",
     "recoveryReady": "Link bereit. Öffne ihn, um das Guthaben zurückzuholen.",
     "openRecovery": "Rückholung öffnen",
+    "recoverPay": "Nimiq Pay",
+    "recoverWallet": "Nimiq Wallet",
+    "recoverPayConfirm": "Die {amount} NIM dieser Karte auf dein Nimiq-Pay-Konto zurückschicken?",
+    "recoverPayOpen": "Mach in Nimiq Pay weiter, um die Rückholung zu bestätigen.",
+    "recoverPaySent": "Rückholung an dein Nimiq-Pay-Konto gesendet.",
+    "recoverPayFailed": "Die Rückholung konnte nicht gesendet werden. Versuche es in dieser Zeile erneut.",
+    "recoverReleased": "Der Empfänger hat den Link bereits: dieses Guthaben gehört ihm.",
+    "recoverStarted": "Die Auszahlung an den Empfänger hat bereits begonnen.",
+    "recoverEmpty": "Diese Karte ist bereits leer.",
+    "recoverNoAccount": "Nimiq Pay hat kein Konto geliefert. Versuche es erneut.",
     "recoveryFailed": "Die Rückholung konnte nicht vorbereitet werden. Versuche es in dieser Zeile erneut."
   },
   "zh": {
@@ -160,6 +200,16 @@ const rowWords={
     "busy": "钱包请求仍在进行。请先在钱包中完成；新建表单仍可填写。",
     "recoveryReady": "链接已准备好。打开即可取回资金。",
     "openRecovery": "打开资金恢复",
+    "recoverPay": "Nimiq Pay",
+    "recoverWallet": "Nimiq Wallet",
+    "recoverPayConfirm": "把这张卡的 {amount} NIM 退回到你的 Nimiq Pay 账户吗？",
+    "recoverPayOpen": "请在 Nimiq Pay 中继续，以确认取回。",
+    "recoverPaySent": "取回已发送到你的 Nimiq Pay 账户。",
+    "recoverPayFailed": "无法发送取回。请在此行重试。",
+    "recoverReleased": "收款人已有该链接：这些资金归对方所有。",
+    "recoverStarted": "收款人的付款已经开始。",
+    "recoverEmpty": "这张卡已经是空的。",
+    "recoverNoAccount": "Nimiq Pay 未提供账户。请重试。",
     "recoveryFailed": "无法准备资金恢复。请在此行重试。"
   }
 };
@@ -277,13 +327,15 @@ function renderHistory(){
    const actions=document.createElement('div');actions.className='nim-row-actions';
    const retry=document.createElement('button');retry.type='button';retry.className='secondary-btn nim-row-retry';retry.onclick=()=>void retryPayment(false,p.id);
    const create=document.createElement('button');create.type='button';create.className='secondary-btn nim-row-new';create.onclick=()=>newCard(p.id);
-   const recover=document.createElement('button');recover.type='button';recover.className='secondary-btn nim-row-recover';recover.onclick=()=>void recoverCard(p.id);
+   const recover=document.createElement('button');recover.type='button';recover.className='secondary-btn nim-row-recover';recover.onclick=()=>chooseRecovery(p.id);
+   const payBtn=document.createElement('button');payBtn.type='button';payBtn.className='secondary-btn nim-row-recover-pay';payBtn.onclick=()=>void recoverToPay(p.id);
+   const walletBtn=document.createElement('button');walletBtn.type='button';walletBtn.className='secondary-btn nim-row-recover-wallet';walletBtn.onclick=()=>void recoverCard(p.id);
    const link=document.createElement('a');link.className='nim-row-recovery-link';link.target='_blank';link.rel='noopener noreferrer';
    const resend=document.createElement('button');resend.type='button';resend.className='secondary-btn';resend.onclick=()=>resendCard(p.id);
    const notice=document.createElement('p');notice.className='nim-row-notice';notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');
    const cancel=document.createElement('button');cancel.type='button';cancel.className='secondary-btn nim-row-cancel';cancel.onclick=()=>void cancelCard(p.id);
-   actions.append(retry,cancel,recover,link,resend);row.append(label,state,actions,notice);
-   view={row,label,state,retry,cancel,create,recover,link,resend,notice};rowViews.set(p.id,view);list.append(row);
+   actions.append(retry,cancel,recover,payBtn,walletBtn,link,resend);row.append(label,state,actions,notice);
+   view={row,label,state,retry,cancel,create,recover,payBtn,walletBtn,link,resend,notice};rowViews.set(p.id,view);list.append(row);
   }
   const failure=walletFailures.get(p.id),recovery=recoveryStates.get(p.id)||{},wait=Math.max(0,Math.ceil(((failure?.waitUntil||0)-Date.now())/1000));
   view.label.textContent=p.amount+' NIM · '+p.recipient;
@@ -291,7 +343,8 @@ function renderHistory(){
   if(wait>0)view.state.textContent+=' '+rt('remaining').replace('{time}',Math.floor(wait/60)+':'+String(wait%60).padStart(2,'0'));
   view.retry.textContent=rt('retry');view.retry.hidden=!unpaidCard(p)||failure?.funded;view.retry.disabled=busy||nativeRequestInFlight||wait>0;
   view.cancel.textContent=ht('cancel');view.cancel.hidden=Boolean(scopedPaymentID&&p.id!==scopedPaymentID)||!unpaidCard(p);view.cancel.disabled=cancelling.has(p.id)||busy||nativeRequestInFlight;
-  view.recover.textContent=recoveryAllowed(p)?t('recover'):'';view.recover.hidden=!recoveryAllowed(p)||Boolean(recovery.href);view.recover.disabled=Boolean(recovery.loading);
+  view.recover.textContent=recoveryAllowed(p)?t('recover'):'';view.recover.hidden=!recoveryAllowed(p)||Boolean(recovery.href)||Boolean(recovery.choose);view.recover.disabled=Boolean(recovery.loading);
+  {const asking=recoveryAllowed(p)&&Boolean(recovery.choose)&&!recovery.loading&&!recovery.href;view.payBtn.hidden=view.walletBtn.hidden=!asking;view.payBtn.textContent=rt('recoverPay');view.walletBtn.textContent=rt('recoverWallet');}
   view.link.hidden=!recoveryAllowed(p)||!recovery.href;if(recovery.href)view.link.href=recovery.href;else view.link.removeAttribute('href');view.link.textContent=rt('openRecovery');
   view.resend.textContent=p.stage==='delivery_failed'?pt('resend'):'';view.resend.hidden=p.stage!=='delivery_failed';view.resend.disabled=busy||checks.has(p.id);
   list.append(view.row);
@@ -323,6 +376,33 @@ function scheduleHistory(){
   if(historyLoading)return;historyLoading=true;
   try{await loadHistory();}catch{}finally{historyLoading=false;scheduleHistory();}
  },6000);
+}
+function chooseRecovery(id){
+ const p=paymentList.find(p=>p.id===id);if(!p||!recoveryAllowed(p))return;
+ recoveryStates.set(id,{choose:true});renderHistory();
+}
+const recoverErrors={recipient_has_link:'recoverReleased',claim_started:'recoverStarted',already_empty:'recoverEmpty'};
+async function recoverToPay(id){
+ const p=paymentList.find(p=>p.id===id);if(!p||!recoveryAllowed(p)||recoveryStates.get(id)?.loading)return;
+ if(!window.nimiq){
+  // Outside the app: open it on this page; the sender confirms there, with the account the app gives.
+  recoveryStates.set(id,{notice:rt('recoverPayOpen')});renderHistory();
+  try{window.open('nimiqpay://miniapp?url='+encodeURIComponent(location.origin+'/?recover='+encodeURIComponent(id)),'_self','noopener,noreferrer');}catch{}
+  return;
+ }
+ if(!window.confirm(rt('recoverPayConfirm').replace('{amount}',p.amount)))return;
+ recoveryStates.set(id,{loading:true});renderHistory();
+ try{
+  const accounts=await window.nimiq.listAccounts();
+  if(accounts?.error)throw accounts.error;
+  const first=Array.isArray(accounts)?accounts[0]:null;
+  if(typeof first!=='string'||!softAddress(first)){recoveryStates.set(id,{choose:true,notice:rt('recoverNoAccount')});return;}
+  await api('/api/payments/'+id+'/recoverto',{to:first},{timeout:true});
+  recoveryStates.set(id,{notice:rt('recoverPaySent')});
+  try{await loadHistory();}catch{}
+ }catch(error){
+  recoveryStates.set(id,{notice:rt(recoverErrors[error?.message]||'recoverPayFailed')});
+ }finally{renderHistory();}
 }
 async function recoverCard(id){
  const p=paymentList.find(p=>p.id===id);if(!p||!recoveryAllowed(p)||recoveryStates.get(id)?.loading)return;
@@ -413,9 +493,11 @@ function showPayment(p){
  const image=document.createElement('img');image.width=62;image.height=62;image.alt='Nimiq Nimicon';$('coin').textContent='';$('coin').append(image);window.PhoenixNimiqIdenticons?.paint(image,p.address);
  renderProgress();
 }
+let pendingRecover=(()=>{try{const id=new URLSearchParams(location.search).get('recover')||'';return /^[A-Za-z0-9_-]{10,80}$/.test(id)?id:'';}catch{return '';}})();
 async function loadHistory(){
  const data=await api('/api/payments',undefined,{timeout:true});$('my-payments').hidden=Boolean(scopedPaymentID);
  paymentList=scopedPaymentID?data.payments.filter(p=>p.id===scopedPaymentID):data.payments;
+ if(pendingRecover&&paymentList.some(p=>p.id===pendingRecover&&recoveryAllowed(p))){recoveryStates.set(pendingRecover,{choose:true});pendingRecover='';}
  const current=paymentList.find(p=>p.id===displayed?.id);
  if(current?.stage==='cancelled'){if(scopedPaymentID)displayed=current;else newCard(current.id);}
  for(const p of paymentList)pendingFailure(p);
