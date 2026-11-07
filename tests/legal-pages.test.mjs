@@ -39,7 +39,7 @@ for(const name of publicPages) for(const lang of langs) test(name+' is complete 
    const table=doc.querySelector('table');assert.equal(table.querySelectorAll('tbody tr').length,6);
    assert.ok([...table.querySelectorAll('tbody tr')].every(r=>r.children.length===3));
    for(const value of ['15','24','160','2','14','1'])assert.ok(table.textContent.includes(value));
-   for(const value of ['MailerSend','Cloudflare','Chainlink','CoinGecko','Nimpay','AES-256-GCM'])assert.ok(doc.body.textContent.includes(value));
+   for(const value of ['MailerSend','Cloudflare','Chainlink','CoinGecko','Nimiq Pay','AES-256-GCM'])assert.ok(doc.body.textContent.includes(value));
    assert.equal(doc.querySelector('#not-kept p').textContent,legalCopy[lang].absent[1]);
    assert.equal(doc.querySelector('#deletion p').textContent,legalCopy[lang].deletion[1]);
    assert.match(doc.querySelector('#engine').textContent,/NIM/);

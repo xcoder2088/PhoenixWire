@@ -16,7 +16,7 @@ const claimWords={
 const payoutWords={
   "fr": {
     "choose": "Recevoir sa carte NIM",
-    "pay": "Recevoir dans Nimpay",
+    "pay": "Recevoir dans Nimiq Pay",
     "retry": "Réessayer",
     "checkingPayout": "Vérification du paiement…",
     "payout_pending": "Envoi en cours…",
@@ -27,7 +27,7 @@ const payoutWords={
     "cashlink_not_confirmed_or_invalid": "La carte n’est pas encore confirmée ou n’est pas disponible. Votre code reste utilisable ; réessayez.",
     "payout_already_started": "Le paiement a déjà commencé. Vérification en cours ; Nimiq Wallet n’est plus disponible.",
     "payoutUnavailable": "Le réseau ou le service est indisponible. Réessayez ; ne choisissez pas une autre destination.",
-    "accountsUnavailable": "Impossible de lire le compte Nimpay. Réessayez ou utilisez Nimiq Wallet.",
+    "accountsUnavailable": "Impossible de lire le compte Nimiq Pay. Réessayez ou utilisez Nimiq Wallet.",
     "accountsCancelled": "Choix du compte annulé. Vous pouvez réessayer.",
     "details": "{value} NIM · {to} · Confirmations : {confirmations} · {hash}",
     "wallet": "Recevoir dans Nimiq Wallet",
@@ -35,11 +35,11 @@ const payoutWords={
     "sendCode": "Envoyer mon code",
     "pressSend": "Appuyez sur « Envoyer mon code » : un code de vérification sera envoyé à votre adresse courriel.",
     "enterCode": "Entrez le code reçu par courriel, ou demandez-en un nouveau.",
-    "openPay": "Continuez dans Nimpay. Si l’application ne s’ouvre pas, réessayez ou utilisez Nimiq Wallet."
+    "openPay": "Continuez dans Nimiq Pay. Si l’application ne s’ouvre pas, réessayez ou utilisez Nimiq Wallet."
   },
   "en": {
     "choose": "Receive your NIM card",
-    "pay": "Receive in Nimpay",
+    "pay": "Receive in Nimiq Pay",
     "retry": "Retry",
     "checkingPayout": "Checking the payment…",
     "payout_pending": "Sending…",
@@ -50,7 +50,7 @@ const payoutWords={
     "cashlink_not_confirmed_or_invalid": "The card is not yet confirmed or is unavailable. Your code can still be used; try again.",
     "payout_already_started": "Payment has already started. Checking its status; Nimiq Wallet is no longer available.",
     "payoutUnavailable": "The network or service is unavailable. Retry; do not choose a different destination.",
-    "accountsUnavailable": "Could not read the Nimpay account. Retry or use Nimiq Wallet.",
+    "accountsUnavailable": "Could not read the Nimiq Pay account. Retry or use Nimiq Wallet.",
     "accountsCancelled": "Account selection cancelled. You can try again.",
     "details": "{value} NIM · {to} · Confirmations: {confirmations} · {hash}",
     "wallet": "Receive in Nimiq Wallet",
@@ -58,11 +58,11 @@ const payoutWords={
     "sendCode": "Send my code",
     "pressSend": "Press “Send my code”: a verification code will be emailed to you.",
     "enterCode": "Enter the code received by email, or request a new one.",
-    "openPay": "Continue in Nimpay. If the app does not open, try again or use Nimiq Wallet."
+    "openPay": "Continue in Nimiq Pay. If the app does not open, try again or use Nimiq Wallet."
   },
   "es": {
     "choose": "Recibir tu tarjeta NIM",
-    "pay": "Recibir en Nimpay",
+    "pay": "Recibir en Nimiq Pay",
     "retry": "Reintentar",
     "checkingPayout": "Comprobando el pago…",
     "payout_pending": "Enviando…",
@@ -73,7 +73,7 @@ const payoutWords={
     "cashlink_not_confirmed_or_invalid": "La tarjeta aún no está confirmada o no está disponible. El código sigue siendo válido; reintenta.",
     "payout_already_started": "El pago ya ha comenzado. Comprobando su estado; Nimiq Wallet ya no está disponible.",
     "payoutUnavailable": "La red o el servicio no está disponible. Reintenta sin cambiar de destino.",
-    "accountsUnavailable": "No se pudo leer la cuenta de Nimpay. Reintenta o usa Nimiq Wallet.",
+    "accountsUnavailable": "No se pudo leer la cuenta de Nimiq Pay. Reintenta o usa Nimiq Wallet.",
     "accountsCancelled": "Selección de cuenta cancelada. Puedes reintentar.",
     "details": "{value} NIM · {to} · Confirmaciones: {confirmations} · {hash}",
     "wallet": "Recibir en Nimiq Wallet",
@@ -81,11 +81,11 @@ const payoutWords={
     "sendCode": "Enviar mi código",
     "pressSend": "Pulsa «Enviar mi código»: te enviaremos un código de verificación por correo.",
     "enterCode": "Introduce el código recibido por correo o solicita uno nuevo.",
-    "openPay": "Continúa en Nimpay. Si la aplicación no se abre, reintenta o usa Nimiq Wallet."
+    "openPay": "Continúa en Nimiq Pay. Si la aplicación no se abre, reintenta o usa Nimiq Wallet."
   },
   "de": {
     "choose": "Deine NIM-Karte empfangen",
-    "pay": "In Nimpay empfangen",
+    "pay": "In Nimiq Pay empfangen",
     "retry": "Erneut versuchen",
     "checkingPayout": "Zahlung wird geprüft…",
     "payout_pending": "Wird gesendet…",
@@ -104,11 +104,11 @@ const payoutWords={
     "sendCode": "Meinen Code senden",
     "pressSend": "Tippe auf „Meinen Code senden“: Wir schicken dir einen Bestätigungscode per E-Mail.",
     "enterCode": "Gib den per E-Mail erhaltenen Code ein oder fordere einen neuen an.",
-    "openPay": "Fahre in Nimpay fort. Öffnet sich die App nicht, versuche es erneut oder nutze Nimiq Wallet."
+    "openPay": "Fahre in Nimiq Pay fort. Öffnet sich die App nicht, versuche es erneut oder nutze Nimiq Wallet."
   },
   "zh": {
     "choose": "领取你的 NIM 卡片",
-    "pay": "接收到 Nimpay",
+    "pay": "接收到 Nimiq Pay",
     "retry": "重试",
     "checkingPayout": "正在检查付款…",
     "payout_pending": "正在发送…",
@@ -119,7 +119,7 @@ const payoutWords={
     "cashlink_not_confirmed_or_invalid": "卡片尚未确认或暂不可用。验证码仍可使用，请重试。",
     "payout_already_started": "付款已开始。正在检查状态，无法再使用 Nimiq Wallet。",
     "payoutUnavailable": "网络或服务暂不可用。请重试，不要更改收款地址。",
-    "accountsUnavailable": "无法读取 Nimpay 账户。请重试或使用 Nimiq Wallet。",
+    "accountsUnavailable": "无法读取 Nimiq Pay 账户。请重试或使用 Nimiq Wallet。",
     "accountsCancelled": "已取消账户选择，你可以重试。",
     "details": "{value} NIM · {to} · 确认数：{confirmations} · {hash}",
     "wallet": "接收到 Nimiq Wallet",
@@ -127,7 +127,7 @@ const payoutWords={
     "sendCode": "发送我的验证码",
     "pressSend": "请点击“发送我的验证码”，我们会把验证码发送到您的邮箱。",
     "enterCode": "请输入邮件中的验证码，或请求新的验证码。",
-    "openPay": "请在 Nimpay 中继续。如果应用未打开，请重试或使用 Nimiq Wallet。"
+    "openPay": "请在 Nimiq Pay 中继续。如果应用未打开，请重试或使用 Nimiq Wallet。"
   }
 };
 const lifetimeWords={

@@ -5,11 +5,11 @@ import { addressValid,cardPresentation,paintCard,renderCardPreview } from './mod
 
 // A provider error is not evidence of funding; the server check still decides.
 const nativeFailureWords={
- fr:{network:'Une erreur réseau a interrompu la demande de paiement.',balance:'Ton solde est insuffisant pour payer cette carte.',refused:'Paiement refusé dans Nimpay.',cancelled:'Carte annulée.'},
- en:{network:'A network error interrupted the payment request.',balance:'Your balance is too low to pay for this card.',refused:'Payment declined in Nimpay.',cancelled:'Card cancelled.'},
- es:{network:'Un error de red interrumpió la solicitud de pago.',balance:'Tu saldo es insuficiente para pagar esta tarjeta.',refused:'Pago rechazado en Nimpay.',cancelled:'Tarjeta cancelada.'},
- de:{network:'Ein Netzwerkfehler hat die Zahlungsanfrage unterbrochen.',balance:'Dein Guthaben reicht nicht aus, um diese Karte zu bezahlen.',refused:'Zahlung in Nimpay abgelehnt.',cancelled:'Karte storniert.'},
- zh:{network:'网络错误中断了付款请求。',balance:'你的余额不足以支付这张卡片。',refused:'已在 Nimpay 中拒绝付款。',cancelled:'卡片已取消。'}
+ fr:{network:'Une erreur réseau a interrompu la demande de paiement.',balance:'Ton solde est insuffisant pour payer cette carte.',refused:'Paiement refusé dans Nimiq Pay.',cancelled:'Carte annulée.'},
+ en:{network:'A network error interrupted the payment request.',balance:'Your balance is too low to pay for this card.',refused:'Payment declined in Nimiq Pay.',cancelled:'Card cancelled.'},
+ es:{network:'Un error de red interrumpió la solicitud de pago.',balance:'Tu saldo es insuficiente para pagar esta tarjeta.',refused:'Pago rechazado en Nimiq Pay.',cancelled:'Tarjeta cancelada.'},
+ de:{network:'Ein Netzwerkfehler hat die Zahlungsanfrage unterbrochen.',balance:'Dein Guthaben reicht nicht aus, um diese Karte zu bezahlen.',refused:'Zahlung in Nimiq Pay abgelehnt.',cancelled:'Karte storniert.'},
+ zh:{network:'网络错误中断了付款请求。',balance:'你的余额不足以支付这张卡片。',refused:'已在 Nimiq Pay 中拒绝付款。',cancelled:'卡片已取消。'}
 };
 const nativeReason=error=>error?.type==='PERMISSION_DENIED'||error?.code===4001||error?.name==='PermissionDeniedError'?'refused':/transaction value exceeds balance|insufficient (?:funds|balance)/i.test(typeof error?.message==='string'?error.message:'')?'balance':error?.type==='NETWORK_ERROR'?'network':'';
 const failureText=key=>(nativeFailureWords[document.documentElement.lang]||nativeFailureWords.en)[key];
@@ -21,7 +21,7 @@ if(!embedded)window.PhoenixNimiqPayments={addressValid};
 
 const $=id=>root.querySelector('[id="'+id+'"]');
 const t=key=>flowText(document.documentElement.lang,key);
-const expiryDate=value=>{const ms=typeof value==='number'?value:Date.parse(value||'');return Number.isFinite(ms)?new Intl.DateTimeFormat(document.documentElement.lang,{dateStyle:'medium',timeStyle:'short'}).format(ms):'';};
+const expiryDate=value=>{const ms=typeof value==='number'?value:Date.parse(value||'');return Number.isFinite(ms)?new Intl.DateTimeFormat(document.documentElement.lang,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(ms):'';};
 const lifeNote=document.createElement('p');lifeNote.className='wire-lifetime-note';lifeNote.dataset.wire='life';$('amount').closest('label').after(lifeNote);
 const claimExpiry=document.createElement('p');claimExpiry.className='wire-card-expiry';claimExpiry.hidden=true;$('claim-amount').after(claimExpiry);
 let senderInviteOnly=false,adminPanel=null,inviteOnly=false,accessExpanded=false,accessKnown=false,maintenance=false,adminActive=false,senderMaintenance=false;
@@ -32,11 +32,11 @@ senderAccess.addEventListener('click',()=>{accessExpanded=true;paintSenderAccess
 function configureAdmin(allowed){if(embedded)return;adminActive=allowed===true&&verified;adminPanel?.destroy();adminPanel=mountAdmin({root:root.querySelector('.app-window')||root.body||root,language:()=>document.documentElement.lang,request:api,authorized:allowed===true&&verified,onAccess:(open,view)=>{inviteOnly=!open;if(view)maintenance=view.maintenance===true;paintSenderAccess();}});}
 
 const walletWords={
- en:{cancelled:'Payment cancelled in Nimpay.',failed:'Nimpay could not complete the request. Check your wallet before using Nimiq Wallet: a payment may already have been sent.',hub:'Nimiq Wallet',confirm:'Only continue if your wallet shows that this card has NOT been paid. Pay the same card with Nimiq Wallet?',network:'Switch Nimpay to the network used by this service before paying.'},
- fr:{cancelled:'Paiement annulé dans Nimpay.',failed:'Nimpay n’a pas pu terminer la demande. Vérifiez votre portefeuille avant d’utiliser Nimiq Wallet : un paiement peut déjà être parti.',hub:'Portefeuille Nimiq',confirm:'Continuez seulement si votre portefeuille indique que cette carte n’a PAS été payée. Alimenter la même carte avec Nimiq Wallet ?',network:'Choisissez dans Nimpay le réseau utilisé par ce service avant de payer.'},
- es:{cancelled:'Pago cancelado en Nimpay.',failed:'Nimpay no pudo completar la solicitud. Revisa tu cartera antes de usar Nimiq Wallet: el pago podría haberse enviado.',hub:'Cartera Nimiq',confirm:'Continúa solo si tu cartera indica que esta tarjeta NO se ha pagado. ¿Pagar la misma tarjeta con Nimiq Wallet?',network:'Selecciona en Nimpay la red que usa este servicio antes de pagar.'},
- de:{cancelled:'Zahlung in Nimpay abgebrochen.',failed:'Nimpay konnte die Anfrage nicht abschließen. Prüfe deine Wallet vor der Nutzung von Nimiq Wallet: Die Zahlung könnte bereits gesendet sein.',hub:'Nimiq Wallet',confirm:'Nur fortfahren, wenn diese Karte laut deiner Wallet NICHT bezahlt wurde. Dieselbe Karte mit Nimiq Wallet bezahlen?',network:'Wähle vor der Zahlung in Nimpay das Netzwerk dieses Dienstes.'},
- zh:{cancelled:'已在 Nimpay 中取消付款。',failed:'Nimpay 未能完成请求。使用 Nimiq Wallet 前请检查钱包：付款可能已发送。',hub:'Nimiq 钱包',confirm:'仅在钱包显示此卡尚未付款时继续。是否通过 Nimiq Wallet 为同一张卡付款？',network:'付款前，请在 Nimpay 中选择此服务所用的网络。'}
+ en:{cancelled:'Payment cancelled in Nimiq Pay.',failed:'Nimiq Pay could not complete the request. Check your wallet before using Nimiq Wallet: a payment may already have been sent.',hub:'Nimiq Wallet',confirm:'Only continue if your wallet shows that this card has NOT been paid. Pay the same card with Nimiq Wallet?',network:'Switch Nimiq Pay to the network used by this service before paying.'},
+ fr:{cancelled:'Paiement annulé dans Nimiq Pay.',failed:'Nimiq Pay n’a pas pu terminer la demande. Vérifiez votre portefeuille avant d’utiliser Nimiq Wallet : un paiement peut déjà être parti.',hub:'Portefeuille Nimiq',confirm:'Continuez seulement si votre portefeuille indique que cette carte n’a PAS été payée. Alimenter la même carte avec Nimiq Wallet ?',network:'Choisissez dans Nimiq Pay le réseau utilisé par ce service avant de payer.'},
+ es:{cancelled:'Pago cancelado en Nimiq Pay.',failed:'Nimiq Pay no pudo completar la solicitud. Revisa tu cartera antes de usar Nimiq Wallet: el pago podría haberse enviado.',hub:'Cartera Nimiq',confirm:'Continúa solo si tu cartera indica que esta tarjeta NO se ha pagado. ¿Pagar la misma tarjeta con Nimiq Wallet?',network:'Selecciona en Nimiq Pay la red que usa este servicio antes de pagar.'},
+ de:{cancelled:'Zahlung in Nimiq Pay abgebrochen.',failed:'Nimiq Pay konnte die Anfrage nicht abschließen. Prüfe deine Wallet vor der Nutzung von Nimiq Wallet: Die Zahlung könnte bereits gesendet sein.',hub:'Nimiq Wallet',confirm:'Nur fortfahren, wenn diese Karte laut deiner Wallet NICHT bezahlt wurde. Dieselbe Karte mit Nimiq Wallet bezahlen?',network:'Wähle vor der Zahlung in Nimiq Pay das Netzwerk dieses Dienstes.'},
+ zh:{cancelled:'已在 Nimiq Pay 中取消付款。',failed:'Nimiq Pay 未能完成请求。使用 Nimiq Wallet 前请检查钱包：付款可能已发送。',hub:'Nimiq 钱包',confirm:'仅在钱包显示此卡尚未付款时继续。是否通过 Nimiq Wallet 为同一张卡付款？',network:'付款前，请在 Nimiq Pay 中选择此服务所用的网络。'}
 };
 const wt=key=>(walletWords[document.documentElement.lang]||walletWords.en)[key];
 const progressWords={
@@ -634,7 +634,7 @@ async function requestWallet(p,started,forceHub=false){
    }catch(error){failure=error||{};}finally{nativeRequestInFlight=false;}
    if(failure){
     const detail=diagnostic(failure,p);
-    console.warn('Nimpay request failed:',detail);
+    console.warn('Nimiq Pay request failed:',detail);
     const failed={detail,state:'checking',waitUntil:0,reason:nativeReason(failure)};
     walletFailures.set(p.id,failed);
     const refused=failed.reason==='refused';
@@ -750,7 +750,7 @@ function updateClaimControls(){
  $('request-claim-code').hidden=!available||Boolean(receiveURL);
  $('request-claim-code').disabled=busy||cooling>0;
  const codeAsked=reception.asked===true;$('request-claim-code').textContent=codeAsked?(cooling?ct('resend')+' · '+cooling+' s':ct('resend')):ct('sendCode');
- $('claim-code').closest('label').hidden=!available||Boolean(receiveURL)||Boolean(reception.code)||!(codeAsked||window.nimiq||reception.handoff===true);
+ $('claim-code').closest('label').hidden=!available||Boolean(receiveURL)||Boolean(reception.code)||!(codeAsked||reception.handoff===true);
  $('claim-code').disabled=busy||!available||Boolean(receiveURL);
  $('claim-code').required=available&&!receiveURL;
  $('claim-retry').hidden=!reception.retry;$('claim-retry').disabled=busy||Boolean(reception.read);

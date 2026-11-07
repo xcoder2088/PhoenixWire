@@ -122,7 +122,7 @@ function watch(id) {
 }
 
 // One look at the card: what the chain says, and, when it is funded, the invitation. Returns true when there is nothing more to watch.
-function expiryLabel(entry){const date=typeof entry.created==='number'?entry.created:Date.parse(entry.created||'');return Number.isFinite(date)?' '+flowText(document.documentElement.lang,'validUntil').replace('{date}',new Intl.DateTimeFormat(document.documentElement.lang,{dateStyle:'medium',timeStyle:'short'}).format(date+86400000)):'';}
+function expiryLabel(entry){const date=typeof entry.created==='number'?entry.created:Date.parse(entry.created||'');return Number.isFinite(date)?' '+flowText(document.documentElement.lang,'validUntil').replace('{date}',new Intl.DateTimeFormat(document.documentElement.lang,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(date+86400000)):'';}
 async function check(entry, tries = 0) {
  const t = words();
  let st;

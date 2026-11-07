@@ -396,7 +396,7 @@ test('NIM uses the common sender session and existing protected checkout in the 
   assert.equal(t.calls.filter(([path]) => path === '/api/sender/request').length, 0);
   assert.equal(t.window.PhoenixNimiqPayments, library, 'mounting NIM preserves the copied payment library');
   assert.equal(t.doc.querySelectorAll('.wire-nim-assets button').length, 4);
-  t.$('recipient').value = 'friend@example.test';
+  t.$('recipient').value = 'friend@example.test'; t.$('amount').value = '2.5';
   t.$('card-form').dispatchEvent(new t.window.Event('submit', { cancelable: true })); await settle();
   await settle();
   assert.equal(t.checkouts.length, 1);
@@ -473,7 +473,7 @@ test('the embedded NIM form follows the host language in all five languages', as
 async function submitNim(t){
   t.$('pay').click();await settle();
   if(!t.doc.querySelector('.wire-nim-window')){t.doc.querySelector('.nimiq-payment-assets button').click();await settle();}
-  t.$('recipient').value='friend@example.test';
+  t.$('recipient').value='friend@example.test';t.$('amount').value='2.5';
   t.$('card-form').dispatchEvent(new t.window.Event('submit',{cancelable:true}));await settle();
 }
 
@@ -508,7 +508,7 @@ test('an app without an injected NIM provider uses the existing Hub checkout',as
 test('native refusal, including the legacy error envelope, is cancellation without Hub or re-payment',async()=>{
   for(const nativeMode of ['denied','legacy-denied']){
     const t=await start({nimOnly:true,nativeMode});await submitNim(t);
-    assert.equal(t.$('feedback').textContent,'Payment cancelled in Nimpay.');
+    assert.equal(t.$('feedback').textContent,'Payment cancelled in Nimiq Pay.');
     assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,1);
     assert.equal(t.doc.querySelector('.wire-nim-hub-fallback').hidden,true);
     t.$('card-form').dispatchEvent(new t.window.Event('submit',{cancelable:true}));await settle();
@@ -549,7 +549,7 @@ test('native checkout rejects another funding marker and a different host networ
   assert.ok(!wrong.calls.some(([p])=>p.endsWith('/start')));
 });
 
-test('a new Nimpay context uses the existing sender email confirmation and does not inherit browser state',async()=>{
+test('a new Nimiq Pay context uses the existing sender email confirmation and does not inherit browser state',async()=>{
   const t=await start({nimOnly:true,nativeMode:'success',session:{verified:false}});
   assert.equal(t.$('wire-sender').hidden,false);assert.equal(t.$('wire-ready').hidden,true);
   assert.equal(t.nativeCalls.length,0);
@@ -915,7 +915,7 @@ test('24-hour sender terms and local completion deadlines cover NIM and stableco
   const app=await start({clocked:true,nimOnly:true,nativeMode:'success'});app.$('wire-language').value=language;app.$('wire-language').dispatchEvent(new app.window.Event('change'));app.$('pay').click();await settle();
   assert.equal(app.doc.querySelector('.wire-nim-host .wire-lifetime-note').textContent,flowText(language,'life'));
   app.$('recipient').value='friend@example.test';app.$('amount').value='2.5';const created=app.clock.now();app.$('preview-submit').click();await settle();await app.clock.advance(6000);
-  const date=new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'short'}).format(created+86400000);assert.ok(app.$('nim-progress-message').textContent.includes(flowText(language,'validUntil').replace('{date}',date)));
+  const date=new Intl.DateTimeFormat(language,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(created+86400000);assert.ok(app.$('nim-progress-message').textContent.includes(flowText(language,'validUntil').replace('{date}',date)));
   const stable=await start({clocked:true});stable.$('wire-language').value=language;stable.$('wire-language').dispatchEvent(new stable.window.Event('change'));stable.$('pay').click();await settle();assert.ok([...stable.doc.querySelectorAll('.nimiq-payment-window .wire-lifetime-note')].some(n=>n.textContent===flowText(language,'life')));
  }
 });
@@ -928,7 +928,7 @@ test('expired stablecoins show one address field and remember a manually confirm
 });
 test('the stablecoin sent screen uses the server creation date plus 24 hours',async()=>{
  const app=await start({clocked:true,state:()=>({state:'ready',balanceUnits:2650000})});await makeCard(app);const c=JSON.parse(app.window.localStorage.getItem('wire-usdt-cards'))[0];await app.clock.advance(3000);
- const date=new Intl.DateTimeFormat('en',{dateStyle:'medium',timeStyle:'short'}).format(c.created+86400000);assert.ok(app.doc.querySelector('.usdt-funded'));assert.equal(app.doc.querySelector('.usdt-funded').parentElement.querySelector('.wire-card-expiry').textContent,flowText('en','validUntil').replace('{date}',date));
+ const date=new Intl.DateTimeFormat('en',{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(c.created+86400000);assert.ok(app.doc.querySelector('.usdt-funded'));assert.equal(app.doc.querySelector('.usdt-funded').parentElement.querySelector('.wire-card-expiry').textContent,flowText('en','validUntil').replace('{date}',date));
 });
 test('known expired-card refunds run once on open, surface failures and require the browser key',async()=>{
  const source=await start({clocked:true});await makeCard(source);const c=JSON.parse(source.window.localStorage.getItem('wire-usdt-cards'))[0];c.created=source.clock.now()-90000000;
@@ -972,7 +972,7 @@ test('a pending stablecoin refund becomes completed, or offers manual retry when
 });
 test('NIM recipient deadlines and expired-card errors are translated and disable both receive actions',async()=>{
  for(const language of ['fr','en','es','de','zh']){
-  const app=await recipientPage({language});const date=new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'short'}).format(app.clock.now()+86400000);assert.equal(app.doc.querySelector('.wire-card-expiry').textContent,flowText(language,'expires').replace('{date}',date));
+  const app=await recipientPage({language});const date=new Intl.DateTimeFormat(language,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(app.clock.now()+86400000);assert.equal(app.doc.querySelector('.wire-card-expiry').textContent,flowText(language,'expires').replace('{date}',date));
   for(const claimError of ['claim_unavailable','claim_expired','card_expired']){const gone=await recipientPage({language,claimError});assert.equal(gone.$('claim-status').textContent,flowText(language,'ended'));assert.equal(gone.$('claim-pay').disabled,true);assert.equal(gone.$('claim-wallet').disabled,true);}
  }
 });
@@ -1288,7 +1288,7 @@ test('native diagnostic exposes type/code/message as copyable text and logs only
  const detail=app.$('nim-wallet-detail').textContent;
  assert.match(detail,/type=INVALID_DATA/);assert.match(detail,/code=BAD_DATA/);assert.match(detail,/message=Control character \\u0000 is not allowed/);
  for(const secret of ['friend@example.test','sender@example.test','NQ08ACT8T0FEPTG8P5RLH2S3QGXHV15RNVXY','https://example.test',handoffToken,'Bonjour 🐦','2.5'])assert.ok(!detail.includes(secret),secret);
- assert.deepEqual(app.consoleMessages,[['Nimpay request failed:',detail]]);
+ assert.deepEqual(app.consoleMessages,[['Nimiq Pay request failed:',detail]]);
  const copies=[];Object.defineProperty(app.window.navigator,'clipboard',{value:{async writeText(text){copies.push(text);}},configurable:true});
  app.$('nim-wallet-copy').click();await settle();assert.deepEqual(copies,[detail]);
  assert.equal(app.$('nim-wallet-failure').hidden,false);assert.equal(app.$('nim-wallet-retry').hidden,false);
@@ -1539,9 +1539,8 @@ test('sent NIM replaces the form with one completion screen, clears its draft an
  assert.equal(t.doc.querySelector('.wire-nim-window'),null);assert.equal(t.doc.querySelector('#nim-progress'),null);
  assert.equal(t.doc.activeElement,t.$('pay'));
  assert.match(t.$('wire-cards-list').textContent,/2.5 NIM.*friend@example.test.*Sent, not yet received/s);
- assert.equal(t.$('wire-card-notices').hidden,false);assert.match(t.$('wire-card-notices').textContent,/Email sent to friend@example.test/);
+ assert.equal(t.$('wire-card-notices').hidden,true,'the pop-up already confirmed the send: no second banner');
  const local=t.snapshotLocal();
- t.doc.querySelector('.wire-card-banner button').click();assert.equal(t.$('wire-card-notices').hidden,true);
  const dismissed=t.snapshotLocal();
  t.$('pay').click();await settle();
  assert.equal(t.doc.querySelector('.wire-nim-host').classList.contains('wire-nim-complete'),false);
@@ -1549,7 +1548,7 @@ test('sent NIM replaces the form with one completion screen, clears its draft an
  assert.equal(t.checkouts.length,0);assert.equal(t.nativeCalls.length,0);
  assert.equal(t.calls.filter(([p,b])=>p==='/api/payments'&&b).length,0);
  const restored=await start({clocked:true,nimStage:'sent',local});
- assert.equal(restored.$('wire-card-notices').hidden,false);
+ assert.equal(restored.$('wire-card-notices').hidden,true,'no second confirmation after a reload either');
  const quiet=await start({clocked:true,nimStage:'sent',local:dismissed});
  assert.equal(quiet.$('wire-card-notices').hidden,true);
 });
@@ -1631,7 +1630,7 @@ test('history formats only server timestamps in five languages and never uses th
  for(const[language,text]of Object.entries(labels)){
   t.$('wire-language').value=language;t.$('wire-language').dispatchEvent(new t.window.Event('change'));
   assert.deepEqual([...t.$('wire-cards-list').querySelectorAll('dt')].map(el=>el.textContent),text);
-  assert.equal(t.$('wire-cards-list').querySelector('time').textContent,new Intl.DateTimeFormat(language,{dateStyle:'medium',timeStyle:'short'}).format(new Date(created)));
+  assert.equal(t.$('wire-cards-list').querySelector('time').textContent,new Intl.DateTimeFormat(language,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date(created)));
  }
  const old=await start({clocked:true,serverCards:[{id,asset:'usdc_polygon',amount:'2',recipient:'friend@example.test',invited:true,created:"invalid"}],state:()=>({state:'paid',claimed_at:'0001-01-01T00:00:00Z'})});await old.clock.advance(2500);
  assert.equal(old.$('wire-cards-list').querySelector('time'),null,'missing or zero dates are not invented');
@@ -1696,9 +1695,9 @@ test('recipient has exactly two wallet choices after code and resend, disabled u
  assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,1);
  assert.match(app.$('claim-status').textContent,/Code sent/);
  const choices=[...app.$('claim-choices').querySelectorAll('button')];
- assert.deepEqual(choices.map(b=>b.textContent),['Receive in Nimpay','Receive in Nimiq Wallet']);
- assert.equal(app.$('claim-code').closest('label').nextElementSibling,app.$('request-claim-code'));
- assert.equal(app.$('request-claim-code').nextElementSibling,app.$('claim-choices'));
+ assert.deepEqual(choices.map(b=>b.textContent),['Receive in Nimiq Pay','Receive in Nimiq Wallet']);
+ assert.equal(app.$('request-claim-code').nextElementSibling,app.$('claim-code').closest('label'));
+ assert.equal(app.$('claim-code').closest('label').nextElementSibling,app.$('claim-choices'));
  assert.equal(app.$('claim-form').querySelector('select'),null);
  assert.equal(app.$('claim-form').querySelectorAll('input').length,1);
  assert.equal(app.doc.querySelector('#release-claim'),null);
@@ -1785,7 +1784,7 @@ test('handoff creation failures keep both wallet choices available and never ope
  assert.equal(app.$('claim-status').textContent,flowText('en','claim_payoutUnavailable'));
 });
 
-test('Nimpay receipt uses the first account with no selector or automatic replacement code',async()=>{
+test('Nimiq Pay receipt uses the first account with no selector or automatic replacement code',async()=>{
  const app=await recipientPage({accounts:[receivingAddress,otherReceivingAddress]});
  assert.equal(app.calls.filter(([p])=>p.endsWith('/request')).length,0);
  assert.equal(app.accountCalls(),0);app.enterCode();await app.choose('pay');
@@ -1892,7 +1891,7 @@ test('duplicate wallet taps send one payout; Enter does not silently choose a wa
 });
 
 test('two-choice recipient labels and narrow layout cover five languages with no technical wallet name',async()=>{
- const labels={fr:['Recevoir dans Nimpay','Recevoir dans Nimiq Wallet','Envoyer mon code'],en:['Receive in Nimpay','Receive in Nimiq Wallet','Send my code'],es:['Recibir en Nimpay','Recibir en Nimiq Wallet','Enviar mi código'],de:['In Nimpay empfangen','In Nimiq Wallet empfangen','Meinen Code senden'],zh:['接收到 Nimpay','接收到 Nimiq Wallet','发送我的验证码']};
+ const labels={fr:['Recevoir dans Nimiq Pay','Recevoir dans Nimiq Wallet','Envoyer mon code'],en:['Receive in Nimiq Pay','Receive in Nimiq Wallet','Send my code'],es:['Recibir en Nimiq Pay','Recibir en Nimiq Wallet','Enviar mi código'],de:['In Nimiq Pay empfangen','In Nimiq Wallet empfangen','Meinen Code senden'],zh:['接收到 Nimiq Pay','接收到 Nimiq Wallet','发送我的验证码']};
  for(const [language,expected]of Object.entries(labels)){
   const app=await recipientPage({language,accounts:[receivingAddress]});
   assert.deepEqual([app.$('claim-pay').textContent,app.$('claim-wallet').textContent,app.$('request-claim-code').textContent],expected);
@@ -2092,7 +2091,7 @@ test('limited cancellation resumes normal tracking when funding won the race',as
 
 test('decline, transport failure and pending verification are distinct from a low balance',async()=>{
  const denied=await failedNative({nativeMode:'denied',redeemDraft:{...handoffDraft,language:'en'}});
- assert.equal(denied.$('nim-progress-message').textContent,'Payment declined in Nimpay.');
+ assert.equal(denied.$('nim-progress-message').textContent,'Payment declined in Nimiq Pay.');
  const offline=await failedNative({redeemDraft:{...handoffDraft,language:'en'}});
  assert.equal(offline.$('nim-progress-message').textContent,'A network error interrupted the payment request.');
  const pending=await failedNative({nativeMode:'success-no-confirm',redeemDraft:{...handoffDraft,language:'en'}});
@@ -2103,7 +2102,7 @@ test('decline, transport failure and pending verification are distinct from a lo
  assert.ok(!/balance|INTERNAL_ERROR|-32603/.test(unknown.$('nim-progress-message').textContent));
 });
 
-test('creation inside Nimpay cancels the same card without a cross-browser detour',async()=>{
+test('creation inside Nimiq Pay cancels the same card without a cross-browser detour',async()=>{
  const app=await start({nimOnly:true,nativeMode:'error',nativeError:{type:'INTERNAL_ERROR',code:-32603,message:'Transaction value exceeds balance'}});
  await submitNim(app);
  assert.equal(app.$('nim-progress-message').textContent,'Your balance is too low to pay for this card.');
@@ -2136,7 +2135,7 @@ test('cancelled limited cards replace View with Done and keep translated exit he
   assert.equal(button.hidden,false);assert.equal(button.textContent,label);
   assert.equal(app.$('wire-handoff-help').hidden,true);
   assert.equal(help.hidden,false);assert.ok(help.textContent.includes(hints[language]));
-  assert.match(help.textContent,/‹/);assert.match(help.textContent,/✕/);assert.ok(!/Safari|Nimpay/.test(help.textContent));
+  assert.match(help.textContent,/‹/);assert.match(help.textContent,/✕/);assert.ok(!/Safari|Nimiq Pay/.test(help.textContent));
   assert.equal(help.previousElementSibling.id,'wire-handoff-state');
   const originalClose=app.window.close;let closes=0;app.window.close=()=>{closes++;};const before=app.calls.length;
   const location=app.window.location.href,opened=app.opened.length;
@@ -2254,7 +2253,7 @@ test('mobile external entry keeps the email login when NIM payments are unavaila
 });
 
 test('mobile external entry offers two equal choices before revealing web login in five languages',async()=>{
- const labels={fr:'Utiliser Nimpay',en:'Use Nimpay',es:'Usar Nimpay',de:'Nimpay verwenden',zh:'使用 Nimpay'};
+ const labels={fr:'Utiliser Nimiq Pay',en:'Use Nimiq Pay',es:'Usar Nimiq Pay',de:'Nimiq Pay verwenden',zh:'使用 Nimiq Pay'};
  const browserLabels={fr:'Utiliser Nimiq Wallet (navigateur)',en:'Use Nimiq Wallet (browser)',es:'Usar Nimiq Wallet (navegador)',de:'Nimiq Wallet verwenden (Browser)',zh:'使用 Nimiq Wallet（浏览器）'};
  for(const [language,label]of Object.entries(labels))for(const inviteOnly of [false,true]){
   const app=await start({mobile:true,inviteOnly,session:{verified:false},url:'https://preview.example.test:8443/'});
@@ -2280,7 +2279,7 @@ test('mobile external entry offers two equal choices before revealing web login 
  assert.equal(signed.$('wire-ready').hidden,true);assert.equal(signed.$('wire-admin'),null);
 });
 
-test('Nimpay keeps email login then native direct payment, while claim URLs keep the web form',async()=>{
+test('Nimiq Pay keeps email login then native direct payment, while claim URLs keep the web form',async()=>{
  const app=await start({mobile:true,nativeMode:'success',nimOnly:true,session:{verified:false}});
  assert.equal(app.$('wire-sender').hidden,false);assert.equal(app.$('wire-miniapp-suggestion').hidden,true);
  app.$('wire-email').value='sender@example.test';app.$('wire-send-code').click();await settle();
@@ -2300,8 +2299,8 @@ test('foreground still removes a stale full-session payment window when its card
  }
 });
 
-test('Wire display copy uses Nimpay while the injected provider identifier is unchanged',()=>{
- for(const page of ['wire-pay.js','flow.js','flow-text.js','legal.js','classic.html','privacy.html'])assert.ok(!read('../internal/web/static/'+page).includes('Nimiq Pay'));
+test('Wire display copy uses Nimiq Pay while the injected provider identifier is unchanged',()=>{
+ for(const page of ['wire-pay.js','flow.js','flow-text.js','legal.js','classic.html','privacy.html']){const text=read('../internal/web/static/'+page);assert.ok(text.includes('Nimiq Pay')||page==='wire-pay.js'&&text.includes('Nimiq Pay'));assert.ok(!/\bNimpay\b/.test(text));}
  assert.ok(read('../internal/web/static/wire-pay.js').includes('window.nimiqPay'));
  assert.ok(!read('../internal/web/static/wire-pay.js').includes("api('/api/handoff',"));
  assert.ok(!read('../internal/web/static/index.html').includes('wire-nim-choice'));
@@ -2331,4 +2330,14 @@ test('the mobile browser choice works when session storage writes fail and the c
  assert.match(css,/\.wire-mobile-choices \.wire-miniapp-link\{[^}]*min-height:44px[^}]*border:1px solid var\(--accent\)/);
  assert.match(css,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
  assert.match(css,/@media\(max-width:420px\)\{\.wire-mobile-choices\{grid-template-columns:minmax\(0,1fr\)/);
+});
+
+test('Confirm with an empty or short code asks for the six digits and never calls the server', async () => {
+  const t = await start({ session: { verified: false } });
+  for (const value of ['', '123']) {
+    t.$('wire-code').value = value; t.$('wire-verify').click(); await settle();
+    assert.equal(t.$('wire-status').textContent, 'Enter the 6-digit code.');
+  }
+  assert.equal(t.calls.filter(([path]) => path === '/api/sender/verify').length, 0);
+  t.window.close();
 });

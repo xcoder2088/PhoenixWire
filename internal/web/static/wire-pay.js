@@ -12,23 +12,23 @@ document.body.hidden = false;
 window.PhoenixBrandName = 'Phoenix Wire'; // the payment window's texts name the app they run in
 const $ = id => document.getElementById(id);
 const STORE = 'wire-usdt-cards', words = {
- en: { nimRecipient: "Recipient email", nimAmount: "Amount (NIM)", nimMessage: "Message (optional)", nimCard: "Your Nimiq card", nimPreview: "Card preview", nimEmpty: "Create a card to preview it.", nimProtected: "Protected", lightTheme: "Switch to light theme", darkTheme: "Switch to dark theme", sessionHelp: "You confirm your email once. It stays confirmed for 24 hours on this device.", sessionConfirmed: "Confirmed for 24 hours.", back: "Back to PhoenixWire", title: 'One payment. One email.', sub: "Send NIM, USDC or USDT to anyone with an email address. Only they can receive it, after a code sent to that address.", email: 'Your email', send: 'Send me a code', code: 'Six-digit code', verify: 'Confirm', as: 'Signed in as', out: 'Change sender', pay: 'Payments', codeSent: 'Code sent. Check your email.', wrong: 'This code is not valid.', off: 'Payments are not switched on here.', funded: 'Card funded. Sending the invitation…', sent: 'The card was sent to {email}. It stays yours until it is claimed.', retry: 'The e-mail could not be sent yet. Trying again…', classic: 'Send NIM', fail: 'Something went wrong. Try again.' },
- fr: { nimRecipient: "Courriel du destinataire", nimAmount: "Montant (NIM)", nimMessage: "Message (facultatif)", nimCard: "Votre carte Nimiq", nimPreview: "Aperçu de la carte", nimEmpty: "Créez une carte pour la prévisualiser.", nimProtected: "Protégé", lightTheme: "Passer au thème clair", darkTheme: "Passer au thème sombre", sessionHelp: "Vous confirmez votre courriel une seule fois : il reste confirmé 24 heures sur cet appareil.", sessionConfirmed: "Confirmé pour 24 h.", back: "Retour à PhoenixWire", title: 'Un paiement. Un courriel.', sub: "Envoyez des NIM, des USDC ou des USDT à toute personne qui a une adresse courriel. Seule cette personne peut les recevoir, après un code envoyé à cette adresse.", email: 'Votre courriel', send: 'M’envoyer un code', code: 'Code à six chiffres', verify: 'Confirmer', as: 'Connecté en tant que', out: 'Changer d’expéditeur', pay: 'Paiements', codeSent: 'Code envoyé. Vérifiez votre courriel.', wrong: 'Ce code n’est pas valide.', off: 'Les paiements ne sont pas activés ici.', funded: 'Carte alimentée. Envoi de l’invitation…', sent: 'La carte a été envoyée à {email}. Elle reste à vous tant qu’elle n’est pas réclamée.', retry: 'Le courriel n’a pas pu partir. Nouvel essai…', classic: 'Envoyer des NIM', fail: 'Une erreur est survenue. Réessayez.' },
- es: { nimRecipient: "Correo del destinatario", nimAmount: "Monto (NIM)", nimMessage: "Mensaje (opcional)", nimCard: "Tu tarjeta Nimiq", nimPreview: "Vista previa de la tarjeta", nimEmpty: "Crea una tarjeta para verla.", nimProtected: "Protegido", lightTheme: "Cambiar al tema claro", darkTheme: "Cambiar al tema oscuro", sessionHelp: "Confirmas tu correo una sola vez: queda confirmado 24 horas en este dispositivo.", sessionConfirmed: "Confirmado por 24 horas.", back: "Volver a PhoenixWire", title: 'Un pago. Un correo.', sub: "Envía NIM, USDC o USDT a cualquier persona con una dirección de correo. Solo ella puede recibirlo, tras un código enviado a esa dirección.", email: 'Tu correo', send: 'Envíame un código', code: 'Código de seis dígitos', verify: 'Confirmar', as: 'Sesión de', out: 'Cambiar de remitente', pay: 'Pagos', codeSent: 'Código enviado. Revisa tu correo.', wrong: 'Este código no es válido.', off: 'Los pagos no están activados aquí.', funded: 'Tarjeta financiada. Enviando la invitación…', sent: 'La tarjeta se envió a {email}. Sigue siendo tuya hasta que se reclame.', retry: 'El correo no pudo enviarse aún. Reintentando…', classic: 'Enviar NIM', fail: 'Algo salió mal. Inténtalo de nuevo.' },
- de: { nimRecipient: "E-Mail des Empfängers", nimAmount: "Betrag (NIM)", nimMessage: "Nachricht (optional)", nimCard: "Deine Nimiq-Karte", nimPreview: "Kartenvorschau", nimEmpty: "Erstelle eine Karte für die Vorschau.", nimProtected: "Geschützt", lightTheme: "Zum hellen Design wechseln", darkTheme: "Zum dunklen Design wechseln", sessionHelp: "Du bestätigst deine E-Mail nur einmal: Sie bleibt 24 Stunden auf diesem Gerät bestätigt.", sessionConfirmed: "24 Stunden bestätigt.", back: "Zurück zu PhoenixWire", title: 'Eine Zahlung. Eine E-Mail.', sub: "Sende NIM, USDC oder USDT an jede Person mit einer E-Mail-Adresse. Nur sie kann sie empfangen, nach einem Code an diese Adresse.", email: 'Deine E-Mail', send: 'Code senden', code: 'Sechsstelliger Code', verify: 'Bestätigen', as: 'Angemeldet als', out: 'Absender wechseln', pay: 'Zahlungen', codeSent: 'Code gesendet. Prüfe deine E-Mail.', wrong: 'Dieser Code ist ungültig.', off: 'Zahlungen sind hier nicht aktiviert.', funded: 'Karte aufgeladen. Die Einladung wird gesendet…', sent: 'Die Karte wurde an {email} gesendet. Sie bleibt deine, bis sie eingelöst wird.', retry: 'Die E-Mail konnte noch nicht gesendet werden. Neuer Versuch…', classic: 'NIM senden', fail: 'Etwas ist schiefgelaufen. Versuche es erneut.' },
- zh: { nimRecipient: "收款人邮箱", nimAmount: "金额（NIM）", nimMessage: "留言（可选）", nimCard: "你的 Nimiq 卡片", nimPreview: "卡片预览", nimEmpty: "创建卡片以查看预览。", nimProtected: "受保护", lightTheme: "切换为浅色主题", darkTheme: "切换为深色主题", sessionHelp: "你只需确认一次邮箱：在此设备上 24 小时内保持已确认。", sessionConfirmed: "已确认 24 小时。", back: "返回 PhoenixWire", title: '一笔付款。一封邮件。', sub: "把 NIM、USDC 或 USDT 发给任何有邮箱的人。只有对方在输入发送到该邮箱的验证码后才能收款。", email: '你的邮箱', send: '给我发验证码', code: '六位验证码', verify: '确认', as: '登录身份', out: '更换发送者', pay: '付款', codeSent: '验证码已发送，请查收邮件。', wrong: '验证码无效。', off: '此处未启用付款。', funded: '卡片已充值。正在发送邀请…', sent: '卡片已发送到 {email}。在被领取之前它仍属于你。', retry: '邮件暂时无法发送。正在重试…', classic: '发送 NIM', fail: '出错了，请重试。' },
+ en: { nimRecipient: "Recipient email", nimAmount: "Amount (NIM)", nimMessage: "Message (optional)", nimCard: "Your Nimiq card", nimPreview: "Card preview", nimEmpty: "Create a card to preview it.", nimProtected: "Protected", lightTheme: "Switch to light theme", darkTheme: "Switch to dark theme", sessionHelp: "You confirm your email once. It stays confirmed for 24 hours on this device.", sessionConfirmed: "Confirmed for 24 hours.", back: "Back to PhoenixWire", title: 'One payment. One email.', sub: "Send NIM, USDC or USDT to anyone with an email address. Only they can receive it, after a code sent to that address.", email: 'Your email', send: 'Send me a code', code: 'Six-digit code', verify: 'Confirm', as: 'Signed in as', out: 'Change sender', pay: 'Payments', codeSent: 'Code sent. Check your email.', wrong: 'This code is not valid.', enterCode: 'Enter the 6-digit code.', off: 'Payments are not switched on here.', funded: 'Card funded. Sending the invitation…', sent: 'The card was sent to {email}. It stays yours until it is claimed.', retry: 'The e-mail could not be sent yet. Trying again…', classic: 'Send NIM', fail: 'Something went wrong. Try again.' },
+ fr: { nimRecipient: "Courriel du destinataire", nimAmount: "Montant (NIM)", nimMessage: "Message (facultatif)", nimCard: "Votre carte Nimiq", nimPreview: "Aperçu de la carte", nimEmpty: "Créez une carte pour la prévisualiser.", nimProtected: "Protégé", lightTheme: "Passer au thème clair", darkTheme: "Passer au thème sombre", sessionHelp: "Vous confirmez votre courriel une seule fois : il reste confirmé 24 heures sur cet appareil.", sessionConfirmed: "Confirmé pour 24 h.", back: "Retour à PhoenixWire", title: 'Un paiement. Un courriel.', sub: "Envoyez des NIM, des USDC ou des USDT à toute personne qui a une adresse courriel. Seule cette personne peut les recevoir, après un code envoyé à cette adresse.", email: 'Votre courriel', send: 'M’envoyer un code', code: 'Code à six chiffres', verify: 'Confirmer', as: 'Connecté en tant que', out: 'Changer d’expéditeur', pay: 'Paiements', codeSent: 'Code envoyé. Vérifiez votre courriel.', wrong: 'Ce code n’est pas valide.', enterCode: 'Entrez le code à 6 chiffres.', off: 'Les paiements ne sont pas activés ici.', funded: 'Carte alimentée. Envoi de l’invitation…', sent: 'La carte a été envoyée à {email}. Elle reste à vous tant qu’elle n’est pas réclamée.', retry: 'Le courriel n’a pas pu partir. Nouvel essai…', classic: 'Envoyer des NIM', fail: 'Une erreur est survenue. Réessayez.' },
+ es: { nimRecipient: "Correo del destinatario", nimAmount: "Monto (NIM)", nimMessage: "Mensaje (opcional)", nimCard: "Tu tarjeta Nimiq", nimPreview: "Vista previa de la tarjeta", nimEmpty: "Crea una tarjeta para verla.", nimProtected: "Protegido", lightTheme: "Cambiar al tema claro", darkTheme: "Cambiar al tema oscuro", sessionHelp: "Confirmas tu correo una sola vez: queda confirmado 24 horas en este dispositivo.", sessionConfirmed: "Confirmado por 24 horas.", back: "Volver a PhoenixWire", title: 'Un pago. Un correo.', sub: "Envía NIM, USDC o USDT a cualquier persona con una dirección de correo. Solo ella puede recibirlo, tras un código enviado a esa dirección.", email: 'Tu correo', send: 'Envíame un código', code: 'Código de seis dígitos', verify: 'Confirmar', as: 'Sesión de', out: 'Cambiar de remitente', pay: 'Pagos', codeSent: 'Código enviado. Revisa tu correo.', wrong: 'Este código no es válido.', enterCode: 'Introduce el código de 6 dígitos.', off: 'Los pagos no están activados aquí.', funded: 'Tarjeta financiada. Enviando la invitación…', sent: 'La tarjeta se envió a {email}. Sigue siendo tuya hasta que se reclame.', retry: 'El correo no pudo enviarse aún. Reintentando…', classic: 'Enviar NIM', fail: 'Algo salió mal. Inténtalo de nuevo.' },
+ de: { nimRecipient: "E-Mail des Empfängers", nimAmount: "Betrag (NIM)", nimMessage: "Nachricht (optional)", nimCard: "Deine Nimiq-Karte", nimPreview: "Kartenvorschau", nimEmpty: "Erstelle eine Karte für die Vorschau.", nimProtected: "Geschützt", lightTheme: "Zum hellen Design wechseln", darkTheme: "Zum dunklen Design wechseln", sessionHelp: "Du bestätigst deine E-Mail nur einmal: Sie bleibt 24 Stunden auf diesem Gerät bestätigt.", sessionConfirmed: "24 Stunden bestätigt.", back: "Zurück zu PhoenixWire", title: 'Eine Zahlung. Eine E-Mail.', sub: "Sende NIM, USDC oder USDT an jede Person mit einer E-Mail-Adresse. Nur sie kann sie empfangen, nach einem Code an diese Adresse.", email: 'Deine E-Mail', send: 'Code senden', code: 'Sechsstelliger Code', verify: 'Bestätigen', as: 'Angemeldet als', out: 'Absender wechseln', pay: 'Zahlungen', codeSent: 'Code gesendet. Prüfe deine E-Mail.', wrong: 'Dieser Code ist ungültig.', enterCode: 'Gib den 6-stelligen Code ein.', off: 'Zahlungen sind hier nicht aktiviert.', funded: 'Karte aufgeladen. Die Einladung wird gesendet…', sent: 'Die Karte wurde an {email} gesendet. Sie bleibt deine, bis sie eingelöst wird.', retry: 'Die E-Mail konnte noch nicht gesendet werden. Neuer Versuch…', classic: 'NIM senden', fail: 'Etwas ist schiefgelaufen. Versuche es erneut.' },
+ zh: { nimRecipient: "收款人邮箱", nimAmount: "金额（NIM）", nimMessage: "留言（可选）", nimCard: "你的 Nimiq 卡片", nimPreview: "卡片预览", nimEmpty: "创建卡片以查看预览。", nimProtected: "受保护", lightTheme: "切换为浅色主题", darkTheme: "切换为深色主题", sessionHelp: "你只需确认一次邮箱：在此设备上 24 小时内保持已确认。", sessionConfirmed: "已确认 24 小时。", back: "返回 PhoenixWire", title: '一笔付款。一封邮件。', sub: "把 NIM、USDC 或 USDT 发给任何有邮箱的人。只有对方在输入发送到该邮箱的验证码后才能收款。", email: '你的邮箱', send: '给我发验证码', code: '六位验证码', verify: '确认', as: '登录身份', out: '更换发送者', pay: '付款', codeSent: '验证码已发送，请查收邮件。', wrong: '验证码无效。', enterCode: '请输入 6 位验证码。', off: '此处未启用付款。', funded: '卡片已充值。正在发送邀请…', sent: '卡片已发送到 {email}。在被领取之前它仍属于你。', retry: '邮件暂时无法发送。正在重试…', classic: '发送 NIM', fail: '出错了，请重试。' },
 };
 
 
 const handoffWords={
   "fr": {
-    "miniAppOpen": "Utiliser Nimpay",
+    "miniAppOpen": "Utiliser Nimiq Pay",
     "browserOpen": "Utiliser Nimiq Wallet (navigateur)",
     "handoffDone": "Terminé",
     "handoffCancelled": "Carte annulée.",
     "handoffExitHelp": "Tu peux revenir à ton navigateur avec la flèche ‹ en haut à gauche de l’iPhone, ou fermer cette fenêtre avec ✕.",
     "handoffExpired": "Le lien est invalide ou a expiré. Rouvrez le lien depuis Safari.",
-    "handoffFailed": "Impossible d’ouvrir Nimpay. Réessayez ou utilisez Nimiq Wallet.",
+    "handoffFailed": "Impossible d’ouvrir Nimiq Pay. Réessayez ou utilisez Nimiq Wallet.",
     "handoffConflict": "Un autre expéditeur est connecté ici. Déconnectez-vous, puis rouvrez le lien depuis Safari.",
     "handoffNotFundable": "Cette carte ne peut plus être alimentée par ce lien. Consultez son état dans Safari. Ne payez pas une deuxième fois.",
     "handoffCardExpired": "Cette carte a expiré. Consultez son état dans Safari. Ne payez pas une deuxième fois.",
@@ -37,13 +37,13 @@ const handoffWords={
     "handoffUnavailable": "Impossible de reprendre cette carte. Rouvrez le lien depuis Safari."
   },
   "en": {
-    "miniAppOpen": "Use Nimpay",
+    "miniAppOpen": "Use Nimiq Pay",
     "browserOpen": "Use Nimiq Wallet (browser)",
     "handoffDone": "Done",
     "handoffCancelled": "Card cancelled.",
     "handoffExitHelp": "You can return to your browser using the ‹ arrow at the top left of the iPhone, or close this window with ✕.",
     "handoffExpired": "The link is invalid or has expired. Reopen the link from Safari.",
-    "handoffFailed": "Could not open Nimpay. Try again or use Nimiq Wallet.",
+    "handoffFailed": "Could not open Nimiq Pay. Try again or use Nimiq Wallet.",
     "handoffConflict": "Another sender is signed in here. Sign out, then reopen the link from Safari.",
     "handoffNotFundable": "This card can no longer be funded through this link. Check its status in Safari. Do not pay again.",
     "handoffCardExpired": "This card has expired. Check its status in Safari. Do not pay again.",
@@ -52,13 +52,13 @@ const handoffWords={
     "handoffUnavailable": "Unable to resume this card. Reopen the link from Safari."
   },
   "es": {
-    "miniAppOpen": "Usar Nimpay",
+    "miniAppOpen": "Usar Nimiq Pay",
     "browserOpen": "Usar Nimiq Wallet (navegador)",
     "handoffDone": "Listo",
     "handoffCancelled": "Tarjeta cancelada.",
     "handoffExitHelp": "Puedes volver a tu navegador con la flecha ‹ de la esquina superior izquierda del iPhone, o cerrar esta ventana con ✕.",
     "handoffExpired": "El enlace no es válido o ha caducado. Vuelve a abrirlo desde Safari.",
-    "handoffFailed": "No se pudo abrir Nimpay. Reintenta o usa Nimiq Wallet.",
+    "handoffFailed": "No se pudo abrir Nimiq Pay. Reintenta o usa Nimiq Wallet.",
     "handoffConflict": "Hay otro remitente conectado aquí. Cierra su sesión y vuelve a abrir el enlace desde Safari.",
     "handoffNotFundable": "Esta tarjeta ya no se puede financiar mediante este enlace. Consulta su estado en Safari. No vuelvas a pagar.",
     "handoffCardExpired": "Esta tarjeta ha caducado. Consulta su estado en Safari. No vuelvas a pagar.",
@@ -67,13 +67,13 @@ const handoffWords={
     "handoffUnavailable": "No se pudo retomar esta tarjeta. Vuelve a abrir el enlace desde Safari."
   },
   "de": {
-    "miniAppOpen": "Nimpay verwenden",
+    "miniAppOpen": "Nimiq Pay verwenden",
     "browserOpen": "Nimiq Wallet verwenden (Browser)",
     "handoffDone": "Fertig",
     "handoffCancelled": "Karte storniert.",
     "handoffExitHelp": "Du kannst mit dem Pfeil ‹ oben links auf dem iPhone zu deinem Browser zurückkehren oder dieses Fenster mit ✕ schließen.",
     "handoffExpired": "Der Link ist ungültig oder abgelaufen. Öffne ihn erneut in Safari.",
-    "handoffFailed": "Nimpay konnte nicht geöffnet werden. Versuche es erneut oder nutze Nimiq Wallet.",
+    "handoffFailed": "Nimiq Pay konnte nicht geöffnet werden. Versuche es erneut oder nutze Nimiq Wallet.",
     "handoffConflict": "Hier ist ein anderer Absender angemeldet. Melde ihn ab und öffne den Link erneut in Safari.",
     "handoffNotFundable": "Diese Karte kann über diesen Link nicht mehr aufgeladen werden. Prüfe ihren Status in Safari. Bezahle nicht erneut.",
     "handoffCardExpired": "Diese Karte ist abgelaufen. Prüfe ihren Status in Safari. Bezahle nicht erneut.",
@@ -82,13 +82,13 @@ const handoffWords={
     "handoffUnavailable": "Diese Karte konnte nicht fortgesetzt werden. Öffne den Link erneut in Safari."
   },
   "zh": {
-    "miniAppOpen": "使用 Nimpay",
+    "miniAppOpen": "使用 Nimiq Pay",
     "browserOpen": "使用 Nimiq Wallet（浏览器）",
     "handoffDone": "完成",
     "handoffCancelled": "卡片已取消。",
     "handoffExitHelp": "你可以点击 iPhone 左上角的 ‹ 箭头返回浏览器，或点击 ✕ 关闭此窗口。",
     "handoffExpired": "链接无效或已过期。请从 Safari 重新打开链接。",
-    "handoffFailed": "无法打开 Nimpay。请重试或使用 Nimiq Wallet。",
+    "handoffFailed": "无法打开 Nimiq Pay。请重试或使用 Nimiq Wallet。",
     "handoffConflict": "这里已登录另一位发件人。请先退出，再从 Safari 重新打开链接。",
     "handoffNotFundable": "此链接已无法为该卡片充值。请在 Safari 查看状态，勿再次付款。",
     "handoffCardExpired": "此卡片已过期。请在 Safari 查看状态，勿再次付款。",
@@ -203,7 +203,7 @@ window.PhoenixViewport={center(win){
 }};
 
 // The flow's phone detector is private to its mounted view; use the same device rule here.
-// The Nimpay/Wallet choice only exists for NIM: when NIM is unavailable the web login must stay reachable on phones.
+// The Nimiq Pay/Wallet choice only exists for NIM: when NIM is unavailable the web login must stay reachable on phones.
 function mobile(){return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
 function mobileEntryOnly(){return nimOn&&!browserEntry&&mobile()&&typeof window.nimiqPay==='undefined'&&!new URLSearchParams(location.search).has('claim')&&!scopedID;}
 function paintRpc(){
@@ -347,7 +347,7 @@ function openNimWindow(payment=null) {
   nimCards.set(p.id,p);
   if(p.stage==='sent'){
    const notices=nimNotices();
-   if(!notices.some(n=>n.id===p.id&&n.sender===email)){notices.push({id:p.id,sender:email,noticePending:true});save('wire-nim-notices',JSON.stringify(notices));playSentSound(p.created);}
+   if(!notices.some(n=>n.id===p.id&&n.sender===email)){notices.push({id:p.id,sender:email,noticePending:false});save('wire-nim-notices',JSON.stringify(notices));playSentSound(p.created);}
   }
   renderCards();scheduleNimCards();
  },onUnpayable:()=>{dismiss();handoffPayment=null;},onClose:()=>{dismiss();if(!scopedID)renderCards();}});
@@ -434,7 +434,7 @@ function appendDates(row,card){
  for(const key of ['createdAt','sentAt','claimedAt']){
   const ms=dateValue(card[key]);if(!ms||key==='claimedAt'&&!['paid','claimed'].includes(card.state))continue;
   const item=document.createElement('div'),label=document.createElement('dt'),value=document.createElement('dd'),time=document.createElement('time');
-  label.textContent=t(key);time.dateTime=new Date(ms).toISOString();time.textContent=new Intl.DateTimeFormat(lang,{dateStyle:'medium',timeStyle:'short'}).format(ms);value.append(time);item.append(label,value);list.append(item);
+  label.textContent=t(key);time.dateTime=new Date(ms).toISOString();time.textContent=new Intl.DateTimeFormat(lang,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(ms);value.append(time);item.append(label,value);list.append(item);
  }
  if(list.childElementCount)row.append(list);
 }
@@ -461,7 +461,7 @@ function renderCards(){
  const notices=$('wire-card-notices');notices.replaceChildren();
  for(const c of all.filter(c=>c.invited&&c.noticePending)){
   const banner=document.createElement('section');banner.className='wire-card-banner';
-  const message=document.createElement('p');message.setAttribute('role','status');const received=c.nim?c.claim_state==='claimed':c.state==='paid'||Boolean(c.claimedAt);message.textContent=fill(received?'bannerClaimed':'bannerCard',c);const end=received?0:dateValue(c.createdAt||c.created);if(end)message.textContent+=' '+life('validUntil').replace('{date}',new Intl.DateTimeFormat(lang,{dateStyle:'medium',timeStyle:'short'}).format(end+86400000));
+  const message=document.createElement('p');message.setAttribute('role','status');const received=c.nim?c.claim_state==='claimed':c.state==='paid'||Boolean(c.claimedAt);message.textContent=fill(received?'bannerClaimed':'bannerCard',c);const end=received?0:dateValue(c.createdAt||c.created);if(end)message.textContent+=' '+life('validUntil').replace('{date}',new Intl.DateTimeFormat(lang,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(end+86400000));
   const close=document.createElement('button');close.type='button';close.className='secondary-btn';close.textContent='×';close.setAttribute('aria-label',t('dismissCard'));
   close.addEventListener('click',()=>{if(c.nim)save('wire-nim-notices',JSON.stringify(nimNotices().map(n=>n.id===c.id&&n.sender===email?{...n,noticePending:false}:n)));else update(c.id,{noticePending:false});renderCards();$('wire-cards-title').focus();});
   banner.append(message,close);notices.append(banner);
@@ -671,7 +671,7 @@ function enhanceStableWindow(win){
  const entry=sent.filter(e=>e.asset===asset).sort((a,b)=>b.at-a.at)[0],c=entry&&cards().find(c=>c.id===entry.card?.id);
  const created=c&&dateValue(c.createdAt||c.created);if(!created)return;
  let expiry=funded.parentElement.querySelector('.wire-card-expiry');if(!expiry){expiry=document.createElement('p');expiry.className='wire-card-expiry';funded.after(expiry);}
- const text=life('validUntil').replace('{date}',new Intl.DateTimeFormat(lang,{dateStyle:'medium',timeStyle:'short'}).format(created+86400000));if(expiry.textContent!==text)expiry.textContent=text;
+ const text=life('validUntil').replace('{date}',new Intl.DateTimeFormat(lang,{year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(created+86400000));if(expiry.textContent!==text)expiry.textContent=text;
 }
 
 function mountPayments() {
@@ -786,6 +786,7 @@ $('wire-send-code').addEventListener('click', async () => {
  finally{clearTimeout(timeout);codeSending=false;$('wire-email').disabled=false;$('wire-verify').disabled=false;paintCodeRequest();}
 });
 $('wire-verify').addEventListener('click', async () => {
+ if(!/^\d{6}$/.test($('wire-code').value.trim())){say(t('enterCode'));return;}
  try { const r = await api('/api/sender/verify', { code: $('wire-code').value.trim() }); $('wire-code').value = ''; $('wire-code-box').hidden = true; say(''); showSender(true, r.email);void api('/api/session').then(session=>{if(email===session.email)configureAdmin(session.admin===true);}).catch(()=>{}); }
  catch(error) { say(error.code==='maintenance'?flowText(lang,'maintenance'):t('wrong')); }
 });

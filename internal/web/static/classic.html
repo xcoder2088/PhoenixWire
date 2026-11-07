@@ -92,11 +92,11 @@
             <div class="card-content">
               <img id="claim-iqon" width="80" height="80" alt="Nimiq Nimicon" hidden>
               <p id="claim-message"></p>
-              <label><span data-wire="code">Code à six chiffres</span><input id="claim-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
               <button id="request-claim-code" type="button" data-claim="resend">Renvoyer le code</button>
+              <label><span data-wire="code">Code à six chiffres</span><input id="claim-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
               <fieldset id="claim-choices" disabled>
                 <legend data-claim="choose">Recevoir sa carte NIM</legend>
-                <button id="claim-pay" type="button" data-claim="pay" disabled>Recevoir dans Nimpay</button>
+                <button id="claim-pay" type="button" data-claim="pay" disabled>Recevoir dans Nimiq Pay</button>
                 <button id="claim-wallet" type="button" data-claim="wallet" disabled>Recevoir dans Nimiq Wallet</button>
               </fieldset>
               <p id="claim-status" role="status" aria-live="polite"></p>

@@ -127,7 +127,7 @@ test('the claim code is sent only when the person asks for it, then a 20-second 
  assert.match(s.$('claim-status').textContent,/Code sent/);
  assert.match(s.$('request-claim-code').textContent,/Resend code/);assert.match(s.$('request-claim-code').textContent,/20 s/);
  assert.equal(s.$('request-claim-code').disabled,true);assert.equal(s.$('claim-code').closest('label').hidden,false);
- assert.equal(s.$('request-claim-code').nextElementSibling,s.$('claim-choices'));
+ assert.equal(s.$('request-claim-code').nextElementSibling,s.$('claim-code').closest('label'),'the button comes before the code box');assert.equal(s.$('claim-code').closest('label').nextElementSibling,s.$('claim-choices'));
  s.dom.window.close();
 });
 test('iPhone return restores the original form and confirms without a second checkout',async()=>{
